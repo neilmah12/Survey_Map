@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-// maplibre 6 locates its worker next to the main bundle, which a bundler breaks; bundle it explicitly.
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+import workerUrl from '../lib/workerUrl';
 import type { Building, LngLat, Survey, ViewSettings } from '../types';
 import { circleCoords, ringTop } from '../lib/geo';
 import { money, pinLabel, psf, unitNet, unitPsf, visibleUnits } from '../lib/format';

@@ -1,3 +1,4 @@
+import logo from './assets/avison-young-logo.png';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Building, LngLat, Survey, Unit, ViewSettings } from './types';
 import { parseSurvey } from './lib/parse';
@@ -74,7 +75,7 @@ export default function App() {
     return (
       <div className="empty">
         {hiddenInputs}
-        <img className="logo" src="/avison-young-logo.png" alt="Avison Young" />
+        <img className="logo" src={logo} alt="Avison Young" />
         <h1>Rental Market Survey Map</h1>
         <p>Upload a survey workbook to place the properties on a map.</p>
         <div className="row-actions">

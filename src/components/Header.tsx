@@ -1,3 +1,4 @@
+import logo from '../assets/avison-young-logo.png';
 import type { Survey } from '../types';
 
 function formatDate(iso: string): string {
@@ -10,7 +11,7 @@ function formatDate(iso: string): string {
 export default function Header({ survey }: { survey: Survey }) {
   return (
     <header className="header">
-      <img className="logo" src="/avison-young-logo.png" alt="Avison Young" />
+      <img className="logo" src={logo} alt="Avison Young" />
       <div className="title-block">
         <div className="title-strong">Rental Market Survey</div>
         <div className="title-main">{survey.title}</div>

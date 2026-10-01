@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:single": "bash scripts/build-single.sh"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
@@ -22,6 +23,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.2",
+    "vite-plugin-singlefile": "^2.3.3",
     "vitest": "^5.0.3"
   }
 }

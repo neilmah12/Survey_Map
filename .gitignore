@@ -3,3 +3,6 @@ dist
 .vite
 *.log
 .env.local
+dist-single
+.worker-build
+src/generated
