@@ -22,6 +22,16 @@ Phase 1 (local prototype) is in place:
 - "Preview client view" shows the read-only map. Drafts autosave in the browser; "Save file" and
   "Open" round-trip a `.survey.json`.
 
+Phase A (re-upload and Excel round trip):
+
+- "Update from Excel" merges a revised sheet into the current survey. Buildings are matched by
+  name plus address (street words normalised), then address, then name. Pins and photos are kept,
+  a summary of changes is shown first, and the whole update can be undone.
+- "Export Excel" writes Latitude, Longitude and Image URL columns into the uploaded workbook by
+  editing the sheet XML directly, so pivot tables and everything else in the file are untouched.
+  A re-upload then places every pin automatically.
+- Undo / redo (buttons, Ctrl+Z, Ctrl+Shift+Z) for edits, pin moves and merges.
+
 Planned: Firebase Auth (3-user allowlist), Firestore drafts, published read-only snapshots at
 unguessable URLs, PDF/image export.
 

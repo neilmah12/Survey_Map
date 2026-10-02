@@ -2,6 +2,8 @@ export type LngLat = [number, number];
 
 export interface Unit {
   id: string;
+  /** Row in the source workbook, used to write coordinates back. */
+  srcRow?: number;
   type: string;
   /** Bedroom count parsed from the unit type, 0 for studio, null if unknown. */
   beds: number | null;
@@ -40,6 +42,8 @@ export interface Survey {
   /** ISO date (yyyy-mm-dd) shown as "As of" in the header. */
   asOf: string;
   buildings: Building[];
+  /** The uploaded workbook (base64), kept so coordinates can be written back to it. */
+  source?: { name: string; data: string };
 }
 
 export type Metric = 'rate' | 'psf' | 'net';

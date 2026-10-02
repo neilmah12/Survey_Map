@@ -12,7 +12,9 @@
     "build:single": "bash scripts/build-single.sh"
   },
   "dependencies": {
+    "@xmldom/xmldom": "^0.9.12",
     "exceljs": "^4.4.0",
+    "jszip": "^3.10.2",
     "maplibre-gl": "^6.11.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

@@ -224,6 +224,7 @@ export async function parseSurvey(data: ArrayBuffer): Promise<Survey> {
 
     const unit: Unit = {
       id: `u${++uid}`,
+      srcRow: r,
       type: unitType,
       beds: parseBeds(unitType),
       sf: getNum(r, 'sf'),
