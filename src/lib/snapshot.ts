@@ -1,4 +1,4 @@
-import type { LngLat, Metric, Survey, ViewSettings } from '../types';
+import { DEFAULT_SUMMARY, type LngLat, type Metric, type Stat, type Survey, type SummarySettings, type ViewSettings } from '../types';
 import { kindContext, unitKind } from './groups';
 import { safeUrl } from './safeUrl';
 
@@ -10,6 +10,8 @@ import { safeUrl } from './safeUrl';
  */
 export interface ClientUnit {
   id: string;
+  /** Switched off in the market summary (shown greyed). */
+  excluded?: boolean;
   type: string;
   sf: number | null;
   rate: number | null;
@@ -28,6 +30,7 @@ export interface ClientBuilding {
   /** Stacked / non-stacked: only kept for townhomes. */
   configuration: string;
   isSubject: boolean;
+  excluded?: boolean;
   propertyType?: 'Townhome' | 'Apartment';
   lngLat: LngLat;
   /** Public listing page. */
@@ -41,6 +44,7 @@ export interface ClientView {
   rings: boolean;
   ringsKm: number[];
   filters: ViewSettings['filters'];
+  summary: SummarySettings;
 }
 
 export interface ClientSnapshot {
@@ -49,6 +53,8 @@ export interface ClientSnapshot {
   location: string;
   asOf: string;
   publishedAt: string;
+  /** Clients may switch properties on and off in the summary; their changes are not saved. */
+  clientCanToggle?: boolean;
   view: ClientView;
   buildings: ClientBuilding[];
 }
@@ -56,6 +62,16 @@ export interface ClientSnapshot {
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+
+function cleanSummary(s: Partial<SummarySettings> | undefined): SummarySettings {
+  const split = s?.split;
+  return {
+    open: s?.open ?? DEFAULT_SUMMARY.open,
+    stat: (s?.stat === 'median' ? 'median' : 'avg') satisfies Stat,
+    split: { baths: Boolean(split?.baths), reno: Boolean(split?.reno), kind: Boolean(split?.kind) },
+    perBuilding: s?.perBuilding ?? DEFAULT_SUMMARY.perBuilding,
+  };
+}
 
 export interface SnapshotResult {
   snapshot: ClientSnapshot;
@@ -81,12 +97,14 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
       yearRenovated: str(b.yearRenovated),
       configuration: isTownhome ? str(b.configuration) : '',
       isSubject: Boolean(b.isSubject),
+      ...(b.excluded ? { excluded: true } : {}),
       ...(b.propertyType ? { propertyType: b.propertyType } : {}),
       lngLat: [b.lngLat[0], b.lngLat[1]],
       url: safeUrl(b.url),
       imageUrl: safeUrl(b.imageUrl, true),
       units: b.units.map((u) => ({
         id: u.id,
+        ...(u.excluded ? { excluded: true } : {}),
         type: str(u.type),
         sf: numOrNull(u.sf),
         rate: numOrNull(u.rate),
@@ -105,6 +123,7 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
       location: str(survey.location),
       asOf: str(survey.asOf),
       publishedAt: now.toISOString(),
+      ...(survey.clientCanToggle ? { clientCanToggle: true } : {}),
       view: {
         metric: view.metric,
         rings: Boolean(view.rings),
@@ -115,6 +134,7 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
           reno: strings(view.filters.reno),
           kind: strings(view.filters.kind),
         },
+        summary: cleanSummary(view.summary),
       },
       buildings,
     },
@@ -127,6 +147,7 @@ export function snapshotToSurvey(s: ClientSnapshot): Survey {
     title: s.title,
     location: s.location,
     asOf: s.asOf,
+    clientCanToggle: Boolean(s.clientCanToggle),
     buildings: s.buildings.map((b) => ({
       id: b.id,
       name: b.name,
@@ -135,6 +156,7 @@ export function snapshotToSurvey(s: ClientSnapshot): Survey {
       yearRenovated: b.yearRenovated,
       configuration: b.configuration,
       isSubject: b.isSubject,
+      excluded: b.excluded,
       propertyType: b.propertyType,
       lngLat: b.lngLat,
       propertyNotes: '',
@@ -147,7 +169,7 @@ export function snapshotToSurvey(s: ClientSnapshot): Survey {
 }
 
 export function snapshotToView(s: ClientSnapshot): ViewSettings {
-  return { ...s.view };
+  return { ...s.view, summary: cleanSummary(s.view.summary) };
 }
 
 /** Looks like a snapshot this version of the viewer can show. */

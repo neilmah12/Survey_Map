@@ -153,3 +153,38 @@ export function filterOptions(s: Survey): FilterOptions {
     kind: two(['Townhome', 'Apartment'].filter((x) => kind.has(x))),
   };
 }
+
+/** Extra details the summary rows are split by. */
+export interface SplitDims {
+  baths: boolean;
+  reno: boolean;
+  kind: boolean;
+}
+export const NO_SPLIT: SplitDims = { baths: false, reno: false, kind: false };
+
+/** Row label for a unit: bedrooms, then optionally bathrooms, property type and renovation level. */
+export function groupLabel(u: Unit, b: Building, dims: SplitDims, ctx: KindContext): string {
+  let label = unitBedCat(u) ?? 'Other';
+  if (dims.baths) {
+    const ba = unitBathCat(u);
+    if (ba) label += ` / ${ba} Bath`;
+  }
+  if (dims.kind) {
+    const k = unitKind(u, b, ctx);
+    if (k) label += ` · ${k}`;
+  }
+  if (dims.reno) {
+    const r = unitReno(u);
+    if (r) label += ` · ${r}`;
+  }
+  return label;
+}
+
+/** Orders rows by bedrooms, then bathrooms, then property type and renovation. "Other" goes last. */
+export function groupSortKey(u: Unit, b: Building, dims: SplitDims, ctx: KindContext): string {
+  const cat = unitBedCat(u);
+  const bed = cat ? (BED_CATS as readonly string[]).indexOf(cat) : 99;
+  const baths = dims.baths ? unitBaths(u) : null;
+  const pad = (n: number, w: number) => String(Math.round(n)).padStart(w, '0');
+  return `${pad(bed, 3)}|${pad((baths ?? 0) * 10, 4)}|${dims.kind ? unitKind(u, b, ctx) ?? '' : ''}|${dims.reno ? unitReno(u) ?? '' : ''}`;
+}

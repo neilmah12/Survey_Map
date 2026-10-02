@@ -168,3 +168,15 @@ describe('re-uploading with buildings added in the app', () => {
     expect((await parseSurvey(second.data)).buildings).toHaveLength(8);
   });
 });
+
+describe('re-upload keeps what was switched off in the summary', () => {
+  it('keeps a building and a suite out of the averages after the sheet is updated', async () => {
+    const existing = await load('clareview-townhomes.xlsx');
+    existing.buildings[0].excluded = true;
+    existing.buildings[1].units[2].excluded = true; // Prince Charles second floor
+    const { survey } = mergeSurvey(existing, await load('clareview-townhomes.xlsx'));
+    expect(survey.buildings[0].excluded).toBe(true);
+    expect(survey.buildings[1].units.map((u) => Boolean(u.excluded))).toEqual([false, false, true]);
+    expect(survey.buildings[2].excluded).toBeFalsy();
+  });
+});

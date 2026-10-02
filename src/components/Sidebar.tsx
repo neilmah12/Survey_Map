@@ -190,6 +190,10 @@ export default function Sidebar(p: Props) {
       <section>
         <div className="editor-title">Survey</div>
         <Field label="Title" value={p.survey.title} onChange={(v) => p.onSurvey({ title: v })} wide />
+        <label className="check" title="Off by default. Clients see your selection and cannot change it.">
+          <input type="checkbox" checked={Boolean(p.survey.clientCanToggle)} onChange={(e) => p.onSurvey({ clientCanToggle: e.target.checked })} />
+          Clients can switch properties on and off in the summary
+        </label>
         <div className="row2">
           <Field label="Location" value={p.survey.location} onChange={(v) => p.onSurvey({ location: v })} />
           <label className="field">

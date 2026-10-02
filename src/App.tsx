@@ -1,6 +1,6 @@
 import logo from './assets/avison-young-logo.png';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Building, LngLat, Survey, Unit, ViewSettings } from './types';
+import { DEFAULT_SUMMARY, type Building, type LngLat, type Survey, type Unit, type ViewSettings } from './types';
 import { parseSurvey } from './lib/parse';
 import { toBase64 } from './lib/base64';
 import { exportWithCoordinates } from './lib/exportXlsx';
@@ -10,6 +10,7 @@ import { NO_FILTERS } from './lib/groups';
 import { useUndoable } from './hooks/useUndoable';
 import MergeDialog from './components/MergeDialog';
 import ClientViewer from './components/ClientViewer';
+import SummaryPanel from './components/SummaryPanel';
 import { embedSnapshot, snapshotToSurvey, snapshotToView, summarizeSnapshot, toClientSnapshot, type SnapshotResult } from './lib/snapshot';
 import { getClientTemplate } from './lib/clientTemplate';
 import ConfirmDialog from './components/ConfirmDialog';
@@ -18,7 +19,7 @@ import Controls, { DEFAULT_RINGS } from './components/Controls';
 import Sidebar from './components/Sidebar';
 import MapView from './components/MapView';
 
-const DEFAULT_VIEW: ViewSettings = { metric: 'rate', filters: NO_FILTERS, rings: false, ringsKm: DEFAULT_RINGS };
+const DEFAULT_VIEW: ViewSettings = { metric: 'rate', summary: DEFAULT_SUMMARY, filters: NO_FILTERS, rings: false, ringsKm: DEFAULT_RINGS };
 
 /** Parses a workbook and keeps the original bytes so coordinates can be written back later. */
 async function readWorkbook(file: File): Promise<Survey> {
@@ -223,6 +224,12 @@ export default function App() {
   // The preview shows the same snapshot that the client file contains, so the two cannot differ.
   const previewData = useMemo(() => (preview && survey ? toClientSnapshot(survey, view) : null), [preview, survey, view]);
 
+  // The summary counts only buildings that are on the map, so it matches the client file exactly.
+  const placedSurvey = useMemo(
+    () => (survey ? { ...survey, buildings: survey.buildings.filter((b) => b.lngLat) } : null),
+    [survey],
+  );
+
   const exportClientFile = () => {
     if (!clientExport || !clientTemplate) return;
     const html = embedSnapshot(clientTemplate, clientExport.snapshot);
@@ -407,21 +414,39 @@ export default function App() {
           />
         )}
         <div className="stage">
-          <MapView
-            survey={survey}
-            view={view}
-            editable={editable}
-            selectedId={selectedId}
-            placingId={editable ? placingId : null}
-            onSelect={setSelectedId}
-            onMove={(id, ll: LngLat) => patchBuilding(id, { lngLat: ll })}
-            onPlace={(ll) => {
-              if (placingId) patchBuilding(placingId, { lngLat: ll });
-              setPlacingId(null);
-            }}
-            fitKey={fitKey}
-          />
           <Controls survey={survey} view={view} onChange={setView} editable={editable} />
+          <div className="stage-main">
+            <MapView
+              survey={survey}
+              view={view}
+              editable={editable}
+              selectedId={selectedId}
+              placingId={editable ? placingId : null}
+              onSelect={setSelectedId}
+              onMove={(id, ll: LngLat) => patchBuilding(id, { lngLat: ll })}
+              onPlace={(ll) => {
+                if (placingId) patchBuilding(placingId, { lngLat: ll });
+                setPlacingId(null);
+              }}
+              fitKey={fitKey}
+            />
+            <SummaryPanel
+              survey={placedSurvey!}
+              view={view}
+              onView={setView}
+              canToggle
+              unplaced={survey.buildings.length - placedSurvey!.buildings.length}
+              onToggleBuilding={(id) =>
+                setSurvey((s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === id ? { ...b, excluded: !b.excluded } : b)) }, { commit: true })
+              }
+              onToggleUnit={(bid, uid) =>
+                setSurvey(
+                  (s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === bid ? { ...b, units: b.units.map((u) => (u.id === uid ? { ...u, excluded: !u.excluded } : u)) } : b)) },
+                  { commit: true },
+                )
+              }
+            />
+          </div>
         </div>
       </div>
     </div>

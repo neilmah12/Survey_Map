@@ -142,3 +142,37 @@ button, input { font: inherit; }
 .unit-head { display: flex; align-items: flex-end; gap: 6px; }
 .unit-head .field { flex: 1; }
 .unit-head .link-btn { margin-bottom: 10px; color: #b42318; }
+
+/* Map and market summary side by side */
+.stage-main { flex: 1; min-height: 0; display: flex; position: relative; }
+.stage-main .map { flex: 1; min-width: 0; }
+.summary-panel { width: 400px; flex: none; overflow-y: auto; background: #fff; border-left: 1px solid var(--line); padding: 12px 14px; font-size: 13px; }
+.summary-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.summary-title { font-weight: 700; color: var(--navy); font-size: 15px; }
+.summary-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.summary-controls { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.summary-note { color: var(--muted); font-size: 12.5px; margin: 8px 0; }
+.summary-foot { color: var(--muted); font-size: 11.5px; margin: 8px 0 4px; line-height: 1.4; }
+.summary-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.summary-table th { text-align: left; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--line); padding: 4px 4px; font-weight: 600; }
+.summary-table td { padding: 6px 4px; border-bottom: 1px solid #eef1f6; vertical-align: top; }
+.summary-table .num { text-align: right; white-space: nowrap; }
+.summary-table .muted { color: var(--muted); }
+.summary-table tr.total td { font-weight: 700; border-top: 2px solid var(--navy); border-bottom: 0; background: #f6f8fc; }
+.summary-table .diff { font-variant-numeric: tabular-nums; }
+.summary-props { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.summary-props summary { cursor: pointer; font-weight: 600; color: var(--navy); }
+.summary-props ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.summary-props .units-off { margin: 2px 0 6px 22px; }
+.summary-props li { margin: 2px 0; }
+.summary-props .off { color: var(--muted); text-decoration: line-through; }
+
+/* Properties switched off: still on the map, greyed */
+.pin.excluded .pin-pill { opacity: .55; border-style: dashed; }
+.pin.excluded .pin-name { opacity: .6; }
+.popup-table tr.excluded td { color: #98a2b3; text-decoration: line-through; }
+.popup-note { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+@media (max-width: 900px) {
+  .summary-panel { position: absolute; left: 0; right: 0; bottom: 0; width: auto; max-height: 55%; border-left: 0; border-top: 1px solid var(--line); box-shadow: 0 -4px 14px rgba(16,24,40,.15); }
+}

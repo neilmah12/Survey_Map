@@ -32,6 +32,24 @@ Phase A (re-upload and Excel round trip):
   A re-upload then places every pin automatically.
 - Undo / redo (buttons, Ctrl+Z, Ctrl+Shift+Z) for edits, pin moves and merges.
 
+Market summary (Phase D):
+
+- A panel beside the map, in the editor and in the client file, compares the subject with the market
+  by unit type: market figure, subject figure and the difference in dollars and percent, plus a total
+  row. It follows the metric (base rent, rent PSF, net rent) and the unit filters.
+- The market is every building that is not a subject, so the subject is never compared with itself.
+  Several subjects are averaged together. Average or median; default is that each building counts
+  once (its own average per unit type first), and a switch makes every unit count instead.
+- Rows are bedrooms (Studio, 1 Bed, 1 + Den, ...) with optional splits by bathrooms, renovation level
+  and townhome / apartment.
+- A whole building, or a single suite, can be switched off (an outlier). It stays on the map, greyed,
+  and the summary says how many units are not counted. Switched-off flags survive a re-upload. Clients
+  can only switch properties on and off if the survey allows it, and their changes are not saved.
+- Only buildings with a pin are counted, so the editor and the client file show the same numbers.
+- The engine is `src/lib/summary.ts`. Its tests reproduce the pivot tables in the Glenora, River
+  Valley and Boardwalk sample sheets (unit level, as those pivots average rows) and hand-worked
+  building-level examples.
+
 Client file (Phase B):
 
 - "Export client file" saves a single HTML file that opens in any browser with no login. It holds a

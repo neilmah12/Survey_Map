@@ -40,8 +40,8 @@ function el(tag: string, cls?: string, txt?: string): HTMLElement {
   return e;
 }
 
-function pinElement(b: Building, label: string, selected: boolean): HTMLElement {
-  const root = el('div', `pin${b.isSubject ? ' subject' : ''}${selected ? ' selected' : ''}`);
+function pinElement(b: Building, label: string, selected: boolean, excluded: boolean): HTMLElement {
+  const root = el('div', `pin${b.isSubject ? ' subject' : ''}${selected ? ' selected' : ''}${excluded ? ' excluded' : ''}`);
   const pill = el('div', 'pin-pill');
   pill.append(el('span', 'pin-rate', label));
   if (b.units.some((u) => u.incentive)) pill.append(el('span', 'pin-badge', 'Inc'));
@@ -97,11 +97,12 @@ function popupContent(b: Building, filter: UnitFilter): HTMLElement {
   for (const c of cols) head.append(el('th', undefined, c.h));
   table.append(head);
   for (const r of rows) {
-    const tr = el('tr');
+    const tr = el('tr', b.excluded || r.u.excluded ? 'excluded' : undefined);
     for (const c of cols) tr.append(c.cell(r));
     table.append(tr);
   }
   root.append(table);
+  if (rows.some((r) => b.excluded || r.u.excluded)) root.append(el('div', 'popup-note', 'Greyed rows are not counted in the market averages.'));
 
   const lines = new Map<string, string>();
   for (const u of units) {
@@ -197,7 +198,8 @@ export default function MapView(p: Props) {
       if (!matches) continue;
       seen.add(b.id);
       const label = pinLabel(b, filter, p.view.metric);
-      const element = pinElement(b, label, b.id === live.current.selectedId);
+      const shown = visibleUnits(b, filter);
+      const element = pinElement(b, label, b.id === live.current.selectedId, Boolean(b.excluded) || shown.every((u) => u.excluded));
       // Rebuilding a marker closes its popup, so remember and restore it.
       const old = markers.current.get(b.id);
       const wasOpen = old?.getPopup()?.isOpen() ?? false;

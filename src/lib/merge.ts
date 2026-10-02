@@ -121,13 +121,18 @@ export function mergeSurvey(existing: Survey, incoming: Survey): { survey: Surve
     if (lngLat) summary.pinsKept++;
 
     const imageUrl = nb.imageUrl || old.imageUrl || '';
+    // Suite-level exclusions follow the unit type, since the sheet's units replace the old ones.
+    const offTypes = new Set(old.units.filter((u) => u.excluded).map((u) => norm(normalizeUnitType(u.type))));
+    const units = offTypes.size ? nb.units.map((u) => (offTypes.has(norm(normalizeUnitType(u.type))) ? { ...u, excluded: true } : u)) : nb.units;
     if (imageUrl) summary.photosKept++;
 
     return {
       ...nb,
       id: old.id,
+      units,
       lngLat,
       imageUrl,
+      excluded: old.excluded,
       propertyType: nb.propertyType ?? old.propertyType,
       // The sheet marks the subject by fill colour; if it marks none, keep the app's choice.
       isSubject: subjectInSheet ? nb.isSubject : old.isSubject,

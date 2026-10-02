@@ -86,6 +86,17 @@ export default function Controls({ survey, view, onChange, editable }: Props) {
         </div>
       </div>
 
+      <div className="control-group">
+        <div className="control-label">Compare</div>
+        <button
+          className={view.summary.open ? 'chip on' : 'chip'}
+          aria-pressed={view.summary.open}
+          onClick={() => onChange({ ...view, summary: { ...view.summary, open: !view.summary.open } })}
+        >
+          Market summary
+        </button>
+      </div>
+
       {sections.map(({ k, label }) =>
         options[k].length > 0 ? (
           <div className="control-group" key={k}>

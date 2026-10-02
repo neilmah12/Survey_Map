@@ -2,6 +2,8 @@ export type LngLat = [number, number];
 
 export interface Unit {
   id: string;
+  /** Left out of the market summary (an outlier, for example). It still shows on the map, greyed. */
+  excluded?: boolean;
   /** Row in the source workbook, used to write coordinates back. */
   srcRow?: number;
   type: string;
@@ -27,6 +29,8 @@ export interface Building {
   yearRenovated: string;
   configuration: string;
   isSubject: boolean;
+  /** The whole building is left out of the market summary. */
+  excluded?: boolean;
   /** Created in the app and not yet found in the uploaded sheet; kept when the sheet is re-uploaded. */
   addedInApp?: boolean;
   /** Overrides the townhome/apartment guess used when splitting unit groups. */
@@ -41,6 +45,8 @@ export interface Building {
 }
 
 export interface Survey {
+  /** Clients may turn properties on and off in the summary (their changes are not saved). */
+  clientCanToggle?: boolean;
   title: string;
   location: string;
   /** ISO date (yyyy-mm-dd) shown as "As of" in the header. */
@@ -52,8 +58,27 @@ export interface Survey {
 
 export type Metric = 'rate' | 'psf' | 'net';
 
+export type Stat = 'avg' | 'median';
+
+export interface SummarySettings {
+  open: boolean;
+  stat: Stat;
+  /** Extra details the summary rows are split by (bedrooms always apply). */
+  split: { baths: boolean; reno: boolean; kind: boolean };
+  /** True: each building counts once per row (its own average first). False: every unit counts. */
+  perBuilding: boolean;
+}
+
+export const DEFAULT_SUMMARY: SummarySettings = {
+  open: true,
+  stat: 'avg',
+  split: { baths: false, reno: false, kind: false },
+  perBuilding: true,
+};
+
 export interface ViewSettings {
   metric: Metric;
+  summary: SummarySettings;
   /** Unit filters: bedrooms, bathrooms, renovation, property type. Empty means any. */
   filters: { beds: string[]; baths: string[]; reno: string[]; kind: string[] };
   rings: boolean;
