@@ -32,6 +32,17 @@ Phase A (re-upload and Excel round trip):
   A re-upload then places every pin automatically.
 - Undo / redo (buttons, Ctrl+Z, Ctrl+Shift+Z) for edits, pin moves and merges.
 
+Adding buildings in the app:
+
+- "Add building" (toolbar or the Buildings list) creates a building, then waits for a click on the
+  map to place it. Add or remove units and fill in its details in the sidebar.
+- "Export Excel" writes added buildings into the empty rows directly under the sheet's table, copying
+  the look of an existing building (banding, number formats, row height, merged name/year/address
+  cells, live rent PSF formula). Rows are never inserted, because that would also have to move pivot
+  tables, pictures and formulas below the table. If there is not enough room, the app says how many
+  blank rows to insert in Excel; then use Update from Excel and export again.
+- A building added in the app is kept when the sheet is re-uploaded until the sheet contains it.
+
 Unit filters and subjects:
 
 - Filters are independent multi-select chips that combine: Bedrooms (Studio, 1 Bed, 1 + Den,

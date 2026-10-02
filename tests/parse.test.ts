@@ -168,3 +168,14 @@ describe('safeUrl', () => {
     expect(safeUrl(undefined)).toBe('');
   });
 });
+
+describe('incentive column', () => {
+  it('treats a numeric zero as no incentive and formats numeric discounts', async () => {
+    const s = await load('glenora-townhomes.xlsx');
+    const inc = Object.fromEntries(s.buildings.map((b) => [b.name, b.units[0].incentive]));
+    expect(inc['North Glenora Townhomes']).toBe('');
+    expect(inc['Sherwood Townhomes']).toBe('');
+    expect(inc['Inglewood Townhomes']).toBe('-$158');
+    expect(inc['Woodcroft Townhomes']).toBe('-$100');
+  });
+});

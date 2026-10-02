@@ -33,6 +33,7 @@ export default function App() {
   const { state: survey, set: setSurvey, reset: resetSurvey, undo, redo, canUndo, canRedo } = useUndoable<Survey | null>(() => draft?.survey ?? null);
   const [pendingNew, setPendingNew] = useState<{ fileName: string; survey: Survey } | null>(null);
   const [confirmStartOver, setConfirmStartOver] = useState(false);
+  const [needRows, setNeedRows] = useState<{ buildings: string[]; rows: number; afterRow: number } | null>(null);
   const [pending, setPending] = useState<{ fileName: string; survey: Survey; summary: MergeSummary } | null>(null);
   const [notice, setNotice] = useState<{ text: string; warn?: boolean } | null>(null);
   const mergeInput = useRef<HTMLInputElement>(null);
@@ -54,6 +55,13 @@ export default function App() {
     const t = window.setTimeout(() => setNotice(null), 6000);
     return () => window.clearTimeout(t);
   }, [notice]);
+
+  useEffect(() => {
+    if (!placingId) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPlacingId(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [placingId]);
 
   // Ctrl/Cmd+Z to undo, Ctrl/Cmd+Shift+Z or Ctrl+Y to redo (left alone while typing in a field).
   useEffect(() => {
@@ -126,6 +134,33 @@ export default function App() {
     }
   };
 
+  const newUnit = (): Unit => ({
+    id: `u${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    type: '', beds: null, sf: null, rate: null, netRate: null, parking: '', utilities: '', incentive: '', notes: '', extras: {},
+  });
+
+  /** Adds an empty building, selects it, and waits for a click on the map to place its pin. */
+  const addBuilding = () => {
+    const id = `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+    setSurvey(
+      (s) =>
+        s && {
+          ...s,
+          buildings: [
+            ...s.buildings,
+            {
+              id, name: 'New building', address: '', yearBuilt: '', yearRenovated: '', configuration: '', isSubject: false,
+              addedInApp: true, lngLat: null, propertyNotes: '', contact: '', url: '', imageUrl: '', units: [newUnit()],
+            },
+          ],
+        },
+      { commit: true },
+    );
+    setSelectedId(id);
+    setPlacingId(id);
+    setNotice({ text: 'Click the map to place the new building, then fill in its details.' });
+  };
+
   const applyMerge = () => {
     if (!pending) return;
     setSurvey(pending.survey, { commit: true });
@@ -138,13 +173,16 @@ export default function App() {
     if (!survey) return;
     setError('');
     try {
-      const { data, name } = await exportWithCoordinates(survey);
+      const result = await exportWithCoordinates(survey);
+      const { data, name } = result;
       downloadBlob(new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), name);
       const pins = survey.buildings.filter((b) => b.lngLat).length;
+      const added = result.addedBuildings ? ` and ${result.addedBuildings} new building${result.addedBuildings === 1 ? '' : 's'}` : '';
       setNotice({
-        text: `Exported ${pins} of ${survey.buildings.length} pin${pins === 1 ? '' : 's'} to ${name}`,
+        text: `Exported ${pins} of ${survey.buildings.length} pin${pins === 1 ? '' : 's'}${added} to ${name}`,
         warn: pins < survey.buildings.length,
       });
+      if (result.needRows) setNeedRows(result.needRows);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not export the workbook');
     }
@@ -204,6 +242,7 @@ export default function App() {
             <button className="btn" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">Undo</button>
             <button className="btn" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">Redo</button>
             <span className="sep" />
+            <button className="btn" onClick={addBuilding} title="Add a building without editing the Excel first">Add building</button>
             <button className="btn" onClick={() => mergeInput.current?.click()} title="Re-upload a revised sheet; keeps your pins and photos">Update from Excel</button>
             <button className="btn" onClick={exportExcel} disabled={!survey.source} title={survey.source ? 'Write pin coordinates and photo URLs back into your workbook' : 'Upload the Excel file again to enable export'}>Export Excel</button>
             <span className="sep" />
@@ -245,6 +284,18 @@ export default function App() {
           </p>
         </ConfirmDialog>
       )}
+      {needRows && (
+        <ConfirmDialog title="Your sheet needs more room" confirmLabel="Got it" hideCancel onCancel={() => setNeedRows(null)} onConfirm={() => setNeedRows(null)}>
+          <p>
+            Pins and photos were exported, but <strong>{needRows.buildings.join(', ')}</strong> could not be written into the sheet:
+            there are not enough empty rows right below the last building (row {needRows.afterRow}).
+          </p>
+          <p>
+            In Excel, insert <strong>{needRows.rows} blank row{needRows.rows === 1 ? '' : 's'}</strong> directly below row {needRows.afterRow}, save,
+            then use <strong>Update from Excel</strong> and <strong>Export Excel</strong> again. The new building stays in the app meanwhile.
+          </p>
+        </ConfirmDialog>
+      )}
       {confirmStartOver && (
         <ConfirmDialog
           title="Start over?"
@@ -275,6 +326,16 @@ export default function App() {
               setSurvey((s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === id ? { ...b, isSubject: !b.isSubject } : b)) }, { commit: true })
             }
             onStartPlace={setPlacingId}
+            onAddBuilding={addBuilding}
+            onAddUnit={(bid) =>
+              setSurvey((s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === bid ? { ...b, units: [...b.units, newUnit()] } : b)) }, { commit: true })
+            }
+            onRemoveUnit={(bid, uid) =>
+              setSurvey(
+                (s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === bid && b.units.length > 1 ? { ...b, units: b.units.filter((u) => u.id !== uid) } : b)) },
+                { commit: true },
+              )
+            }
             onDelete={(id) => {
               setSurvey((s) => s && { ...s, buildings: s.buildings.filter((b) => b.id !== id) }, { commit: true });
               setSelectedId(null);

@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import type { Building, Survey, Unit } from '../types';
 
-type Field =
+export type Field =
   | 'name' | 'configuration' | 'yearBuilt' | 'yearRenovated' | 'address'
   | 'unitType' | 'sf' | 'rate' | 'psf' | 'parking' | 'utilities'
   | 'incentive' | 'netRate' | 'netPsf' | 'notes' | 'propertyNotes'
@@ -31,6 +31,11 @@ const ALIASES: Record<string, Field> = {
   latitude: 'lat', lat: 'lat',
   longitude: 'lng', lng: 'lng', long: 'lng', lon: 'lng',
 };
+
+/** Canonical field for a header cell's text, or undefined when the column is not recognised. */
+export function fieldForHeader(header: string): Field | undefined {
+  return ALIASES[header.toLowerCase().replace(/[^a-z0-9]/g, '')];
+}
 
 const HEADER_ROW = 2;
 const FIRST_DATA_ROW = 3;
@@ -103,6 +108,18 @@ export function parseCharge(s: string): number | null {
   if (m) return parseFloat(m[1].replace(/,/g, ''));
   if (/included|free|n\/a|none/i.test(s)) return 0;
   return null;
+}
+
+/** Some sheets hold the incentive as a number (an amortised monthly discount); 0 means none. */
+function incentiveText(cell: ExcelJS.Cell | null): string {
+  if (!cell) return '';
+  const v = raw(cell);
+  if (typeof v === 'number') {
+    const n = Math.round(Math.abs(v));
+    return n === 0 ? '' : `${v < 0 ? '-' : ''}$${n.toLocaleString('en-CA')}`;
+  }
+  const t = text(cell);
+  return /^[-+]?0+(\.0+)?$/.test(t) ? '' : t;
 }
 
 function isDarkFill(cell: ExcelJS.Cell): boolean {
@@ -253,7 +270,7 @@ export async function parseSurvey(data: ArrayBuffer): Promise<Survey> {
       netRate: getNum(r, 'netRate'),
       parking: getText(r, 'parking'),
       utilities: getText(r, 'utilities'),
-      incentive: getText(r, 'incentive'),
+      incentive: incentiveText(get(r, 'incentive')),
       notes: getText(r, 'notes'),
       extras,
     };

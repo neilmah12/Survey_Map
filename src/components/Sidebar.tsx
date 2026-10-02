@@ -15,6 +15,9 @@ interface Props {
   onToggleSubject: (id: string) => void;
   onStartPlace: (id: string | null) => void;
   onDelete: (id: string) => void;
+  onAddBuilding: () => void;
+  onAddUnit: (buildingId: string) => void;
+  onRemoveUnit: (buildingId: string, unitId: string) => void;
 }
 
 const numOrNull = (s: string) => {
@@ -124,6 +127,7 @@ function Editor({ b, p }: { b: Building; p: Props }) {
           <option value="Apartment">Apartment</option>
         </select>
       </label>
+      <Field label="Unit configuration (for example Stacked)" value={b.configuration} onChange={(v) => p.onBuilding(b.id, { configuration: v })} wide />
       <div className="row2">
         <Field label="Year built" value={b.yearBuilt} onChange={(v) => p.onBuilding(b.id, { yearBuilt: v })} />
         <Field label="Renovated" value={b.yearRenovated} onChange={(v) => p.onBuilding(b.id, { yearRenovated: v })} />
@@ -149,7 +153,14 @@ function Editor({ b, p }: { b: Building; p: Props }) {
       <div className="units">
         {b.units.map((u) => (
           <div className="unit" key={u.id}>
-            <Field label="Type" value={u.type} onChange={(v) => p.onUnit(b.id, u.id, { type: v })} wide />
+            <div className="unit-head">
+              <Field label="Unit type (for example 2 Bed/1 Bath)" value={u.type} onChange={(v) => p.onUnit(b.id, u.id, { type: v })} wide />
+              {b.units.length > 1 && (
+                <button className="link-btn" aria-label="Remove this unit" onClick={() => p.onRemoveUnit(b.id, u.id)}>
+                  Remove
+                </button>
+              )}
+            </div>
             <div className="row3">
               <Field label="SF" value={u.sf?.toString() ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { sf: numOrNull(v) })} />
               <Field label="Rent" value={u.rate?.toString() ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { rate: numOrNull(v) })} />
@@ -161,6 +172,9 @@ function Editor({ b, p }: { b: Building; p: Props }) {
           </div>
         ))}
       </div>
+      <button className="btn" onClick={() => p.onAddUnit(b.id)}>
+        + Add unit
+      </button>{' '}
       <button className="btn danger" onClick={() => p.onDelete(b.id)}>
         Remove building
       </button>
@@ -188,6 +202,9 @@ export default function Sidebar(p: Props) {
       <section>
         <div className="editor-title">
           Buildings {unplaced > 0 && <span className="warn">{unplaced} unplaced</span>}
+          <button className="link-btn push" onClick={p.onAddBuilding}>
+            + Add building
+          </button>
         </div>
         <ul className="blist">
           {p.survey.buildings.map((b) => (

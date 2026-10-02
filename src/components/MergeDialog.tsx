@@ -48,6 +48,12 @@ export default function MergeDialog({ fileName, summary: s, onApply, onCancel }:
             <ul>{s.added.map((n) => <li key={n}>{n}</li>)}</ul>
           </section>
         )}
+        {s.keptLocal.length > 0 && (
+          <section>
+            <h3>Kept (added in the app, not in the sheet yet)</h3>
+            <ul>{s.keptLocal.map((n) => <li key={n}>{n}</li>)}</ul>
+          </section>
+        )}
         {s.removed.length > 0 && (
           <section>
             <h3>Removed (not in the sheet)</h3>

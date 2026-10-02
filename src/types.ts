@@ -27,6 +27,8 @@ export interface Building {
   yearRenovated: string;
   configuration: string;
   isSubject: boolean;
+  /** Created in the app and not yet found in the uploaded sheet; kept when the sheet is re-uploaded. */
+  addedInApp?: boolean;
   /** Overrides the townhome/apartment guess used when splitting unit groups. */
   propertyType?: 'Townhome' | 'Apartment';
   lngLat: LngLat | null;

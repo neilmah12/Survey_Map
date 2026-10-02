@@ -24,6 +24,8 @@ export interface MergeSummary {
   removed: string[];
   /** Per-building description of what changed in the sheet. */
   changed: { name: string; details: string[] }[];
+  /** Buildings added in the app that are not in the sheet yet; they are kept. */
+  keptLocal: string[];
   /** Matched buildings whose pin came from the sheet's own coordinates. */
   repositioned: string[];
   pinsKept: number;
@@ -94,7 +96,7 @@ export function mergeSurvey(existing: Survey, incoming: Survey): { survey: Surve
 
   let nextId = Math.max(0, ...existing.buildings.map((b) => Number(b.id.replace(/\D/g, '')) || 0));
   const summary: MergeSummary = {
-    matched: 0, added: [], removed: [], changed: [], repositioned: [], pinsKept: 0, photosKept: 0, looksDifferent: false,
+    matched: 0, added: [], removed: [], keptLocal: [], changed: [], repositioned: [], pinsKept: 0, photosKept: 0, looksDifferent: false,
   };
 
   const subjectInSheet = incoming.buildings.some((b) => b.isSubject);
@@ -109,10 +111,12 @@ export function mergeSurvey(existing: Survey, incoming: Survey): { survey: Surve
 
     let lngLat = old.lngLat;
     if (nb.lngLat) {
-      if (!old.lngLat || old.lngLat[0] !== nb.lngLat[0] || old.lngLat[1] !== nb.lngLat[1]) {
+      // The sheet stores 6 decimals (about 10 cm), so only a real difference counts as a move.
+      const moved = !old.lngLat || Math.abs(old.lngLat[0] - nb.lngLat[0]) > 1e-5 || Math.abs(old.lngLat[1] - nb.lngLat[1]) > 1e-5;
+      if (moved) {
         if (old.lngLat) summary.repositioned.push(nb.name);
+        lngLat = nb.lngLat;
       }
-      lngLat = nb.lngLat;
     }
     if (lngLat) summary.pinsKept++;
 
@@ -130,7 +134,13 @@ export function mergeSurvey(existing: Survey, incoming: Survey): { survey: Surve
     };
   });
 
-  summary.removed = [...free].map((id) => byId.get(id)!.name);
+  // Buildings created in the app are not expected to be in the sheet yet, so they are kept, not removed.
+  const leftover = [...free].map((id) => byId.get(id)!);
+  const keep = leftover.filter((b) => b.addedInApp);
+  summary.keptLocal = keep.map((b) => b.name);
+  summary.removed = leftover.filter((b) => !b.addedInApp).map((b) => b.name);
+  for (const b of keep) if (b.lngLat) summary.pinsKept++;
+  buildings.push(...keep);
   const denom = Math.max(existing.buildings.length, incoming.buildings.length, 1);
   summary.looksDifferent = existing.buildings.length > 2 && summary.matched / denom < 0.4;
 

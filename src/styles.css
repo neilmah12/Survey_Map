@@ -137,3 +137,8 @@ button, input { font: inherit; }
 
 .splits { display: flex; gap: 14px; flex-wrap: wrap; }
 .field select { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: #fff; width: 100%; }
+
+.editor-title .push { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600; }
+.unit-head { display: flex; align-items: flex-end; gap: 6px; }
+.unit-head .field { flex: 1; }
+.unit-head .link-btn { margin-bottom: 10px; color: #b42318; }
