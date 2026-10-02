@@ -135,8 +135,8 @@ export default function MapView(p: Props) {
 
   const ctx = useMemo(() => kindContext(p.survey), [p.survey]);
   const filter: UnitFilter = useMemo(
-    () => ({ dims: p.view.dims, groups: p.view.groups, ctx }),
-    [p.view.dims, p.view.groups, ctx],
+    () => ({ filters: p.view.filters, ctx }),
+    [p.view.filters, ctx],
   );
 
   // Latest props for event handlers registered once.

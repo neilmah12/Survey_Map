@@ -85,7 +85,7 @@ function num(cell: ExcelJS.Cell): number | null {
 
 export function parseBeds(unitType: string): number | null {
   if (/studio|bachelor/i.test(unitType)) return 0;
-  const m = unitType.match(/(\d+(?:\.\d+)?)\s*-?\s*bed/i);
+  const m = unitType.match(/(\d+(?:\.\d+)?)\s*-?\s*(?:bed|bdrm|br\b)/i);
   return m ? Math.floor(parseFloat(m[1])) : null;
 }
 

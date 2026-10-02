@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Survey, ViewSettings, Metric } from '../types';
 import { METRIC_LABEL } from '../lib/format';
-import { availableDims, listGroups } from '../lib/groups';
+import { NO_FILTERS, filterOptions, isFiltering, kindContext, visibleUnits } from '../lib/groups';
+import type { UnitFilters } from '../lib/groups';
 
 export const DEFAULT_RINGS = [0.5, 1, 2];
 
@@ -53,19 +54,24 @@ interface Props {
 }
 
 export default function Controls({ survey, view, onChange, editable }: Props) {
-  const groups = useMemo(() => listGroups(survey, view.dims), [survey, view.dims]);
-  const dimsAvailable = useMemo(() => availableDims(survey), [survey]);
+  const options = useMemo(() => filterOptions(survey), [survey]);
   const hasSubject = survey.buildings.some((b) => b.isSubject);
-  const toggleGroup = (g: string) =>
-    onChange({ ...view, groups: view.groups.includes(g) ? view.groups.filter((x) => x !== g) : [...view.groups, g] });
-  // Changing the split changes what the group labels are, so the selection starts over.
-  const setDim = (k: keyof ViewSettings['dims'], on: boolean) => onChange({ ...view, dims: { ...view.dims, [k]: on }, groups: [] });
-  const splitOptions: { k: keyof ViewSettings['dims']; label: string }[] = [
+  const toggle = (k: keyof UnitFilters, v: string) => {
+    const cur = view.filters[k];
+    onChange({ ...view, filters: { ...view.filters, [k]: cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v] } });
+  };
+  const sections: { k: keyof UnitFilters; label: string }[] = [
+    { k: 'beds', label: 'Bedrooms' },
     { k: 'baths', label: 'Bathrooms' },
     { k: 'reno', label: 'Renovation' },
-    { k: 'kind', label: 'Townhome / apartment' },
+    { k: 'kind', label: 'Property type' },
   ];
-  const offered = splitOptions.filter((o) => dimsAvailable[o.k] || view.dims[o.k]);
+  const active = isFiltering(view.filters);
+  const ctx = useMemo(() => kindContext(survey), [survey]);
+  const shown = useMemo(
+    () => survey.buildings.filter((b) => visibleUnits(b, { filters: view.filters, ctx }).length > 0).length,
+    [survey, view.filters, ctx],
+  );
 
   return (
     <div className="controls">
@@ -80,33 +86,29 @@ export default function Controls({ survey, view, onChange, editable }: Props) {
         </div>
       </div>
 
-      {groups.length > 1 && (
-        <div className="control-group">
-          <div className="control-label">Unit type</div>
-          <div className="chips">
-            <button className={view.groups.length === 0 ? 'chip on' : 'chip'} onClick={() => onChange({ ...view, groups: [] })}>
-              All
-            </button>
-            {groups.map((g) => (
-              <button key={g} className={view.groups.includes(g) ? 'chip on' : 'chip'} onClick={() => toggleGroup(g)}>
-                {g}
-              </button>
-            ))}
+      {sections.map(({ k, label }) =>
+        options[k].length > 0 ? (
+          <div className="control-group" key={k}>
+            <div className="control-label">{label}</div>
+            <div className="chips">
+              {options[k].map((v) => (
+                <button key={v} className={view.filters[k].includes(v) ? 'chip on' : 'chip'} aria-pressed={view.filters[k].includes(v)} onClick={() => toggle(k, v)}>
+                  {v}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : null,
       )}
 
-      {offered.length > 0 && (
+      {active && (
         <div className="control-group">
-          <div className="control-label">Split by</div>
-          <div className="splits">
-            {offered.map((o) => (
-              <label key={o.k} className="check">
-                <input type="checkbox" checked={view.dims[o.k]} onChange={(e) => setDim(o.k, e.target.checked)} />
-                {o.label}
-              </label>
-            ))}
+          <div className="control-label">
+            Showing {shown} of {survey.buildings.length}
           </div>
+          <button className="link-btn" onClick={() => onChange({ ...view, filters: NO_FILTERS })}>
+            Clear filters
+          </button>
         </div>
       )}
 

@@ -6,7 +6,7 @@ import { toBase64 } from './lib/base64';
 import { exportWithCoordinates } from './lib/exportXlsx';
 import { mergeSurvey, type MergeSummary } from './lib/merge';
 import { downloadBlob, downloadJson, loadDraft, saveDraft } from './lib/store';
-import { NO_DIMS } from './lib/groups';
+import { NO_FILTERS } from './lib/groups';
 import { useUndoable } from './hooks/useUndoable';
 import MergeDialog from './components/MergeDialog';
 import ConfirmDialog from './components/ConfirmDialog';
@@ -15,7 +15,7 @@ import Controls, { DEFAULT_RINGS } from './components/Controls';
 import Sidebar from './components/Sidebar';
 import MapView from './components/MapView';
 
-const DEFAULT_VIEW: ViewSettings = { metric: 'rate', dims: NO_DIMS, groups: [], rings: false, ringsKm: DEFAULT_RINGS };
+const DEFAULT_VIEW: ViewSettings = { metric: 'rate', filters: NO_FILTERS, rings: false, ringsKm: DEFAULT_RINGS };
 
 /** Parses a workbook and keeps the original bytes so coordinates can be written back later. */
 async function readWorkbook(file: File): Promise<Survey> {
@@ -93,7 +93,7 @@ export default function App() {
 
   const installSurvey = (next: Survey) => {
     resetSurvey(next);
-    setView((v) => ({ ...v, dims: NO_DIMS, groups: [] })); // splits and selections belong to the previous survey
+    setView((v) => ({ ...v, filters: NO_FILTERS })); // filter choices belong to the previous survey
     setRestoredAt(null);
     setSelectedId(null);
     setPlacingId(null);

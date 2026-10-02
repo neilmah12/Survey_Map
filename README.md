@@ -32,11 +32,14 @@ Phase A (re-upload and Excel round trip):
   A re-upload then places every pin automatically.
 - Undo / redo (buttons, Ctrl+Z, Ctrl+Shift+Z) for edits, pin moves and merges.
 
-Unit groups and subjects:
+Unit filters and subjects:
 
-- Unit type filter groups by bedrooms by default. "Split by" adds bathrooms (so 2 bed / 1 bath and
-  2 bed / 2 bath are separate), renovation level (from a trailing "- Partial Reno" in the unit type)
-  and townhome versus apartment. A split is only offered when the data has at least two values.
+- Filters are independent multi-select chips that combine: Bedrooms (Studio, 1 Bed, 1 + Den,
+  2 Beds, 2 + Den, 3 Beds, 3 + Den, 4+), Bathrooms (1, 1.5, 2, 2.5, 3+), Renovation (from a trailing
+  "- Partial Reno" in the unit type) and Property type (townhome or apartment). Choices within a
+  detail are OR, details combine with AND, and empty means any. So "2 Beds" with bathrooms 1, 2 and
+  2.5 shows all three, and "2 Beds" alone ignores bathrooms. Only choices present in the data are
+  offered, and a building with no matching unit leaves the map.
 - Townhome or apartment comes from the building's Property type setting, then a "TH" or "Townhome"
   marker in the unit type, the building name, the survey title, and finally the rest of the survey.
 - Several buildings can be marked as the subject (for example a portfolio). Rings draw around each.

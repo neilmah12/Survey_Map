@@ -52,10 +52,8 @@ export type Metric = 'rate' | 'psf' | 'net';
 
 export interface ViewSettings {
   metric: Metric;
-  /** Extra details unit groups are split by (bedrooms always apply). */
-  dims: { baths: boolean; reno: boolean; kind: boolean };
-  /** Selected unit groups by label; empty shows everything. */
-  groups: string[];
+  /** Unit filters: bedrooms, bathrooms, renovation, property type. Empty means any. */
+  filters: { beds: string[]; baths: string[]; reno: string[]; kind: string[] };
   rings: boolean;
   ringsKm: number[];
 }
