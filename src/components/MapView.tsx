@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from '../lib/workerUrl';
 import type { Building, LngLat, Survey, ViewSettings } from '../types';
 import { safeUrl } from '../lib/safeUrl';
 import { circleCoords, ringTop } from '../lib/geo';
-import { money, pinLabel, psf, unitNet, unitPsf, visibleUnits } from '../lib/format';
+import { money, pinLabel, psf, unitNet, unitPsf } from '../lib/format';
+import { kindContext, visibleUnits, type UnitFilter } from '../lib/groups';
 
 maplibregl.setWorkerUrl(workerUrl);
 
@@ -47,7 +48,7 @@ function pinElement(b: Building, label: string, selected: boolean): HTMLElement 
   return root;
 }
 
-function popupContent(b: Building, view: ViewSettings): HTMLElement {
+function popupContent(b: Building, filter: UnitFilter): HTMLElement {
   const root = el('div', 'popup');
   const imgSrc = safeUrl(b.imageUrl, true);
   const listing = safeUrl(b.url);
@@ -78,7 +79,7 @@ function popupContent(b: Building, view: ViewSettings): HTMLElement {
   ].filter(Boolean);
   if (facts.length) root.append(el('div', 'popup-sub', facts.join(' | ')));
 
-  const units = visibleUnits(b, view.beds);
+  const units = visibleUnits(b, filter);
   // Only show columns that have data for at least one visible unit.
   const rows = units.map((u) => ({ u, p: unitPsf(u), n: unitNet(u) }));
   const cols = [
@@ -132,6 +133,12 @@ export default function MapView(p: Props) {
   // Bumped on every style (re)load so ring layers get re-added and re-filled.
   const [styleVersion, setStyleVersion] = useState(0);
 
+  const ctx = useMemo(() => kindContext(p.survey), [p.survey]);
+  const filter: UnitFilter = useMemo(
+    () => ({ dims: p.view.dims, groups: p.view.groups, ctx }),
+    [p.view.dims, p.view.groups, ctx],
+  );
+
   // Latest props for event handlers registered once.
   const live = useRef(p);
   live.current = p;
@@ -183,10 +190,10 @@ export default function MapView(p: Props) {
     const seen = new Set<string>();
     for (const b of p.survey.buildings) {
       if (!b.lngLat) continue;
-      const matches = visibleUnits(b, p.view.beds).length > 0;
+      const matches = visibleUnits(b, filter).length > 0;
       if (!matches) continue;
       seen.add(b.id);
-      const label = pinLabel(b, p.view.beds, p.view.metric);
+      const label = pinLabel(b, filter, p.view.metric);
       const element = pinElement(b, label, b.id === live.current.selectedId);
       // Rebuilding a marker closes its popup, so remember and restore it.
       const old = markers.current.get(b.id);
@@ -196,7 +203,7 @@ export default function MapView(p: Props) {
         .setLngLat(b.lngLat)
         .setPopup(
           new maplibregl.Popup({ offset: 14, maxWidth: '380px', closeButton: true }).setDOMContent(
-            popupContent(b, p.view),
+            popupContent(b, filter),
           ),
         )
         .addTo(map);
@@ -214,12 +221,12 @@ export default function MapView(p: Props) {
         markers.current.delete(id);
       }
     }
-  }, [p.survey.buildings, p.view.beds, p.view.metric, p.editable, ready]);
+  }, [p.survey.buildings, filter, p.view.metric, p.editable, ready]);
 
   // Selection only changes the highlight, so it must not rebuild markers (that would close the popup).
   useEffect(() => {
     for (const [id, m] of markers.current) m.getElement().classList.toggle('selected', id === p.selectedId);
-  }, [p.selectedId, p.survey.buildings, p.view.beds, p.view.metric, ready]);
+  }, [p.selectedId, p.survey.buildings, filter, p.view.metric, ready]);
 
   // Distance rings around the subject property.
   useEffect(() => {
@@ -227,21 +234,24 @@ export default function MapView(p: Props) {
     if (!map || !ready) return;
     ringMarkers.current.forEach((m) => m.remove());
     ringMarkers.current = [];
-    const subject = p.survey.buildings.find((b) => b.isSubject && b.lngLat);
+    const subjects = p.survey.buildings.filter((b) => b.isSubject && b.lngLat);
     const src = map.getSource('rings') as maplibregl.GeoJSONSource;
-    if (!subject?.lngLat || !p.view.rings) {
+    if (subjects.length === 0 || !p.view.rings) {
       src.setData({ type: 'FeatureCollection', features: [] });
       return;
     }
-    const c = subject.lngLat;
+    // Rings go around every subject (a portfolio has several); only the first is labelled.
     src.setData({
       type: 'FeatureCollection',
-      features: p.view.ringsKm.map((km) => ({
-        type: 'Feature',
-        properties: { km },
-        geometry: { type: 'LineString', coordinates: circleCoords(c, km) },
-      })),
+      features: subjects.flatMap((s) =>
+        p.view.ringsKm.map((km) => ({
+          type: 'Feature' as const,
+          properties: { km },
+          geometry: { type: 'LineString' as const, coordinates: circleCoords(s.lngLat!, km) },
+        })),
+      ),
     });
+    const c = subjects[0].lngLat!;
     const labels = p.view.ringsKm.map((km) => ({
       km,
       marker: new maplibregl.Marker({ element: el('div', 'ring-label', `${km} km`), anchor: 'bottom' })
@@ -272,7 +282,7 @@ export default function MapView(p: Props) {
     if (pts.length === 0) return;
     const bounds = new maplibregl.LngLatBounds(pts[0], pts[0]);
     pts.forEach((x) => bounds.extend(x));
-    map.fitBounds(bounds, { padding: { top: 130, bottom: 70, left: 90, right: 90 }, maxZoom: 15, duration: 0 });
+    map.fitBounds(bounds, { padding: { top: 70, bottom: 70, left: 90, right: 90 }, maxZoom: 15, duration: 0 });
   }, [p.fitKey, ready]);
 
   // Fly to the selected building when it is chosen from the sidebar.

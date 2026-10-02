@@ -27,6 +27,8 @@ export interface Building {
   yearRenovated: string;
   configuration: string;
   isSubject: boolean;
+  /** Overrides the townhome/apartment guess used when splitting unit groups. */
+  propertyType?: 'Townhome' | 'Apartment';
   lngLat: LngLat | null;
   propertyNotes: string;
   contact: string;
@@ -50,7 +52,10 @@ export type Metric = 'rate' | 'psf' | 'net';
 
 export interface ViewSettings {
   metric: Metric;
-  beds: number[];
+  /** Extra details unit groups are split by (bedrooms always apply). */
+  dims: { baths: boolean; reno: boolean; kind: boolean };
+  /** Selected unit groups by label; empty shows everything. */
+  groups: string[];
   rings: boolean;
   ringsKm: number[];
 }

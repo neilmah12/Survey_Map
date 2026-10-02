@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Survey, ViewSettings, Metric } from '../types';
-import { METRIC_LABEL, allBeds, bedLabel } from '../lib/format';
+import { METRIC_LABEL } from '../lib/format';
+import { availableDims, listGroups } from '../lib/groups';
 
 export const DEFAULT_RINGS = [0.5, 1, 2];
 
@@ -52,10 +53,19 @@ interface Props {
 }
 
 export default function Controls({ survey, view, onChange, editable }: Props) {
-  const beds = allBeds(survey.buildings);
+  const groups = useMemo(() => listGroups(survey, view.dims), [survey, view.dims]);
+  const dimsAvailable = useMemo(() => availableDims(survey), [survey]);
   const hasSubject = survey.buildings.some((b) => b.isSubject);
-  const toggleBed = (n: number) =>
-    onChange({ ...view, beds: view.beds.includes(n) ? view.beds.filter((x) => x !== n) : [...view.beds, n] });
+  const toggleGroup = (g: string) =>
+    onChange({ ...view, groups: view.groups.includes(g) ? view.groups.filter((x) => x !== g) : [...view.groups, g] });
+  // Changing the split changes what the group labels are, so the selection starts over.
+  const setDim = (k: keyof ViewSettings['dims'], on: boolean) => onChange({ ...view, dims: { ...view.dims, [k]: on }, groups: [] });
+  const splitOptions: { k: keyof ViewSettings['dims']; label: string }[] = [
+    { k: 'baths', label: 'Bathrooms' },
+    { k: 'reno', label: 'Renovation' },
+    { k: 'kind', label: 'Townhome / apartment' },
+  ];
+  const offered = splitOptions.filter((o) => dimsAvailable[o.k] || view.dims[o.k]);
 
   return (
     <div className="controls">
@@ -70,17 +80,31 @@ export default function Controls({ survey, view, onChange, editable }: Props) {
         </div>
       </div>
 
-      {beds.length > 1 && (
+      {groups.length > 1 && (
         <div className="control-group">
           <div className="control-label">Unit type</div>
           <div className="chips">
-            <button className={view.beds.length === 0 ? 'chip on' : 'chip'} onClick={() => onChange({ ...view, beds: [] })}>
+            <button className={view.groups.length === 0 ? 'chip on' : 'chip'} onClick={() => onChange({ ...view, groups: [] })}>
               All
             </button>
-            {beds.map((n) => (
-              <button key={n} className={view.beds.includes(n) ? 'chip on' : 'chip'} onClick={() => toggleBed(n)}>
-                {bedLabel(n)}
+            {groups.map((g) => (
+              <button key={g} className={view.groups.includes(g) ? 'chip on' : 'chip'} onClick={() => toggleGroup(g)}>
+                {g}
               </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {offered.length > 0 && (
+        <div className="control-group">
+          <div className="control-label">Split by</div>
+          <div className="splits">
+            {offered.map((o) => (
+              <label key={o.k} className="check">
+                <input type="checkbox" checked={view.dims[o.k]} onChange={(e) => setDim(o.k, e.target.checked)} />
+                {o.label}
+              </label>
             ))}
           </div>
         </div>

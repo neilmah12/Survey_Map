@@ -2,10 +2,21 @@ import type { Survey } from '../types';
 
 const KEY = 'survey-map:draft';
 
-export function loadDraft(): Survey | null {
+export interface Draft {
+  survey: Survey;
+  /** ISO time of the last autosave; absent for drafts written by older versions. */
+  savedAt?: string;
+}
+
+export function loadDraft(): Draft | null {
   try {
-    const s = localStorage.getItem(KEY);
-    return s ? (JSON.parse(s) as Survey) : null;
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Older versions stored the survey directly; newer ones wrap it with a timestamp.
+    if (parsed && parsed.survey && Array.isArray(parsed.survey.buildings)) return parsed as Draft;
+    if (parsed && Array.isArray(parsed.buildings)) return { survey: parsed as Survey };
+    return null;
   } catch {
     return null;
   }
@@ -14,7 +25,7 @@ export function loadDraft(): Survey | null {
 /** Returns false when the browser refused the write (storage full or unavailable). */
 export function saveDraft(survey: Survey | null): boolean {
   try {
-    if (survey) localStorage.setItem(KEY, JSON.stringify(survey));
+    if (survey) localStorage.setItem(KEY, JSON.stringify({ survey, savedAt: new Date().toISOString() } satisfies Draft));
     else localStorage.removeItem(KEY);
     return true;
   } catch {

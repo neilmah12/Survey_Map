@@ -123,6 +123,7 @@ export function mergeSurvey(existing: Survey, incoming: Survey): { survey: Surve
       id: old.id,
       lngLat,
       imageUrl,
+      propertyType: nb.propertyType ?? old.propertyType,
       // The sheet marks the subject by fill colour; if it marks none, keep the app's choice.
       isSubject: subjectInSheet ? nb.isSubject : old.isSubject,
     };

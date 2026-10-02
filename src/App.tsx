@@ -6,14 +6,16 @@ import { toBase64 } from './lib/base64';
 import { exportWithCoordinates } from './lib/exportXlsx';
 import { mergeSurvey, type MergeSummary } from './lib/merge';
 import { downloadBlob, downloadJson, loadDraft, saveDraft } from './lib/store';
+import { NO_DIMS } from './lib/groups';
 import { useUndoable } from './hooks/useUndoable';
 import MergeDialog from './components/MergeDialog';
+import ConfirmDialog from './components/ConfirmDialog';
 import Header from './components/Header';
 import Controls, { DEFAULT_RINGS } from './components/Controls';
 import Sidebar from './components/Sidebar';
 import MapView from './components/MapView';
 
-const DEFAULT_VIEW: ViewSettings = { metric: 'rate', beds: [], rings: false, ringsKm: DEFAULT_RINGS };
+const DEFAULT_VIEW: ViewSettings = { metric: 'rate', dims: NO_DIMS, groups: [], rings: false, ringsKm: DEFAULT_RINGS };
 
 /** Parses a workbook and keeps the original bytes so coordinates can be written back later. */
 async function readWorkbook(file: File): Promise<Survey> {
@@ -26,7 +28,11 @@ const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
 
 export default function App() {
-  const { state: survey, set: setSurvey, reset: resetSurvey, undo, redo, canUndo, canRedo } = useUndoable<Survey | null>(() => loadDraft());
+  const [draft] = useState(() => loadDraft());
+  const [restoredAt, setRestoredAt] = useState<string | null>(() => (draft ? draft.savedAt ?? 'earlier' : null));
+  const { state: survey, set: setSurvey, reset: resetSurvey, undo, redo, canUndo, canRedo } = useUndoable<Survey | null>(() => draft?.survey ?? null);
+  const [pendingNew, setPendingNew] = useState<{ fileName: string; survey: Survey } | null>(null);
+  const [confirmStartOver, setConfirmStartOver] = useState(false);
   const [pending, setPending] = useState<{ fileName: string; survey: Survey; summary: MergeSummary } | null>(null);
   const [notice, setNotice] = useState<{ text: string; warn?: boolean } | null>(null);
   const mergeInput = useRef<HTMLInputElement>(null);
@@ -85,14 +91,25 @@ export default function App() {
     );
   }, []);
 
+  const installSurvey = (next: Survey) => {
+    resetSurvey(next);
+    setView((v) => ({ ...v, dims: NO_DIMS, groups: [] })); // splits and selections belong to the previous survey
+    setRestoredAt(null);
+    setSelectedId(null);
+    setPlacingId(null);
+    setFitKey((k) => k + 1);
+    const unplaced = next.buildings.filter((b) => !b.lngLat).length;
+    setNotice({
+      text: `Loaded ${next.buildings.length} buildings.${unplaced ? ` ${unplaced} need a pin: pick one in the list, then click the map.` : ''}`,
+    });
+  };
+
   const loadExcel = async (file: File) => {
     setError('');
-    if (survey && !confirm('Start a new survey from this file? The current survey will be replaced. Use "Update from Excel" to keep your pins and photos.')) return;
     try {
-      resetSurvey(await readWorkbook(file));
-      setSelectedId(null);
-      setPlacingId(null);
-      setFitKey((k) => k + 1);
+      const next = await readWorkbook(file);
+      if (survey) setPendingNew({ fileName: file.name, survey: next });
+      else installSurvey(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not read that workbook');
     }
@@ -138,18 +155,25 @@ export default function App() {
     try {
       const next = JSON.parse(await file.text()) as Survey;
       if (!Array.isArray(next.buildings)) throw new Error('Not a survey file');
-      resetSurvey(next);
-      setFitKey((k) => k + 1);
+      installSurvey(next);
     } catch {
       setError('Could not read that survey file');
     }
   };
 
+  // Clearing the input after each pick matters: Chrome ignores a re-pick of a file with the same name,
+  // which is exactly what happens when a sheet is edited and saved in place.
+  const onPick = (fn: (f: File) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (f) fn(f);
+  };
+
   const hiddenInputs = (
     <>
-      <input ref={excelInput} type="file" accept=".xlsx" hidden onChange={(e) => e.target.files?.[0] && loadExcel(e.target.files[0])} />
-      <input ref={jsonInput} type="file" accept=".json" hidden onChange={(e) => e.target.files?.[0] && loadJson(e.target.files[0])} />
-      <input ref={mergeInput} type="file" accept=".xlsx" hidden onChange={(e) => e.target.files?.[0] && startMerge(e.target.files[0])} />
+      <input ref={excelInput} type="file" accept=".xlsx" hidden onChange={onPick(loadExcel)} />
+      <input ref={jsonInput} type="file" accept=".json" hidden onChange={onPick(loadJson)} />
+      <input ref={mergeInput} type="file" accept=".xlsx" hidden onChange={onPick(startMerge)} />
     </>
   );
 
@@ -186,6 +210,7 @@ export default function App() {
             <button className="btn" onClick={() => excelInput.current?.click()}>New from Excel</button>
             <button className="btn" onClick={() => jsonInput.current?.click()}>Open</button>
             <button className="btn" onClick={() => downloadJson(survey)}>Save file</button>
+            <button className="btn" onClick={() => setConfirmStartOver(true)} title="Close this survey and clear the autosaved copy">Start over</button>
             <button className="btn" onClick={() => setFitKey((k) => k + 1)}>Fit map</button>
             <button className="btn primary" onClick={() => setPreview(true)}>Preview client view</button>
           </>
@@ -197,7 +222,44 @@ export default function App() {
         )}
         {error && <span className="error">{error}</span>}
         {notice && editable && <span className={notice.warn ? 'notice warn' : 'notice'}>{notice.text}</span>}
+        {restoredAt && editable && !notice && (
+          <span className="notice warn">
+            Restored autosaved work{restoredAt !== 'earlier' ? ` from ${new Date(restoredAt).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}.{' '}
+            <button className="link-btn" onClick={() => setRestoredAt(null)}>Dismiss</button>
+          </span>
+        )}
       </div>
+      {pendingNew && (
+        <ConfirmDialog
+          title="Start a new survey?"
+          confirmLabel="Replace survey"
+          onCancel={() => setPendingNew(null)}
+          onConfirm={() => {
+            installSurvey(pendingNew.survey);
+            setPendingNew(null);
+          }}
+        >
+          <p>
+            Replace the current survey with <strong>{pendingNew.fileName}</strong> ({pendingNew.survey.buildings.length} buildings)? Pins and photos
+            will not carry over. To keep them, cancel and use <strong>Update from Excel</strong> instead.
+          </p>
+        </ConfirmDialog>
+      )}
+      {confirmStartOver && (
+        <ConfirmDialog
+          title="Start over?"
+          confirmLabel="Close survey"
+          onCancel={() => setConfirmStartOver(false)}
+          onConfirm={() => {
+            resetSurvey(null);
+            saveDraft(null);
+            setRestoredAt(null);
+            setConfirmStartOver(false);
+          }}
+        >
+          <p>This closes the survey and clears the autosaved copy in this browser. Use <strong>Save file</strong> first if you want to keep it.</p>
+        </ConfirmDialog>
+      )}
       {pending && <MergeDialog fileName={pending.fileName} summary={pending.summary} onApply={applyMerge} onCancel={() => setPending(null)} />}
       <div className="body">
         {editable && (
@@ -209,13 +271,14 @@ export default function App() {
             onSurvey={(patch) => setSurvey((s) => s && { ...s, ...patch })}
             onBuilding={patchBuilding}
             onUnit={patchUnit}
-            onSetSubject={(id) =>
-              setSurvey((s) => s && { ...s, buildings: s.buildings.map((b) => ({ ...b, isSubject: b.id === id })) }, { commit: true })
+            onToggleSubject={(id) =>
+              setSurvey((s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === id ? { ...b, isSubject: !b.isSubject } : b)) }, { commit: true })
             }
             onStartPlace={setPlacingId}
             onDelete={(id) => {
               setSurvey((s) => s && { ...s, buildings: s.buildings.filter((b) => b.id !== id) }, { commit: true });
               setSelectedId(null);
+              setNotice({ text: 'Building removed. Use Undo to restore it.' });
             }}
           />
         )}

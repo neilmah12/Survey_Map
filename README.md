@@ -32,6 +32,15 @@ Phase A (re-upload and Excel round trip):
   A re-upload then places every pin automatically.
 - Undo / redo (buttons, Ctrl+Z, Ctrl+Shift+Z) for edits, pin moves and merges.
 
+Unit groups and subjects:
+
+- Unit type filter groups by bedrooms by default. "Split by" adds bathrooms (so 2 bed / 1 bath and
+  2 bed / 2 bath are separate), renovation level (from a trailing "- Partial Reno" in the unit type)
+  and townhome versus apartment. A split is only offered when the data has at least two values.
+- Townhome or apartment comes from the building's Property type setting, then a "TH" or "Townhome"
+  marker in the unit type, the building name, the survey title, and finally the rest of the survey.
+- Several buildings can be marked as the subject (for example a portfolio). Rings draw around each.
+
 Planned: Firebase Auth (3-user allowlist), Firestore drafts, published read-only snapshots at
 unguessable URLs, PDF/image export.
 

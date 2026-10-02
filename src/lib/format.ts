@@ -1,4 +1,5 @@
 import type { Building, Metric, Unit } from '../types';
+import { visibleUnits, type UnitFilter } from './groups';
 import { parseCharge } from './parse';
 
 export const money = (n: number) => `$${Math.round(n).toLocaleString('en-CA')}`;
@@ -29,29 +30,15 @@ export function formatMetric(v: number, m: Metric): string {
   return m === 'psf' ? psf(v) : money(v);
 }
 
-export function visibleUnits(b: Building, beds: number[]): Unit[] {
-  return beds.length === 0 ? b.units : b.units.filter((u) => u.beds != null && beds.includes(u.beds));
-}
-
 /** Pin label: a single value or "min - max" over the visible units. */
-export function pinLabel(b: Building, beds: number[], m: Metric): string {
-  const vals = visibleUnits(b, beds)
+export function pinLabel(b: Building, f: UnitFilter, m: Metric): string {
+  const vals = visibleUnits(b, f)
     .map((u) => metricValue(u, m))
     .filter((v): v is number => v != null);
   if (vals.length === 0) return 'n/a';
   const lo = Math.min(...vals);
   const hi = Math.max(...vals);
   return lo === hi ? formatMetric(lo, m) : `${formatMetric(lo, m)} - ${formatMetric(hi, m)}`;
-}
-
-export function bedLabel(n: number): string {
-  return n === 0 ? 'Studio' : `${n} Bed`;
-}
-
-export function allBeds(buildings: Building[]): number[] {
-  const set = new Set<number>();
-  for (const b of buildings) for (const u of b.units) if (u.beds != null) set.add(u.beds);
-  return [...set].sort((a, b) => a - b);
 }
 
 /** Accepts "53.5461, -113.4938" (Google Maps copy format) and returns [lng, lat]. */

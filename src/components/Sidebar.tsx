@@ -12,7 +12,7 @@ interface Props {
   onSurvey: (patch: Partial<Survey>) => void;
   onBuilding: (id: string, patch: Partial<Building>) => void;
   onUnit: (buildingId: string, unitId: string, patch: Partial<Unit>) => void;
-  onSetSubject: (id: string) => void;
+  onToggleSubject: (id: string) => void;
   onStartPlace: (id: string | null) => void;
   onDelete: (id: string) => void;
 }
@@ -116,6 +116,14 @@ function Editor({ b, p }: { b: Building; p: Props }) {
       <div className="editor-title">Edit building</div>
       <Field label="Name" value={b.name} onChange={(v) => p.onBuilding(b.id, { name: v })} wide />
       <Field label="Address" value={b.address} onChange={(v) => p.onBuilding(b.id, { address: v })} wide />
+ <label className="field wide">
+        <span>Property type (used when splitting unit types)</span>
+        <select value={b.propertyType ?? ''} onChange={(e) => p.onBuilding(b.id, { propertyType: (e.target.value || undefined) as Building['propertyType'] })}>
+          <option value="">Auto-detect</option>
+          <option value="Townhome">Townhome</option>
+          <option value="Apartment">Apartment</option>
+        </select>
+      </label>
       <div className="row2">
         <Field label="Year built" value={b.yearBuilt} onChange={(v) => p.onBuilding(b.id, { yearBuilt: v })} />
         <Field label="Renovated" value={b.yearRenovated} onChange={(v) => p.onBuilding(b.id, { yearRenovated: v })} />
@@ -124,8 +132,8 @@ function Editor({ b, p }: { b: Building; p: Props }) {
         <button className={p.placingId === b.id ? 'btn on' : 'btn'} onClick={() => p.onStartPlace(p.placingId === b.id ? null : b.id)}>
           {p.placingId === b.id ? 'Click the map...' : b.lngLat ? 'Re-place on map' : 'Place on map'}
         </button>
-        <button className="btn" disabled={b.isSubject} onClick={() => p.onSetSubject(b.id)}>
-          {b.isSubject ? 'Subject property' : 'Make subject'}
+        <button className={b.isSubject ? 'btn on' : 'btn'} onClick={() => p.onToggleSubject(b.id)} title="Several buildings can be the subject, for example a portfolio">
+          {b.isSubject ? 'Subject property (click to remove)' : 'Mark as subject'}
         </button>
       </div>
       <CoordInput b={b} onBuilding={p.onBuilding} />
@@ -153,7 +161,7 @@ function Editor({ b, p }: { b: Building; p: Props }) {
           </div>
         ))}
       </div>
-      <button className="btn danger" onClick={() => confirm(`Remove ${b.name} from this survey?`) && p.onDelete(b.id)}>
+      <button className="btn danger" onClick={() => p.onDelete(b.id)}>
         Remove building
       </button>
     </div>
