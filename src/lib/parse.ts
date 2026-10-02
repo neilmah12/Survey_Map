@@ -121,7 +121,8 @@ function parseTitle(ws: ExcelJS.Worksheet): { title: string; location: string } 
  * Parses a rental survey workbook. Layout assumptions (shared by all current templates):
  * row 1 is a title block, row 2 is headers, building-level cells are merged or blank
  * across a building's unit rows, the subject property row is filled with a dark colour,
- * and the first fully blank row ends the table (summary tables below are ignored).
+ * and the table ends at the first fully blank row or the next header band (summary or
+ * comparison tables below it are ignored).
  */
 export async function parseSurvey(data: ArrayBuffer): Promise<Survey> {
   const wb = new ExcelJS.Workbook();
@@ -169,12 +170,25 @@ export async function parseSurvey(data: ArrayBuffer): Promise<Survey> {
     return true;
   };
 
+  /** A dark-filled row with text but no numbers is a second table's header, not a building (the subject row has rents). */
+  const isHeaderBand = (r: number) => {
+    let dark = false;
+    let hasText = false;
+    for (let c = 1; c <= lastCol; c++) {
+      const cell = ws.getCell(r, c);
+      if (c <= 4 && isDarkFill(cell)) dark = true;
+      if (typeof raw(cell) === 'number') return false;
+      if (text(cell)) hasText = true;
+    }
+    return dark && hasText;
+  };
+
   const buildings: Building[] = [];
   let current: Building | null = null;
   let uid = 0;
 
   for (let r = FIRST_DATA_ROW; r <= ws.rowCount; r++) {
-    if (rowIsBlank(r)) break;
+    if (rowIsBlank(r) || isHeaderBand(r)) break;
 
     const name = getText(r, 'name');
     if (name && (!current || name !== current.name)) {

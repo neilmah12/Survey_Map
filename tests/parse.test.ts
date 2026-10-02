@@ -68,6 +68,44 @@ describe('parseSurvey', () => {
   });
 });
 
+describe('more survey layouts', () => {
+  it('parses an apartment survey with a studio and a subject', async () => {
+    const s = await load('castle-harbour-apartments.xlsx');
+    expect(s.title).toBe('Castle Harbour');
+    expect(s.buildings.map((b) => [b.name, b.units.length])).toEqual([
+      ['Beau Mills Apartments', 2],
+      ['Hampton Court', 2],
+      ['Warwick Apartments', 1],
+      ['Meadow Mews', 2],
+      ['Castle Harbour', 3],
+    ]);
+    expect(s.buildings.filter((b) => b.isSubject).map((b) => b.name)).toEqual(['Castle Harbour']);
+    expect(s.buildings[4].units.map((u) => u.beds)).toEqual([0, 1, 2]);
+  });
+
+  it('parses townhomes with fractional baths and a typo-ed subject name', async () => {
+    const s = await load('glenora-townhomes.xlsx');
+    expect(s.buildings).toHaveLength(6);
+    expect(s.buildings.reduce((n, b) => n + b.units.length, 0)).toBe(7);
+    expect(s.buildings.filter((b) => b.isSubject)).toHaveLength(1);
+    expect(s.buildings.every((b) => b.units.every((u) => u.beds === 2))).toBe(true);
+  });
+
+  it('stops at a second table directly below the buildings (Boardwalk portfolio)', async () => {
+    const s = await load('boardwalk-portfolio.xlsx');
+    expect(s.title).toBe('Boardwalk Portfolio 2026');
+    expect(s.buildings).toHaveLength(20);
+    expect(s.buildings.reduce((n, b) => n + b.units.length, 0)).toBe(39);
+    expect(s.buildings.some((b) => b.isSubject)).toBe(false); // the comparison header must not become a subject
+    expect(s.buildings.map((b) => b.name)).not.toContain('Unit Type');
+    expect(s.buildings[0].units.map((u) => u.type)).toEqual(['1 Bedroom/1 Bath - Basic', '2 Bedroom/1 Bath - Partial Reno']);
+    const lou = s.buildings.find((b) => b.name === 'Lou Apartments')!;
+    expect(lou.units.map((u) => u.beds)).toEqual([0, 1, 2]);
+    const th = s.buildings.find((b) => b.name === 'Cavell Ridge Townhomes')!;
+    expect(th.units.map((u) => u.beds)).toEqual([2, 3]);
+  });
+});
+
 describe('helpers', () => {
   it('parses bedroom counts', () => {
     expect(parseBeds('3 Bed/2.5 Bath -Main Floor Rear')).toBe(3);

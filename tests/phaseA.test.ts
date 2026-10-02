@@ -7,7 +7,14 @@ import { exportWithCoordinates } from '../src/lib/exportXlsx';
 import { mergeSurvey, norm } from '../src/lib/merge';
 import type { Survey } from '../src/types';
 
-const FILES = ['clareview-townhomes.xlsx', 'churchill-apartments.xlsx', 'river-valley-townhomes.xlsx'];
+const FILES = [
+  'clareview-townhomes.xlsx',
+  'churchill-apartments.xlsx',
+  'river-valley-townhomes.xlsx',
+  'castle-harbour-apartments.xlsx',
+  'glenora-townhomes.xlsx',
+  'boardwalk-portfolio.xlsx',
+];
 
 function buf(name: string): ArrayBuffer {
   const b = readFileSync(new URL(`./fixtures/${name}`, import.meta.url));
