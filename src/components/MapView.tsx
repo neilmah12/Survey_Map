@@ -79,21 +79,22 @@ function popupContent(b: Building, view: ViewSettings): HTMLElement {
   if (facts.length) root.append(el('div', 'popup-sub', facts.join(' | ')));
 
   const units = visibleUnits(b, view.beds);
+  // Only show columns that have data for at least one visible unit.
+  const rows = units.map((u) => ({ u, p: unitPsf(u), n: unitNet(u) }));
+  const cols = [
+    { h: 'Unit', show: true, cell: (r: (typeof rows)[number]) => el('td', undefined, r.u.type) },
+    { h: 'SF', show: rows.some((r) => r.u.sf), cell: (r: (typeof rows)[number]) => el('td', 'num', r.u.sf ? r.u.sf.toLocaleString('en-CA') : '-') },
+    { h: 'Rent', show: true, cell: (r: (typeof rows)[number]) => el('td', 'num', r.u.rate != null ? money(r.u.rate) : '-') },
+    { h: 'PSF', show: rows.some((r) => r.p != null), cell: (r: (typeof rows)[number]) => el('td', 'num', r.p != null ? psf(r.p) : '-') },
+    { h: 'Net', show: rows.some((r) => r.n != null), cell: (r: (typeof rows)[number]) => el('td', 'num', r.n != null ? money(r.n) : '-') },
+  ].filter((c) => c.show);
   const table = el('table', 'popup-table');
   const head = el('tr');
-  for (const h of ['Unit', 'SF', 'Rent', 'PSF', 'Net']) head.append(el('th', undefined, h));
+  for (const c of cols) head.append(el('th', undefined, c.h));
   table.append(head);
-  for (const u of units) {
+  for (const r of rows) {
     const tr = el('tr');
-    const p = unitPsf(u);
-    const n = unitNet(u);
-    tr.append(
-      el('td', undefined, u.type),
-      el('td', 'num', u.sf ? u.sf.toLocaleString('en-CA') : '-'),
-      el('td', 'num', u.rate != null ? money(u.rate) : '-'),
-      el('td', 'num', p != null ? psf(p) : '-'),
-      el('td', 'num', n != null ? money(n) : '-'),
-    );
+    for (const c of cols) tr.append(c.cell(r));
     table.append(tr);
   }
   root.append(table);

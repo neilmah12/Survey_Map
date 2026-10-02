@@ -64,6 +64,15 @@ function ImageField({ b, onBuilding }: { b: Building; onBuilding: Props['onBuild
   const img = b.imageUrl ?? '';
   const isData = img.startsWith('data:');
   const preview = safeUrl(img, true);
+  // Stay collapsed until there is something to show or the user asks to add it.
+  const [open, setOpen] = useState(Boolean(img || b.url));
+  if (!open) {
+    return (
+      <button className="link-btn" onClick={() => setOpen(true)}>
+        + Add photo or listing link
+      </button>
+    );
+  }
   return (
     <div>
       <div className="editor-title">Photo and listing</div>
@@ -126,7 +135,7 @@ function Editor({ b, p }: { b: Building; p: Props }) {
         </div>
       )}
 
-      <ImageField b={b} onBuilding={p.onBuilding} />
+      <ImageField key={b.id} b={b} onBuilding={p.onBuilding} />
 
       <div className="editor-title">Units</div>
       <div className="units">
