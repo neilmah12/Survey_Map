@@ -23,6 +23,13 @@ export default function App() {
 
   useEffect(() => saveDraft(survey), [survey]);
 
+  useEffect(() => {
+    if (!preview) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPreview(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [preview]);
+
   const patchBuilding = useCallback((id: string, patch: Partial<Building>) => {
     setSurvey((s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === id ? { ...b, ...patch } : b)) });
   }, []);
@@ -92,7 +99,7 @@ export default function App() {
     <div className={editable ? 'app edit' : 'app view'}>
       {hiddenInputs}
       <Header survey={survey} />
-      <div className="toolbar">
+      <div className={editable ? 'toolbar' : 'toolbar preview'}>
         {editable ? (
           <>
             <button className="btn" onClick={() => excelInput.current?.click()}>Upload Excel</button>
@@ -102,7 +109,10 @@ export default function App() {
             <button className="btn primary" onClick={() => setPreview(true)}>Preview client view</button>
           </>
         ) : (
-          <button className="btn" onClick={() => setPreview(false)}>Back to editing</button>
+          <>
+            <button className="btn primary" onClick={() => setPreview(false)}>Back to editing</button>
+            <span>Client preview: this is what the client will see. Press Esc to return.</span>
+          </>
         )}
         {error && <span className="error">{error}</span>}
       </div>

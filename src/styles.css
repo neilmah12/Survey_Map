@@ -24,8 +24,9 @@ button, input { font: inherit; }
 .asof { font-size: 13px; color: var(--muted); white-space: nowrap; }
 
 .toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 20px; background: #fff; border-bottom: 1px solid var(--line); }
-.app.view .toolbar { display: none; }
-.app.view[data-embed] .toolbar { display: none; }
+/* Shown only in the editor's client preview; the published client page has no toolbar. */
+.toolbar.preview { order: -1; background: #fff4e5; border-bottom: 1px solid #f0d9b0; padding: 5px 20px; font-size: 13px; color: #7a4a00; }
+.toolbar.preview .btn { padding: 3px 12px; }
 .body { flex: 1; display: flex; min-height: 0; }
 .stage { position: relative; flex: 1; min-width: 0; }
 .map { position: absolute; inset: 0; }
