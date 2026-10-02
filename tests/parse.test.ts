@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseCharge, parseBeds, parseSurvey } from '../src/lib/parse';
+import { normalizeUnitType, parseCharge, parseBeds, parseSurvey } from '../src/lib/parse';
 
 async function load(name: string) {
   const buf = readFileSync(new URL(`./fixtures/${name}`, import.meta.url));
@@ -103,6 +103,24 @@ describe('more survey layouts', () => {
     expect(lou.units.map((u) => u.beds)).toEqual([0, 1, 2]);
     const th = s.buildings.find((b) => b.name === 'Cavell Ridge Townhomes')!;
     expect(th.units.map((u) => u.beds)).toEqual([2, 3]);
+  });
+});
+
+describe('studio wording', () => {
+  it('uses Studio for every bachelor spelling', () => {
+    expect(normalizeUnitType('Bachelor - Basic')).toBe('Studio - Basic');
+    expect(normalizeUnitType('Bachelor')).toBe('Studio');
+    expect(normalizeUnitType('Bachelor/Studio')).toBe('Studio');
+    expect(normalizeUnitType('Studio/Bachelor')).toBe('Studio');
+    expect(normalizeUnitType('Bach Suite')).toBe('Studio Suite');
+    expect(normalizeUnitType('Studios')).toBe('Studios');
+    expect(normalizeUnitType('2 Bed/1 Bath')).toBe('2 Bed/1 Bath');
+  });
+  it('applies when a sheet is read', async () => {
+    const castle = await load('castle-harbour-apartments.xlsx');
+    expect(castle.buildings[4].units[0].type).toBe('Studio');
+    const bw = await load('boardwalk-portfolio.xlsx');
+    expect(bw.buildings.find((b) => b.name === 'Lou Apartments')!.units[0].type).toBe('Studio - Basic');
   });
 });
 

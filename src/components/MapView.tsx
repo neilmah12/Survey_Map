@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from '../lib/workerUrl';
 import type { Building, LngLat, Survey, ViewSettings } from '../types';
 import { safeUrl } from '../lib/safeUrl';
+import { normalizeUnitType } from '../lib/parse';
 import { circleCoords, ringTop } from '../lib/geo';
 import { money, pinLabel, psf, unitNet, unitPsf } from '../lib/format';
 import { kindContext, visibleUnits, type UnitFilter } from '../lib/groups';
@@ -83,7 +84,7 @@ function popupContent(b: Building, filter: UnitFilter): HTMLElement {
   // Only show columns that have data for at least one visible unit.
   const rows = units.map((u) => ({ u, p: unitPsf(u), n: unitNet(u) }));
   const cols = [
-    { h: 'Unit', show: true, cell: (r: (typeof rows)[number]) => el('td', undefined, r.u.type) },
+    { h: 'Unit', show: true, cell: (r: (typeof rows)[number]) => el('td', undefined, normalizeUnitType(r.u.type)) },
     { h: 'SF', show: rows.some((r) => r.u.sf), cell: (r: (typeof rows)[number]) => el('td', 'num', r.u.sf ? r.u.sf.toLocaleString('en-CA') : '-') },
     { h: 'Rent', show: true, cell: (r: (typeof rows)[number]) => el('td', 'num', r.u.rate != null ? money(r.u.rate) : '-') },
     { h: 'PSF', show: rows.some((r) => r.p != null), cell: (r: (typeof rows)[number]) => el('td', 'num', r.p != null ? psf(r.p) : '-') },

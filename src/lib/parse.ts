@@ -83,6 +83,13 @@ function num(cell: ExcelJS.Cell): number | null {
   return null;
 }
 
+/** One wording for the same thing: "Bachelor", "Bach" and "Bachelor/Studio" all become "Studio". */
+export function normalizeUnitType(s: string): string {
+  return s
+    .replace(/\b(?:bachelor|bach)s?\s*\/\s*studio\b|\bstudio\s*\/\s*(?:bachelor|bach)s?\b/gi, 'Studio')
+    .replace(/\b(?:bachelor|bach)s?\b/gi, 'Studio');
+}
+
 export function parseBeds(unitType: string): number | null {
   if (/studio|bachelor/i.test(unitType)) return 0;
   const m = unitType.match(/(\d+(?:\.\d+)?)\s*-?\s*(?:bed|bdrm|br\b)/i);
@@ -239,7 +246,7 @@ export async function parseSurvey(data: ArrayBuffer): Promise<Survey> {
     const unit: Unit = {
       id: `u${++uid}`,
       srcRow: r,
-      type: unitType,
+      type: normalizeUnitType(unitType),
       beds: parseBeds(unitType),
       sf: getNum(r, 'sf'),
       rate,

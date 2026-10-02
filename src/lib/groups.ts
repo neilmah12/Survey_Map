@@ -45,7 +45,8 @@ export function unitBedCat(u: Unit): string | null {
 
 export function unitBaths(u: Unit): number | null {
   const m = u.type.match(/(\d+(?:\.\d+)?)\s*-?\s*bath/i);
-  return m ? parseFloat(m[1]) : null;
+  if (m) return parseFloat(m[1]);
+  return unitBeds(u) === 0 ? 1 : null; // a studio has one bathroom even when the sheet does not say so
 }
 
 /** Bathroom category as shown on the filter chips: 1, 1.5, 2, 2.5 or 3+. */

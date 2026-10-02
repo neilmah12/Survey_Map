@@ -50,7 +50,9 @@ describe('bedroom and bathroom categories', () => {
     expect(cat('2 Bed/2 Bath')).toBe('2');
     expect(cat('3 Bed/2.5 Bath -Main Floor Rear')).toBe('2.5');
     expect(cat('4 Bed/3 Bath')).toBe('3+');
-    expect(cat('Bachelor - Basic')).toBeNull();
+    expect(cat('Bachelor - Basic')).toBe('1'); // a studio always counts as one bathroom
+    expect(cat('Studio')).toBe('1');
+    expect(cat('1 Bedroom')).toBeNull(); // only studios are assumed
     expect(unitBaths(unit('2 Bedroom/1.5 Bath + unfinished basement'))).toBe(1.5);
   });
 
@@ -89,6 +91,14 @@ describe('combining filters', () => {
     expect(rents({ beds: ['2 + Den'] })).toEqual([1900]);
     expect(rents({ beds: ['2 Beds', '2 + Den'], baths: ['2'] })).toEqual([1700, 1900]);
     expect(rents({ beds: ['1 Bed', '2 + Den'] })).toEqual([1000, 1900]);
+  });
+  it('a studio counts as one bathroom in the bathroom filter', () => {
+    const s = building('Studios', [unit('Studio', 900), unit('Bachelor - Basic', 950), unit('1 Bed/1 Bath', 1100), unit('2 Bed/2 Bath', 1700)]);
+    const r = (f: Partial<UnitFilters>) => visibleUnits(s, filter(f)).map((u) => u.rate);
+    expect(r({ baths: ['1'] })).toEqual([900, 950, 1100]);
+    expect(r({ beds: ['Studio'], baths: ['1'] })).toEqual([900, 950]);
+    expect(r({ beds: ['Studio'], baths: ['2'] })).toEqual([]);
+    expect(r({ beds: ['Studio'] })).toEqual([900, 950]);
   });
   it('a combination with no match leaves nothing visible', () => {
     expect(rents({ beds: ['1 Bed'], baths: ['2.5'] })).toEqual([]);

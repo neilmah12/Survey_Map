@@ -1,5 +1,6 @@
 import type { Building, Survey } from '../types';
 import { money } from './format';
+import { normalizeUnitType } from './parse';
 
 const WORDS: Record<string, string> = {
   street: 'st', avenue: 'ave', road: 'rd', drive: 'dr', boulevard: 'blvd', crescent: 'cres', lane: 'ln',
@@ -33,8 +34,8 @@ export interface MergeSummary {
 
 function describeUnitChanges(oldB: Building, newB: Building): string[] {
   const out: string[] = [];
-  const oldByType = new Map(oldB.units.map((u) => [norm(u.type), u]));
-  const newByType = new Map(newB.units.map((u) => [norm(u.type), u]));
+  const oldByType = new Map(oldB.units.map((u) => [norm(normalizeUnitType(u.type)), u]));
+  const newByType = new Map(newB.units.map((u) => [norm(normalizeUnitType(u.type)), u]));
   for (const [k, nu] of newByType) {
     const ou = oldByType.get(k);
     if (!ou) {
