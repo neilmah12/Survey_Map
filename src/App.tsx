@@ -1,5 +1,5 @@
 import logo from './assets/avison-young-logo.png';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Building, LngLat, Survey, Unit, ViewSettings } from './types';
 import { parseSurvey } from './lib/parse';
 import { toBase64 } from './lib/base64';
@@ -9,6 +9,9 @@ import { downloadBlob, downloadJson, loadDraft, saveDraft } from './lib/store';
 import { NO_FILTERS } from './lib/groups';
 import { useUndoable } from './hooks/useUndoable';
 import MergeDialog from './components/MergeDialog';
+import ClientViewer from './components/ClientViewer';
+import { embedSnapshot, snapshotToSurvey, snapshotToView, summarizeSnapshot, toClientSnapshot, type SnapshotResult } from './lib/snapshot';
+import { getClientTemplate } from './lib/clientTemplate';
 import ConfirmDialog from './components/ConfirmDialog';
 import Header from './components/Header';
 import Controls, { DEFAULT_RINGS } from './components/Controls';
@@ -39,6 +42,8 @@ export default function App() {
   const mergeInput = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<ViewSettings>(DEFAULT_VIEW);
   const [preview, setPreview] = useState(false);
+  const [clientExport, setClientExport] = useState<SnapshotResult | null>(null);
+  const clientTemplate = useMemo(() => getClientTemplate(), []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [placingId, setPlacingId] = useState<string | null>(null);
   const [fitKey, setFitKey] = useState(0);
@@ -215,6 +220,18 @@ export default function App() {
     </>
   );
 
+  // The preview shows the same snapshot that the client file contains, so the two cannot differ.
+  const previewData = useMemo(() => (preview && survey ? toClientSnapshot(survey, view) : null), [preview, survey, view]);
+
+  const exportClientFile = () => {
+    if (!clientExport || !clientTemplate) return;
+    const html = embedSnapshot(clientTemplate, clientExport.snapshot);
+    const base = (survey?.title ?? 'survey').replace(/[^\w.-]+/g, '_');
+    downloadBlob(new Blob([html], { type: 'text/html' }), `${base}_client.html`);
+    setNotice({ text: `Client file saved: ${base}_client.html` });
+    setClientExport(null);
+  };
+
   if (!survey) {
     return (
       <div className="empty">
@@ -231,7 +248,24 @@ export default function App() {
     );
   }
 
-  const editable = !preview;
+  if (previewData) {
+    return (
+      <ClientViewer
+        key="preview"
+        survey={snapshotToSurvey(previewData.snapshot)}
+        initialView={snapshotToView(previewData.snapshot)}
+        banner={
+          <div className="toolbar preview">
+            <button className="btn primary" onClick={() => setPreview(false)}>Back to editing</button>
+            <span>Client preview: exactly what the client file contains. Press Esc to return.</span>
+            {previewData.unplaced.length > 0 && <span className="notice warn">Not shown (no pin yet): {previewData.unplaced.join(', ')}</span>}
+          </div>
+        }
+      />
+    );
+  }
+
+  const editable = true;
   return (
     <div className={editable ? 'app edit' : 'app view'}>
       {hiddenInputs}
@@ -251,7 +285,16 @@ export default function App() {
             <button className="btn" onClick={() => downloadJson(survey)}>Save file</button>
             <button className="btn" onClick={() => setConfirmStartOver(true)} title="Close this survey and clear the autosaved copy">Start over</button>
             <button className="btn" onClick={() => setFitKey((k) => k + 1)}>Fit map</button>
-            <button className="btn primary" onClick={() => setPreview(true)}>Preview client view</button>
+            <span className="sep" />
+            <button className="btn" onClick={() => setPreview(true)}>Preview client view</button>
+            <button
+              className="btn primary"
+              onClick={() => setClientExport(toClientSnapshot(survey, view))}
+              disabled={!clientTemplate}
+              title={clientTemplate ? 'Save a read-only copy of the map to send to a client' : 'Not available in this build. Use the file made by npm run build:single'}
+            >
+              Export client file
+            </button>
           </>
         ) : (
           <>
@@ -284,6 +327,26 @@ export default function App() {
           </p>
         </ConfirmDialog>
       )}
+      {clientExport && (() => {
+        const sum = summarizeSnapshot(clientExport);
+        const v = clientExport.snapshot.view;
+        const filtersOn = Object.values(v.filters).some((a) => a.length > 0);
+        return (
+          <ConfirmDialog title="Export client file" confirmLabel="Save client file" onCancel={() => setClientExport(null)} onConfirm={exportClientFile}>
+            <p>
+              The file opens in any browser with no login and shows <strong>{sum.buildings} buildings ({sum.units} units)</strong>
+              {sum.photos ? ` and ${sum.photos} photo${sum.photos === 1 ? '' : 's'}` : ''}. It starts on {v.metric === 'rate' ? 'base rent' : v.metric === 'psf' ? 'rent PSF' : 'net rent'}
+              {v.rings ? ' with distance rings on' : ''}{filtersOn ? ', with your current unit filters applied' : ''}. Clients can change the metric and filters but cannot edit anything.
+            </p>
+            {sum.unplaced.length > 0 && (
+              <p className="notice warn">Left out because they have no pin yet: {sum.unplaced.join(', ')}.</p>
+            )}
+            {!sum.hasSubject && <p className="notice warn">No subject property is marked, so distance rings are unavailable.</p>}
+            {sum.unitsWithoutRate > 0 && <p className="notice warn">{sum.unitsWithoutRate} unit{sum.unitsWithoutRate === 1 ? ' has' : 's have'} no rent and will show as n/a.</p>}
+            <p className="hint">Never included: notes, contact details, unrecognised columns, and your Excel workbook.</p>
+          </ConfirmDialog>
+        );
+      })()}
       {needRows && (
         <ConfirmDialog title="Your sheet needs more room" confirmLabel="Got it" hideCancel onCancel={() => setNeedRows(null)} onConfirm={() => setNeedRows(null)}>
           <p>

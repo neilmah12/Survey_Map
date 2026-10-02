@@ -1,5 +1,5 @@
 import type { Building, Survey, Unit } from '../types';
-import { parseBeds } from './parse';
+import { parseBeds } from './unitText';
 
 /**
  * Unit filters. Each detail (bedrooms, bathrooms, renovation, property type) is its own multi-select;

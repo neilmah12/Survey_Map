@@ -1,6 +1,6 @@
 import type { Building, Survey } from '../types';
 import { money } from './format';
-import { normalizeUnitType } from './parse';
+import { normalizeUnitType } from './unitText';
 
 const WORDS: Record<string, string> = {
   street: 'st', avenue: 'ave', road: 'rd', drive: 'dr', boulevard: 'blvd', crescent: 'cres', lane: 'ln',

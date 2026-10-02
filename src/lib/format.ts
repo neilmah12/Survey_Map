@@ -1,6 +1,6 @@
 import type { Building, Metric, Unit } from '../types';
 import { visibleUnits, type UnitFilter } from './groups';
-import { parseCharge } from './parse';
+import { parseCharge } from './unitText';
 
 export const money = (n: number) => `$${Math.round(n).toLocaleString('en-CA')}`;
 export const psf = (n: number) => `$${n.toFixed(2)}`;

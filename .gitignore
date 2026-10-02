@@ -6,3 +6,4 @@ dist
 dist-single
 .worker-build
 src/generated
+dist-client

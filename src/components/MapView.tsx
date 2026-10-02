@@ -4,10 +4,10 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from '../lib/workerUrl';
 import type { Building, LngLat, Survey, ViewSettings } from '../types';
 import { safeUrl } from '../lib/safeUrl';
-import { normalizeUnitType } from '../lib/parse';
+import { normalizeUnitType } from '../lib/unitText';
 import { circleCoords, ringTop } from '../lib/geo';
 import { money, pinLabel, psf, unitNet, unitPsf } from '../lib/format';
-import { kindContext, visibleUnits, type UnitFilter } from '../lib/groups';
+import { kindContext, unitKind, visibleUnits, type UnitFilter } from '../lib/groups';
 
 maplibregl.setWorkerUrl(workerUrl);
 
@@ -73,10 +73,12 @@ function popupContent(b: Building, filter: UnitFilter): HTMLElement {
   root.append(el('div', 'popup-title', b.name));
   if (b.isSubject) root.append(el('div', 'popup-tag', 'Subject property'));
   root.append(el('div', 'popup-sub', b.address));
+  // Stacked / non-stacked only matters for townhomes.
+  const townhome = b.units.some((u) => unitKind(u, b, filter.ctx) === 'Townhome');
   const facts = [
     b.yearBuilt && `Built ${b.yearBuilt}`,
     b.yearRenovated && `Renovated ${b.yearRenovated}`,
-    b.configuration,
+    townhome && b.configuration,
   ].filter(Boolean);
   if (facts.length) root.append(el('div', 'popup-sub', facts.join(' | ')));
 
