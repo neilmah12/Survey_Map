@@ -4,11 +4,11 @@ import type { Building, LngLat, Survey, Unit, ViewSettings } from './types';
 import { parseSurvey } from './lib/parse';
 import { downloadJson, loadDraft, saveDraft } from './lib/store';
 import Header from './components/Header';
-import Controls from './components/Controls';
+import Controls, { DEFAULT_RINGS } from './components/Controls';
 import Sidebar from './components/Sidebar';
 import MapView from './components/MapView';
 
-const DEFAULT_VIEW: ViewSettings = { metric: 'rate', beds: [], rings: true, ringsKm: [0.5, 1, 2] };
+const DEFAULT_VIEW: ViewSettings = { metric: 'rate', beds: [], rings: false, ringsKm: DEFAULT_RINGS };
 
 export default function App() {
   const [survey, setSurvey] = useState<Survey | null>(() => loadDraft());

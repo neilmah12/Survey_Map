@@ -29,6 +29,8 @@ export interface Building {
   propertyNotes: string;
   contact: string;
   url: string;
+  /** Photo shown in the popup: an http(s) image address or an embedded data URL. */
+  imageUrl?: string;
   units: Unit[];
 }
 

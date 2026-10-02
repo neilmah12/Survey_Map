@@ -5,7 +5,7 @@ type Field =
   | 'name' | 'configuration' | 'yearBuilt' | 'yearRenovated' | 'address'
   | 'unitType' | 'sf' | 'rate' | 'psf' | 'parking' | 'utilities'
   | 'incentive' | 'netRate' | 'netPsf' | 'notes' | 'propertyNotes'
-  | 'contact' | 'url' | 'lat' | 'lng';
+  | 'contact' | 'url' | 'image' | 'lat' | 'lng';
 
 /** Normalised header text -> canonical field. Add aliases here as sheets vary. */
 const ALIASES: Record<string, Field> = {
@@ -27,6 +27,7 @@ const ALIASES: Record<string, Field> = {
   propertynotes: 'propertyNotes',
   contact: 'contact', contactinfo: 'contact',
   url: 'url', link: 'url',
+  image: 'image', imageurl: 'image', photo: 'image', photourl: 'image', picture: 'image',
   latitude: 'lat', lat: 'lat',
   longitude: 'lng', lng: 'lng', long: 'lng', lon: 'lng',
 };
@@ -53,6 +54,16 @@ function raw(cell: ExcelJS.Cell): unknown {
     if (v instanceof Date) return v;
   }
   return v;
+}
+
+/** Link target of a cell: its hyperlink if it has one, otherwise its text. */
+function linkText(cell: ExcelJS.Cell): string {
+  const v = cell.value as unknown;
+  if (v && typeof v === 'object' && !isMergedFollower(cell)) {
+    const h = (v as { hyperlink?: unknown }).hyperlink;
+    if (typeof h === 'string' && h) return h;
+  }
+  return text(cell);
 }
 
 function text(cell: ExcelJS.Cell): string {
@@ -140,6 +151,10 @@ export async function parseSurvey(data: ArrayBuffer): Promise<Survey> {
     const c = get(r, f);
     return c ? text(c) : '';
   };
+  const getLink = (r: number, f: Field) => {
+    const c = get(r, f);
+    return c ? linkText(c) : '';
+  };
   const getNum = (r: number, f: Field) => {
     const c = get(r, f);
     return c ? num(c) : null;
@@ -175,6 +190,7 @@ export async function parseSurvey(data: ArrayBuffer): Promise<Survey> {
         propertyNotes: '',
         contact: '',
         url: '',
+        imageUrl: '',
         units: [],
       };
       buildings.push(current);
@@ -192,7 +208,8 @@ export async function parseSurvey(data: ArrayBuffer): Promise<Survey> {
     // Building-level text may sit on any row of the group; keep the first non-empty value.
     current.propertyNotes ||= getText(r, 'propertyNotes');
     current.contact ||= getText(r, 'contact');
-    current.url ||= getText(r, 'url');
+    current.url ||= getLink(r, 'url');
+    current.imageUrl ||= getLink(r, 'image');
     if (!current.lngLat) {
       const lat = getNum(r, 'lat');
       const lng = getNum(r, 'lng');

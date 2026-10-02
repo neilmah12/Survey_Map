@@ -82,3 +82,33 @@ describe('helpers', () => {
     expect(parseCharge('100')).toBe(100);
   });
 });
+
+describe('image and link columns', () => {
+  it('reads an Image URL column and prefers hyperlink targets for the listing link', async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('S');
+    ws.getCell('A1').value = 'Rental Market Survey\nTest Survey\nEdmonton, AB';
+    ws.addRow(['Building Name', 'Address', 'Unit Type', 'Base Rental Rate', 'URL', 'Image URL']);
+    ws.addRow(['Alpha', '1 Main St', '2 Bed/1 Bath', 1800, { text: 'Listing', hyperlink: 'https://example.com/alpha' }, 'https://img.example.com/a.jpg']);
+    ws.addRow([null, null, '3 Bed/1 Bath', 2100]);
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    const s = await parseSurvey(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer);
+    expect(s.buildings).toHaveLength(1);
+    expect(s.buildings[0].url).toBe('https://example.com/alpha');
+    expect(s.buildings[0].imageUrl).toBe('https://img.example.com/a.jpg');
+    expect(s.buildings[0].units).toHaveLength(2);
+  });
+});
+
+describe('safeUrl', () => {
+  it('allows http(s) and embedded images only', async () => {
+    const { safeUrl } = await import('../src/lib/safeUrl');
+    expect(safeUrl('https://rf-images-prod-bcdn.rentfaster.ca/470242/slide.jpg')).toContain('https://');
+    expect(safeUrl('javascript:alert(1)')).toBe('');
+    expect(safeUrl('data:image/jpeg;base64,AAAA')).toBe('');
+    expect(safeUrl('data:image/jpeg;base64,AAAA', true)).not.toBe('');
+    expect(safeUrl('data:text/html;base64,AAAA', true)).toBe('');
+    expect(safeUrl(undefined)).toBe('');
+  });
+});

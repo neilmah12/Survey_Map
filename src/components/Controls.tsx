@@ -1,5 +1,47 @@
+import { useEffect, useRef, useState } from 'react';
 import type { Survey, ViewSettings, Metric } from '../types';
 import { METRIC_LABEL, allBeds, bedLabel } from '../lib/format';
+
+export const DEFAULT_RINGS = [0.5, 1, 2];
+
+/** Suggests a distance a little beyond the largest ring. */
+const nextRing = (rings: number[]) => (rings.length ? Math.round((Math.max(...rings) + 1) * 10) / 10 : 1);
+
+/** Editable ring distance. Keeps its own text so partial input like "1." is allowed; commits valid values. */
+function RingInput({ km, onCommit, onRemove }: { km: number; onCommit: (v: number) => void; onRemove: () => void }) {
+  const [text, setText] = useState(String(km));
+  const focused = useRef(false);
+  // Follow outside changes (reset, add), but never rewrite what the user is typing.
+  useEffect(() => {
+    if (!focused.current) setText(String(km));
+  }, [km]);
+  const commit = (raw: string) => {
+    const n = parseFloat(raw);
+    if (Number.isFinite(n) && n > 0 && n <= 50) onCommit(Math.round(n * 100) / 100);
+  };
+  return (
+    <span className="ring-item">
+      <input
+        inputMode="decimal"
+        aria-label="Ring distance in km"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          commit(e.target.value);
+        }}
+        onFocus={() => (focused.current = true)}
+        onBlur={() => {
+          focused.current = false;
+          setText(String(km));
+        }}
+      />
+      <span>km</span>
+      <button aria-label="Remove ring" onClick={onRemove}>
+        x
+      </button>
+    </span>
+  );
+}
 
 interface Props {
   survey: Survey;
@@ -45,25 +87,28 @@ export default function Controls({ survey, view, onChange, editable }: Props) {
       )}
 
       {hasSubject && (
-        <div className="control-group">
+        <div className="control-group rings">
           <label className="check">
             <input type="checkbox" checked={view.rings} onChange={(e) => onChange({ ...view, rings: e.target.checked })} />
             Distance rings from subject
           </label>
           {editable && view.rings && (
-            <input
-              className="rings-input"
-              aria-label="Ring distances in km"
-              defaultValue={view.ringsKm.join(', ')}
-              onBlur={(e) => {
-                const km = e.target.value
-                  .split(/[,\s]+/)
-                  .map(parseFloat)
-                  .filter((n) => n > 0 && n <= 50);
-                if (km.length) onChange({ ...view, ringsKm: km });
-              }}
-              title="Comma-separated distances in km"
-            />
+            <div className="ring-list">
+              {view.ringsKm.map((km, i) => (
+                <RingInput
+                  key={i}
+                  km={km}
+                  onCommit={(v) => onChange({ ...view, ringsKm: view.ringsKm.map((x, j) => (j === i ? v : x)) })}
+                  onRemove={() => onChange({ ...view, ringsKm: view.ringsKm.filter((_, j) => j !== i) })}
+                />
+              ))}
+              <button className="link-btn" onClick={() => onChange({ ...view, ringsKm: [...view.ringsKm, nextRing(view.ringsKm)] })}>
+                + Add ring
+              </button>
+              <button className="link-btn" onClick={() => onChange({ ...view, ringsKm: DEFAULT_RINGS })}>
+                Reset
+              </button>
+            </div>
           )}
         </div>
       )}

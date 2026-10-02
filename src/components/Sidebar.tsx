@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Building, Survey, Unit } from '../types';
 import { parseLatLng } from '../lib/format';
+import { fileToDataUrl } from '../lib/image';
+import { safeUrl } from '../lib/safeUrl';
 
 interface Props {
   survey: Survey;
@@ -56,6 +58,49 @@ function CoordInput({ b, onBuilding }: { b: Building; onBuilding: Props['onBuild
   );
 }
 
+function ImageField({ b, onBuilding }: { b: Building; onBuilding: Props['onBuilding'] }) {
+  const file = useRef<HTMLInputElement>(null);
+  const [err, setErr] = useState('');
+  const img = b.imageUrl ?? '';
+  const isData = img.startsWith('data:');
+  const preview = safeUrl(img, true);
+  return (
+    <div>
+      <div className="editor-title">Photo and listing</div>
+      <Field
+        label={isData ? 'Image (uploaded photo)' : 'Image URL'}
+        value={isData ? '' : img}
+        onChange={(v) => onBuilding(b.id, { imageUrl: v.trim() })}
+        wide
+      />
+      <Field label="Listing URL" value={b.url} onChange={(v) => onBuilding(b.id, { url: v.trim() })} wide />
+      {preview && <img className="thumb" src={preview} alt="" referrerPolicy="no-referrer" onError={() => setErr('This image address does not load')} onLoad={() => setErr('')} />}
+      {err && <div className="hint" style={{ color: '#b42318' }}>{err}</div>}
+      <div className="row-actions">
+        <input
+          ref={file}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (!f) return;
+            try {
+              onBuilding(b.id, { imageUrl: await fileToDataUrl(f) });
+              setErr('');
+            } catch {
+              setErr('Could not read that image');
+            }
+          }}
+        />
+        <button className="btn" onClick={() => file.current?.click()}>Upload photo</button>
+        {img && <button className="btn" onClick={() => onBuilding(b.id, { imageUrl: '' })}>Remove photo</button>}
+      </div>
+    </div>
+  );
+}
+
 function Editor({ b, p }: { b: Building; p: Props }) {
   return (
     <div className="editor">
@@ -80,6 +125,8 @@ function Editor({ b, p }: { b: Building; p: Props }) {
           {b.lngLat[1].toFixed(5)}, {b.lngLat[0].toFixed(5)} (drag the pin to adjust)
         </div>
       )}
+
+      <ImageField b={b} onBuilding={p.onBuilding} />
 
       <div className="editor-title">Units</div>
       <div className="units">

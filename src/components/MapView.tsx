@@ -3,6 +3,7 @@ import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from '../lib/workerUrl';
 import type { Building, LngLat, Survey, ViewSettings } from '../types';
+import { safeUrl } from '../lib/safeUrl';
 import { circleCoords, ringTop } from '../lib/geo';
 import { money, pinLabel, psf, unitNet, unitPsf, visibleUnits } from '../lib/format';
 
@@ -48,6 +49,25 @@ function pinElement(b: Building, label: string, selected: boolean): HTMLElement 
 
 function popupContent(b: Building, view: ViewSettings): HTMLElement {
   const root = el('div', 'popup');
+  const imgSrc = safeUrl(b.imageUrl, true);
+  const listing = safeUrl(b.url);
+  if (imgSrc) {
+    const img = document.createElement('img');
+    img.className = 'popup-img';
+    img.alt = b.name;
+    img.referrerPolicy = 'no-referrer';
+    img.loading = 'lazy';
+    img.addEventListener('error', () => img.remove());
+    if (listing) {
+      const a = document.createElement('a');
+      a.href = listing;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.append(img);
+      root.append(a);
+    } else root.append(img);
+    img.src = imgSrc;
+  }
   root.append(el('div', 'popup-title', b.name));
   if (b.isSubject) root.append(el('div', 'popup-tag', 'Subject property'));
   root.append(el('div', 'popup-sub', b.address));
@@ -87,6 +107,16 @@ function popupContent(b: Building, view: ViewSettings): HTMLElement {
   for (const [k, v] of lines) {
     const row = el('div', 'popup-line');
     row.append(el('strong', undefined, `${k}: `), document.createTextNode(v));
+    root.append(row);
+  }
+  if (listing) {
+    const row = el('div', 'popup-line');
+    const a = document.createElement('a');
+    a.href = listing;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = 'View listing';
+    row.append(a);
     root.append(row);
   }
   return root;
@@ -156,8 +186,11 @@ export default function MapView(p: Props) {
       if (!matches) continue;
       seen.add(b.id);
       const label = pinLabel(b, p.view.beds, p.view.metric);
-      const element = pinElement(b, label, b.id === p.selectedId);
-      markers.current.get(b.id)?.remove();
+      const element = pinElement(b, label, b.id === live.current.selectedId);
+      // Rebuilding a marker closes its popup, so remember and restore it.
+      const old = markers.current.get(b.id);
+      const wasOpen = old?.getPopup()?.isOpen() ?? false;
+      old?.remove();
       const marker = new maplibregl.Marker({ element, draggable: p.editable, anchor: 'bottom' })
         .setLngLat(b.lngLat)
         .setPopup(
@@ -171,6 +204,7 @@ export default function MapView(p: Props) {
         const ll = marker.getLngLat();
         live.current.onMove(b.id, [ll.lng, ll.lat]);
       });
+      if (wasOpen) marker.togglePopup();
       markers.current.set(b.id, marker);
     }
     for (const [id, m] of markers.current) {
@@ -179,7 +213,12 @@ export default function MapView(p: Props) {
         markers.current.delete(id);
       }
     }
-  }, [p.survey.buildings, p.view.beds, p.view.metric, p.selectedId, p.editable, ready]);
+  }, [p.survey.buildings, p.view.beds, p.view.metric, p.editable, ready]);
+
+  // Selection only changes the highlight, so it must not rebuild markers (that would close the popup).
+  useEffect(() => {
+    for (const [id, m] of markers.current) m.getElement().classList.toggle('selected', id === p.selectedId);
+  }, [p.selectedId, p.survey.buildings, p.view.beds, p.view.metric, ready]);
 
   // Distance rings around the subject property.
   useEffect(() => {

@@ -12,8 +12,13 @@ Phase 1 (local prototype) is in place:
   (dark-filled row) are all handled. See `src/lib/parse.ts` for header aliases.
 - Place pins by clicking the map, pasting `lat, lng`, or adding `Latitude` / `Longitude`
   columns to the sheet. Drag pins to adjust. Edit building and unit values in the sidebar.
-- Metric toggle (base rent, rent PSF, net rent), unit type filter, distance rings from the
-  subject, incentive badge, as-of date, AY header.
+- Metric toggle (base rent, rent PSF, net rent), unit type filter, incentive badge, as-of date,
+  AY header.
+- Distance rings from the subject are off by default; toggle them on and set custom distances
+  (default 0.5 / 1 / 2 km, add or remove rings in edit mode).
+- Property photo in the pin popup: add an `Image URL` column to the sheet (also `Image`, `Photo`),
+  paste an image address in the editor, or upload a photo (shrunk to 800 px and stored with the
+  survey). The listing `URL` column becomes a "View listing" link and the photo's click target.
 - "Preview client view" shows the read-only map. Drafts autosave in the browser; "Save file" and
   "Open" round-trip a `.survey.json`.
 
