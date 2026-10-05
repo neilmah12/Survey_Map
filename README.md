@@ -40,8 +40,7 @@ Market summary (Phase D):
 - The market is every building that is not a subject, so the subject is never compared with itself.
   Several subjects are averaged together. Average or median; default is that each building counts
   once (its own average per unit type first), and a switch makes every unit count instead.
-- Rows are bedrooms (Studio, 1 Bed, 1 + Den, ...) with optional splits by bathrooms, renovation level
-  and townhome / apartment.
+- Rows are bedrooms (Studio, 1 Bed, 1 + Den, ...) with optional splits by bathrooms and renovation level.
 - A whole building, or a single suite, can be switched off (an outlier). It stays on the map, greyed,
   and the summary says how many units are not counted. Switched-off flags survive a re-upload. Clients
   can only switch properties on and off if the survey allows it, and their changes are not saved.
@@ -65,6 +64,7 @@ Client file (Phase B):
 
 Adding buildings in the app:
 
+- Drag a building from the Buildings list onto the map to place (or move) its pin; Undo reverts it.
 - "Add building" (toolbar or the Buildings list) creates a building, then waits for a click on the
   map to place it. Add or remove units and fill in its details in the sidebar.
 - "Export Excel" writes added buildings into the empty rows directly under the sheet's table, copying
@@ -77,13 +77,14 @@ Adding buildings in the app:
 Unit filters and subjects:
 
 - Filters are independent multi-select chips that combine: Bedrooms (Studio, 1 Bed, 1 + Den,
-  2 Beds, 2 + Den, 3 Beds, 3 + Den, 4+), Bathrooms (1, 1.5, 2, 2.5, 3+), Renovation (from a trailing
-  "- Partial Reno" in the unit type) and Property type (townhome or apartment). Choices within a
+  2 Beds, 2 + Den, 3 Beds, 3 + Den, 4+), Bathrooms (1, 1.5, 2, 2.5, 3+) and Renovation (from a trailing
+  "- Partial Reno" in the unit type). There is no townhome / apartment filter or split: a survey is
+  normally one or the other. Choices within a
   detail are OR, details combine with AND, and empty means any. So "2 Beds" with bathrooms 1, 2 and
   2.5 shows all three, and "2 Beds" alone ignores bathrooms. Only choices present in the data are
   offered, and a building with no matching unit leaves the map.
-- Townhome or apartment comes from the building's Property type setting, then a "TH" or "Townhome"
-  marker in the unit type, the building name, the survey title, and finally the rest of the survey.
+- Townhome or apartment is still detected (the building's Property type setting, a "TH" or "Townhome"
+  marker, the building name, the survey title) but only to decide whether Stacked / non-stacked shows.
 - Several buildings can be marked as the subject (for example a portfolio). Rings draw around each.
 
 Planned: Firebase Auth (3-user allowlist), Firestore drafts, published read-only snapshots at

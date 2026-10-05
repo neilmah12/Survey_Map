@@ -64,7 +64,7 @@ export interface SummarySettings {
   open: boolean;
   stat: Stat;
   /** Extra details the summary rows are split by (bedrooms always apply). */
-  split: { baths: boolean; reno: boolean; kind: boolean };
+  split: { baths: boolean; reno: boolean };
   /** True: each building counts once per row (its own average first). False: every unit counts. */
   perBuilding: boolean;
 }
@@ -72,15 +72,15 @@ export interface SummarySettings {
 export const DEFAULT_SUMMARY: SummarySettings = {
   open: true,
   stat: 'avg',
-  split: { baths: false, reno: false, kind: false },
+  split: { baths: false, reno: false },
   perBuilding: true,
 };
 
 export interface ViewSettings {
   metric: Metric;
   summary: SummarySettings;
-  /** Unit filters: bedrooms, bathrooms, renovation, property type. Empty means any. */
-  filters: { beds: string[]; baths: string[]; reno: string[]; kind: string[] };
+  /** Unit filters: bedrooms, bathrooms, renovation. Empty means any. */
+  filters: { beds: string[]; baths: string[]; reno: string[] };
   rings: boolean;
   ringsKm: number[];
 }

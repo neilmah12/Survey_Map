@@ -38,7 +38,6 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
   const allSplits: { k: SplitKey; label: string }[] = [
     { k: 'baths', label: 'Bathrooms' },
     { k: 'reno', label: 'Renovation' },
-    { k: 'kind', label: 'Townhome / apartment' },
   ];
   // Offer a split only when the data has at least two values for it (or it is already on).
   const splits = allSplits.filter(({ k }) => options[k].length > 0 || s.split[k]);

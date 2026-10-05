@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from '../lib/workerUrl';
 import type { Building, LngLat, Survey, ViewSettings } from '../types';
 import { safeUrl } from '../lib/safeUrl';
+import { DRAG_TYPE } from '../lib/dnd';
 import { normalizeUnitType } from '../lib/unitText';
 import { circleCoords, ringTop } from '../lib/geo';
 import { money, pinLabel, psf, unitNet, unitPsf } from '../lib/format';
@@ -30,6 +31,8 @@ interface Props {
   onSelect: (id: string | null) => void;
   onMove: (id: string, lngLat: LngLat) => void;
   onPlace: (lngLat: LngLat) => void;
+  /** A building dragged from the list was dropped on the map. */
+  onDropBuilding?: (id: string, lngLat: LngLat) => void;
   fitKey: number;
 }
 
@@ -134,6 +137,7 @@ export default function MapView(p: Props) {
   const markers = useRef(new Map<string, maplibregl.Marker>());
   const ringMarkers = useRef<maplibregl.Marker[]>([]);
   const [ready, setReady] = useState(false);
+  const [dropReady, setDropReady] = useState(false);
   // Bumped on every style (re)load so ring layers get re-added and re-filled.
   const [styleVersion, setStyleVersion] = useState(0);
 
@@ -303,5 +307,30 @@ export default function MapView(p: Props) {
     if (canvas) canvas.style.cursor = p.placingId ? 'crosshair' : '';
   }, [p.placingId, ready]);
 
-  return <div ref={container} className="map" />;
+  const onDragOver = (e: React.DragEvent) => {
+    if (!p.onDropBuilding || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropReady(true);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    setDropReady(false);
+    const id = e.dataTransfer.getData(DRAG_TYPE);
+    const map = mapRef.current;
+    if (!id || !map || !p.onDropBuilding) return;
+    e.preventDefault();
+    const rect = container.current!.getBoundingClientRect();
+    const ll = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
+    p.onDropBuilding(id, [ll.lng, ll.lat]); // the pin's tip lands where the building was dropped
+  };
+
+  return (
+    <div
+      ref={container}
+      className={dropReady ? 'map drop-ready' : 'map'}
+      onDragOver={onDragOver}
+      onDragLeave={() => setDropReady(false)}
+      onDrop={onDrop}
+    />
+  );
 }

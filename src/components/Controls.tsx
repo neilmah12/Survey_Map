@@ -64,7 +64,6 @@ export default function Controls({ survey, view, onChange, editable }: Props) {
     { k: 'beds', label: 'Bedrooms' },
     { k: 'baths', label: 'Bathrooms' },
     { k: 'reno', label: 'Renovation' },
-    { k: 'kind', label: 'Property type' },
   ];
   const active = isFiltering(view.filters);
   const ctx = useMemo(() => kindContext(survey), [survey]);

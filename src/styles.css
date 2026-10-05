@@ -176,3 +176,9 @@ button, input { font: inherit; }
 @media (max-width: 900px) {
   .summary-panel { position: absolute; left: 0; right: 0; bottom: 0; width: auto; max-height: 55%; border-left: 0; border-top: 1px solid var(--line); box-shadow: 0 -4px 14px rgba(16,24,40,.15); }
 }
+
+/* Drag a building from the list onto the map */
+.blist li[draggable='true'] { cursor: grab; }
+.blist li[draggable='true']:active { cursor: grabbing; }
+.drag-hint { margin: -2px 0 6px; }
+.map.drop-ready { outline: 3px dashed var(--amber); outline-offset: -3px; }

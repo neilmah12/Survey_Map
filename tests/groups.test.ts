@@ -119,13 +119,11 @@ describe('filter options from real surveys', () => {
     expect(boardwalk.beds).toEqual(['Studio', '1 Bed', '2 Beds', '3 Beds']);
     expect(boardwalk.baths).toEqual([]); // all 1 bath
     expect(boardwalk.reno).toEqual(['Basic', 'Partial Reno']);
-    expect(boardwalk.kind).toEqual(['Townhome', 'Apartment']);
 
     const churchill = filterOptions(await load('churchill-apartments.xlsx'));
     expect(churchill.beds).toEqual(['1 Bed', '2 Beds', '3 Beds']);
     expect(churchill.baths).toEqual(['1', '2']);
-    expect(churchill.kind).toEqual([]); // whole survey is apartments
-    expect(filterOptions(await load('river-valley-townhomes.xlsx')).kind).toEqual([]); // whole survey is townhomes
+    expect(Object.keys(boardwalk).sort()).toEqual(['baths', 'beds', 'reno']); // no property type filter
   });
 
   it('filters a real survey: Churchill 2 bed with 2 baths', async () => {
@@ -135,15 +133,18 @@ describe('filter options from real surveys', () => {
     expect(shown).toEqual([['Connect Residences', [1950]], ['Edmonton House', [2100]], ['Park Square Apartments', [1718]], ['E11even', [2129]], ['Churchill', [1953]]]);
   });
 
-  it('filters Boardwalk to 2 bed townhomes', async () => {
+  it('filters Boardwalk to 2 beds with a partial renovation', async () => {
     const s = await load('boardwalk-portfolio.xlsx');
-    const f = filter({ beds: ['2 Beds'], kind: ['Townhome'] }, s);
+    const f = filter({ beds: ['2 Beds'], reno: ['Partial Reno'] }, s);
     const names = s.buildings.filter((b) => visibleUnits(b, f).length).map((b) => b.name);
-    expect(names).toEqual(['Cavell Ridge Townhomes', 'Hooke County Townhomes', 'Hartford County Townhomes', 'The Maples Townhomes']);
+    expect(names).toEqual([
+      'North Haven Estates', 'Riviera Gardens', 'Hermitage Village Apartments', 'Christopher County Apartments', 'Victoria County Apartments',
+      'Park Ridge Estates', 'Beacon Arms', 'Meadowview Apartments', 'Cavell Ridge Townhomes', 'Hartford County Townhomes',
+    ]);
   });
 });
 
-describe('property type', () => {
+describe('property type (only decides whether Stacked / non-stacked shows)', () => {
   it('infers from survey title, building override, then explicit markers', async () => {
     const s = await load('boardwalk-portfolio.xlsx');
     const ctx = kindContext(s);

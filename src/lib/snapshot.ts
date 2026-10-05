@@ -68,7 +68,7 @@ function cleanSummary(s: Partial<SummarySettings> | undefined): SummarySettings 
   return {
     open: s?.open ?? DEFAULT_SUMMARY.open,
     stat: (s?.stat === 'median' ? 'median' : 'avg') satisfies Stat,
-    split: { baths: Boolean(split?.baths), reno: Boolean(split?.reno), kind: Boolean(split?.kind) },
+    split: { baths: Boolean(split?.baths), reno: Boolean(split?.reno) },
     perBuilding: s?.perBuilding ?? DEFAULT_SUMMARY.perBuilding,
   };
 }
@@ -132,7 +132,6 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
           beds: strings(view.filters.beds),
           baths: strings(view.filters.baths),
           reno: strings(view.filters.reno),
-          kind: strings(view.filters.kind),
         },
         summary: cleanSummary(view.summary),
       },

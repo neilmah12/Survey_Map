@@ -99,8 +99,8 @@ export function computeSummary(survey: Survey, o: SummaryOptions): SummaryResult
       }
       const v = metricValue(u, o.metric);
       if (v == null) continue;
-      const key = groupLabel(u, b, dims, ctx);
-      if (!sortKeys.has(key)) sortKeys.set(key, groupSortKey(u, b, dims, ctx));
+      const key = groupLabel(u, b, dims);
+      if (!sortKeys.has(key)) sortKeys.set(key, groupSortKey(u, b, dims));
       const side = asSubject ? subject : market;
       if (!side.has(key)) side.set(key, new Map());
       push(side.get(key)!, b.id, v);

@@ -3,6 +3,7 @@ import type { Building, Survey, Unit } from '../types';
 import { parseLatLng } from '../lib/format';
 import { fileToDataUrl } from '../lib/image';
 import { safeUrl } from '../lib/safeUrl';
+import { DRAG_TYPE } from '../lib/dnd';
 
 interface Props {
   survey: Survey;
@@ -120,7 +121,7 @@ function Editor({ b, p }: { b: Building; p: Props }) {
       <Field label="Name" value={b.name} onChange={(v) => p.onBuilding(b.id, { name: v })} wide />
       <Field label="Address" value={b.address} onChange={(v) => p.onBuilding(b.id, { address: v })} wide />
  <label className="field wide">
-        <span>Property type (used by the Property type filter)</span>
+        <span>Property type (decides whether Stacked / non-stacked shows)</span>
         <select value={b.propertyType ?? ''} onChange={(e) => p.onBuilding(b.id, { propertyType: (e.target.value || undefined) as Building['propertyType'] })}>
           <option value="">Auto-detect</option>
           <option value="Townhome">Townhome</option>
@@ -210,9 +211,19 @@ export default function Sidebar(p: Props) {
             + Add building
           </button>
         </div>
+        {p.survey.buildings.length > 0 && <div className="hint drag-hint">Drag a building onto the map to place its pin.</div>}
         <ul className="blist">
           {p.survey.buildings.map((b) => (
-            <li key={b.id}>
+            <li
+              key={b.id}
+              draggable
+              title="Drag onto the map to place its pin"
+              onDragStart={(e) => {
+                e.dataTransfer.setData(DRAG_TYPE, b.id);
+                e.dataTransfer.setData('text/plain', b.name);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+            >
               <button className={b.id === p.selectedId ? 'brow on' : 'brow'} onClick={() => p.onSelect(b.id)}>
                 <span className={b.isSubject ? 'dot subject' : 'dot'} />
                 <span className="bname">{b.name}</span>

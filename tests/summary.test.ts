@@ -53,13 +53,12 @@ describe('matches the pivot tables in the sample sheets', () => {
     expect(psf.total.market.value).toBeCloseTo(1.7258506289273574, 9);
   });
 
-  it('Boardwalk: split by type, bathrooms and renovation (pivot rows 44 to 54)', async () => {
-    const r = run(await load('boardwalk-portfolio.xlsx'), { settings: unitLevel({ baths: true, kind: true, reno: true }) });
-    expect(byLabel(r, '1 Bed / 1 Bath · Apartment · Basic').market.value).toBeCloseTo(1151.8, 6);
-    expect(byLabel(r, '1 Bed / 1 Bath · Apartment · Partial Reno').market.value).toBeCloseTo(1181, 6);
-    expect(byLabel(r, 'Studio / 1 Bath · Apartment · Basic').market.value).toBeCloseTo(895, 6);
-    expect(byLabel(r, '2 Beds / 1 Bath · Townhome · Basic').market.value).toBeCloseTo(1405, 6);
-    expect(byLabel(r, '3 Beds / 1 Bath · Townhome · Partial Reno').market.value).toBeCloseTo(1709.75, 6);
+  it('Boardwalk: split by bathrooms and renovation (pivot rows 44 to 54)', async () => {
+    const r = run(await load('boardwalk-portfolio.xlsx'), { settings: unitLevel({ baths: true, reno: true }) });
+    // The pivot also separates townhomes from apartments, so only rows with no townhome units compare directly.
+    expect(byLabel(r, '1 Bed / 1 Bath · Basic').market.value).toBeCloseTo(1151.8, 6);
+    expect(byLabel(r, '1 Bed / 1 Bath · Partial Reno').market.value).toBeCloseTo(1181, 6);
+    expect(byLabel(r, 'Studio / 1 Bath · Basic').market.value).toBeCloseTo(895, 6);
     expect(r.total.market.value).toBeCloseTo(1371.7179487, 5);
     expect(r.hasSubject).toBe(false);
   });

@@ -114,7 +114,7 @@ export default function App() {
     setFitKey((k) => k + 1);
     const unplaced = next.buildings.filter((b) => !b.lngLat).length;
     setNotice({
-      text: `Loaded ${next.buildings.length} buildings.${unplaced ? ` ${unplaced} need a pin: pick one in the list, then click the map.` : ''}`,
+      text: `Loaded ${next.buildings.length} buildings.${unplaced ? ` ${unplaced} need a pin: drag each one from the list onto the map.` : ''}`,
     });
   };
 
@@ -164,7 +164,7 @@ export default function App() {
     );
     setSelectedId(id);
     setPlacingId(id);
-    setNotice({ text: 'Click the map to place the new building, then fill in its details.' });
+    setNotice({ text: 'Click the map to place the new building (or drag it from the list), then fill in its details.' });
   };
 
   const applyMerge = () => {
@@ -426,6 +426,11 @@ export default function App() {
               onMove={(id, ll: LngLat) => patchBuilding(id, { lngLat: ll })}
               onPlace={(ll) => {
                 if (placingId) patchBuilding(placingId, { lngLat: ll });
+                setPlacingId(null);
+              }}
+              onDropBuilding={(id, ll) => {
+                setSurvey((s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === id ? { ...b, lngLat: ll } : b)) }, { commit: true });
+                setSelectedId(id);
                 setPlacingId(null);
               }}
               fitKey={fitKey}

@@ -2,16 +2,15 @@ import type { Building, Survey, Unit } from '../types';
 import { parseBeds } from './unitText';
 
 /**
- * Unit filters. Each detail (bedrooms, bathrooms, renovation, property type) is its own multi-select;
+ * Unit filters. Each detail (bedrooms, bathrooms, renovation) is its own multi-select;
  * choices within one detail are OR, and the details combine with AND. An empty selection means "any".
  */
 export interface UnitFilters {
   beds: string[];
   baths: string[];
   reno: string[];
-  kind: string[];
 }
-export const NO_FILTERS: UnitFilters = { beds: [], baths: [], reno: [], kind: [] };
+export const NO_FILTERS: UnitFilters = { beds: [], baths: [], reno: [] };
 
 export const BED_CATS = ['Studio', '1 Bed', '1 + Den', '2 Beds', '2 + Den', '3 Beds', '3 + Den', '4+'] as const;
 export const BATH_CATS = ['1', '1.5', '2', '2.5', '3+'] as const;
@@ -90,7 +89,7 @@ export function kindContext(s: Survey): KindContext {
 /**
  * Townhome or apartment for a unit. Order: the building's own setting, a marker in the unit type
  * ("TH 2 Bedroom"), the building name, the survey title, then (if the survey mixes both) apartment.
- * Returns null when nothing indicates a type, so no filter is offered.
+ * Returns null when nothing indicates a type. Used only to decide whether Stacked / non-stacked shows.
  */
 export function unitKind(u: Unit, b: Building, ctx: KindContext): Kind | null {
   const explicit = explicitKind(u, b);
@@ -105,13 +104,12 @@ export interface UnitFilter {
   ctx: KindContext;
 }
 
-export const isFiltering = (f: UnitFilters) => f.beds.length + f.baths.length + f.reno.length + f.kind.length > 0;
+export const isFiltering = (f: UnitFilters) => f.beds.length + f.baths.length + f.reno.length > 0;
 
-export function unitMatches(u: Unit, b: Building, { filters: f, ctx }: UnitFilter): boolean {
+export function unitMatches(u: Unit, _b: Building, { filters: f }: UnitFilter): boolean {
   if (f.beds.length && !f.beds.includes(unitBedCat(u) ?? '')) return false;
   if (f.baths.length && !f.baths.includes(unitBathCat(u) ?? '')) return false;
   if (f.reno.length && !f.reno.includes(unitReno(u) ?? '')) return false;
-  if (f.kind.length && !f.kind.includes(unitKind(u, b, ctx) ?? '')) return false;
   return true;
 }
 
@@ -123,16 +121,13 @@ export interface FilterOptions {
   beds: string[];
   baths: string[];
   reno: string[];
-  kind: string[];
 }
 
 /** The choices present in the survey, in display order. A detail with fewer than two choices is left out. */
 export function filterOptions(s: Survey): FilterOptions {
-  const ctx = kindContext(s);
   const beds = new Set<string>();
   const baths = new Set<string>();
   const reno = new Set<string>();
-  const kind = new Set<string>();
   for (const b of s.buildings)
     for (const u of b.units) {
       const bc = unitBedCat(u);
@@ -141,8 +136,6 @@ export function filterOptions(s: Survey): FilterOptions {
       if (ba) baths.add(ba);
       const r = unitReno(u);
       if (r) reno.add(r);
-      const k = unitKind(u, b, ctx);
-      if (k) kind.add(k);
     }
   const ordered = (all: readonly string[], have: Set<string>) => all.filter((x) => have.has(x));
   const two = (xs: string[]) => (xs.length > 1 ? xs : []);
@@ -150,7 +143,6 @@ export function filterOptions(s: Survey): FilterOptions {
     beds: two(ordered(BED_CATS, beds)),
     baths: two(ordered(BATH_CATS, baths)),
     reno: two([...reno].sort()),
-    kind: two(['Townhome', 'Apartment'].filter((x) => kind.has(x))),
   };
 }
 
@@ -158,20 +150,15 @@ export function filterOptions(s: Survey): FilterOptions {
 export interface SplitDims {
   baths: boolean;
   reno: boolean;
-  kind: boolean;
 }
-export const NO_SPLIT: SplitDims = { baths: false, reno: false, kind: false };
+export const NO_SPLIT: SplitDims = { baths: false, reno: false };
 
-/** Row label for a unit: bedrooms, then optionally bathrooms, property type and renovation level. */
-export function groupLabel(u: Unit, b: Building, dims: SplitDims, ctx: KindContext): string {
+/** Row label for a unit: bedrooms, then optionally bathrooms and renovation level. */
+export function groupLabel(u: Unit, _b: Building, dims: SplitDims): string {
   let label = unitBedCat(u) ?? 'Other';
   if (dims.baths) {
     const ba = unitBathCat(u);
     if (ba) label += ` / ${ba} Bath`;
-  }
-  if (dims.kind) {
-    const k = unitKind(u, b, ctx);
-    if (k) label += ` · ${k}`;
   }
   if (dims.reno) {
     const r = unitReno(u);
@@ -180,11 +167,11 @@ export function groupLabel(u: Unit, b: Building, dims: SplitDims, ctx: KindConte
   return label;
 }
 
-/** Orders rows by bedrooms, then bathrooms, then property type and renovation. "Other" goes last. */
-export function groupSortKey(u: Unit, b: Building, dims: SplitDims, ctx: KindContext): string {
+/** Orders rows by bedrooms, then bathrooms, then renovation. "Other" goes last. */
+export function groupSortKey(u: Unit, _b: Building, dims: SplitDims): string {
   const cat = unitBedCat(u);
   const bed = cat ? (BED_CATS as readonly string[]).indexOf(cat) : 99;
   const baths = dims.baths ? unitBaths(u) : null;
   const pad = (n: number, w: number) => String(Math.round(n)).padStart(w, '0');
-  return `${pad(bed, 3)}|${pad((baths ?? 0) * 10, 4)}|${dims.kind ? unitKind(u, b, ctx) ?? '' : ''}|${dims.reno ? unitReno(u) ?? '' : ''}`;
+  return `${pad(bed, 3)}|${pad((baths ?? 0) * 10, 4)}|${dims.reno ? unitReno(u) ?? '' : ''}`;
 }
