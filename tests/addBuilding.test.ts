@@ -180,3 +180,17 @@ describe('re-upload keeps what was switched off in the summary', () => {
     expect(survey.buildings[2].excluded).toBeFalsy();
   });
 });
+
+describe('photos on re-upload', () => {
+  it('keeps a photo that was embedded in the app over the link in the sheet', async () => {
+    const existing = await load('clareview-townhomes.xlsx');
+    existing.buildings[0].imageUrl = 'data:image/jpeg;base64,AAAA';
+    existing.buildings[1].imageUrl = 'https://old.example.com/a.jpg';
+    const incoming = await load('clareview-townhomes.xlsx');
+    incoming.buildings[0].imageUrl = 'https://sheet.example.com/pilot.jpg';
+    incoming.buildings[1].imageUrl = 'https://sheet.example.com/pc.jpg';
+    const { survey } = mergeSurvey(existing, incoming);
+    expect(survey.buildings[0].imageUrl).toBe('data:image/jpeg;base64,AAAA'); // the saved copy wins
+    expect(survey.buildings[1].imageUrl).toBe('https://sheet.example.com/pc.jpg'); // a link is replaced by the sheet's newer link
+  });
+});

@@ -65,6 +65,7 @@ function CoordInput({ b, onBuilding }: { b: Building; onBuilding: Props['onBuild
 function ImageField({ b, onBuilding }: { b: Building; onBuilding: Props['onBuilding'] }) {
   const file = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
   const img = b.imageUrl ?? '';
   const isData = img.startsWith('data:');
   const preview = safeUrl(img, true);
@@ -108,6 +109,29 @@ function ImageField({ b, onBuilding }: { b: Building; onBuilding: Props['onBuild
           }}
         />
         <button className="btn" onClick={() => file.current?.click()}>Upload photo</button>
+        {/^https?:\/\//i.test(img) && (
+          <button
+            className="btn"
+            disabled={busy}
+            title="Keeps a copy inside the survey, so the photo cannot disappear if the site removes it"
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const res = await fetch(img, { mode: 'cors', referrerPolicy: 'no-referrer' });
+                if (!res.ok) throw new Error(String(res.status));
+                const blob = await res.blob();
+                onBuilding(b.id, { imageUrl: await fileToDataUrl(new File([blob], 'photo', { type: blob.type })) });
+                setErr('');
+              } catch {
+                setErr('That site does not allow copying its photos. Save the image to your computer and use Upload photo instead.');
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? 'Saving...' : 'Save a copy in the survey'}
+          </button>
+        )}
         {img && <button className="btn" onClick={() => onBuilding(b.id, { imageUrl: '' })}>Remove photo</button>}
       </div>
     </div>

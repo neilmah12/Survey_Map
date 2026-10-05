@@ -120,7 +120,8 @@ export function mergeSurvey(existing: Survey, incoming: Survey): { survey: Surve
     }
     if (lngLat) summary.pinsKept++;
 
-    const imageUrl = nb.imageUrl || old.imageUrl || '';
+    // A photo embedded in the app is kept over the sheet's link (the person chose to keep a copy).
+    const imageUrl = old.imageUrl?.startsWith('data:') ? old.imageUrl : nb.imageUrl || old.imageUrl || '';
     // Suite-level exclusions follow the unit type, since the sheet's units replace the old ones.
     const offTypes = new Set(old.units.filter((u) => u.excluded).map((u) => norm(normalizeUnitType(u.type))));
     const units = offTypes.size ? nb.units.map((u) => (offTypes.has(norm(normalizeUnitType(u.type))) ? { ...u, excluded: true } : u)) : nb.units;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Survey, ViewSettings, Metric } from '../types';
-import { METRIC_LABEL } from '../lib/format';
+import { METRIC_LABEL, unitNet } from '../lib/format';
 import { NO_FILTERS, filterOptions, isFiltering, kindContext, visibleUnits } from '../lib/groups';
 import type { UnitFilters } from '../lib/groups';
 
@@ -55,6 +55,14 @@ interface Props {
 
 export default function Controls({ survey, view, onChange, editable }: Props) {
   const options = useMemo(() => filterOptions(survey), [survey]);
+  // Only offer a measure the data can show: no net rent without incentives or parking figures, no PSF without SF.
+  const available = useMemo(() => {
+    const units = survey.buildings.flatMap((b) => b.units);
+    return { rate: true, psf: units.some((u) => u.rate != null && u.sf), net: units.some((u) => unitNet(u) != null) } as Record<Metric, boolean>;
+  }, [survey]);
+  useEffect(() => {
+    if (!available[view.metric]) onChange({ ...view, metric: 'rate' });
+  }, [available, view.metric]); // eslint-disable-line react-hooks/exhaustive-deps
   const hasSubject = survey.buildings.some((b) => b.isSubject);
   const toggle = (k: keyof UnitFilters, v: string) => {
     const cur = view.filters[k];
@@ -77,7 +85,7 @@ export default function Controls({ survey, view, onChange, editable }: Props) {
       <div className="control-group">
         <div className="control-label">Show</div>
         <div className="seg">
-          {(Object.keys(METRIC_LABEL) as Metric[]).map((m) => (
+          {(Object.keys(METRIC_LABEL) as Metric[]).filter((m) => available[m]).map((m) => (
             <button key={m} className={view.metric === m ? 'on' : ''} onClick={() => onChange({ ...view, metric: m })}>
               {METRIC_LABEL[m]}
             </button>

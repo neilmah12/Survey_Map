@@ -32,6 +32,35 @@ Phase A (re-upload and Excel round trip):
   A re-upload then places every pin automatically.
 - Undo / redo (buttons, Ctrl+Z, Ctrl+Shift+Z) for edits, pin moves and merges.
 
+Survey checks (Phase C):
+
+- The **Checks** button (badge = count of things to fix) lists mistakes before a client sees the map:
+  buildings with no pin, no subject, duplicate buildings or shared pins, a pin far from the rest, rents or
+  SF that look like typos, bedroom counts not recognised, placeholder text such as "TBC" in client-visible
+  fields, unfinished internal notes ("need to confirm"), missing rents, an old or invalid as-of date,
+  rents far from the market median (a prompt to switch them off in the summary), and units switched off.
+  Excel checks (edits or added buildings not yet in the workbook) run when the dialog opens. Each line has a
+  Show button that selects the building.
+- Errors (no pins at all) block "Export client file"; warnings are listed in its dialog and the button
+  becomes "Save anyway". Logic is `src/lib/checks.ts` and `src/lib/excelChecks.ts`.
+
+Edits back to Excel:
+
+- Export Excel also writes values changed in the app for buildings already in the sheet (unit type, SF,
+  rent, net rent, parking, utilities, incentive, notes; building name, address, years, configuration,
+  notes, contact). Cells that hold formulas are never overwritten and are reported; Excel is told to
+  recalculate on open. Numeric cells stay numeric. See `pendingEdits` in `src/lib/exportXlsx.ts`.
+
+Pins, measures and phones:
+
+- Crowded pins stay readable: pills that would overlap lift straight up with a thin line to their spot, and
+  a building name that would land on something is hidden until hover. Pin positions never change.
+- Net rent and Rent PSF are offered only when some unit has a net figure or SF.
+- A linked photo can be saved into the survey ("Save a copy in the survey") so it cannot disappear; the
+  copy is kept over the sheet's link on re-upload.
+- On a phone the client page uses a one-line swipeable controls strip, starts with the summary closed,
+  and shows the summary under the map.
+
 Market summary (Phase D):
 
 - A panel beside the map, in the editor and in the client file, compares the subject with the market

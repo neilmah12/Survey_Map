@@ -11,6 +11,9 @@ import { useUndoable } from './hooks/useUndoable';
 import MergeDialog from './components/MergeDialog';
 import ClientViewer from './components/ClientViewer';
 import SummaryPanel from './components/SummaryPanel';
+import ChecksDialog, { ChecksList } from './components/ChecksDialog';
+import { countBySeverity, runChecks, type Check } from './lib/checks';
+import { excelChecks } from './lib/excelChecks';
 import { embedSnapshot, snapshotToSurvey, snapshotToView, summarizeSnapshot, toClientSnapshot, type SnapshotResult } from './lib/snapshot';
 import { getClientTemplate } from './lib/clientTemplate';
 import ConfirmDialog from './components/ConfirmDialog';
@@ -44,6 +47,10 @@ export default function App() {
   const [view, setView] = useState<ViewSettings>(DEFAULT_VIEW);
   const [preview, setPreview] = useState(false);
   const [clientExport, setClientExport] = useState<SnapshotResult | null>(null);
+  const [checksOpen, setChecksOpen] = useState(false);
+  const [excelList, setExcelList] = useState<Check[]>([]);
+  const [excelLoading, setExcelLoading] = useState(false);
+  const [skippedEdits, setSkippedEdits] = useState<{ building: string; field: string; reason: string }[] | null>(null);
   const clientTemplate = useMemo(() => getClientTemplate(), []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [placingId, setPlacingId] = useState<string | null>(null);
@@ -183,12 +190,15 @@ export default function App() {
       const { data, name } = result;
       downloadBlob(new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), name);
       const pins = survey.buildings.filter((b) => b.lngLat).length;
-      const added = result.addedBuildings ? ` and ${result.addedBuildings} new building${result.addedBuildings === 1 ? '' : 's'}` : '';
+      const added =
+        (result.addedBuildings ? ` and ${result.addedBuildings} new building${result.addedBuildings === 1 ? '' : 's'}` : '') +
+        (result.editsWritten ? `, ${result.editsWritten} edit${result.editsWritten === 1 ? '' : 's'}` : '');
       setNotice({
         text: `Exported ${pins} of ${survey.buildings.length} pin${pins === 1 ? '' : 's'}${added} to ${name}`,
         warn: pins < survey.buildings.length,
       });
       if (result.needRows) setNeedRows(result.needRows);
+      if (result.editsSkipped.length) setSkippedEdits(result.editsSkipped);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not export the workbook');
     }
@@ -223,6 +233,25 @@ export default function App() {
 
   // The preview shows the same snapshot that the client file contains, so the two cannot differ.
   const previewData = useMemo(() => (preview && survey ? toClientSnapshot(survey, view) : null), [preview, survey, view]);
+
+  const checks = useMemo(() => (survey ? runChecks(survey) : []), [survey]);
+  const counts = useMemo(() => countBySeverity(checks), [checks]);
+
+  const openChecks = () => {
+    setChecksOpen(true);
+    setExcelList([]);
+    if (!survey) return;
+    setExcelLoading(true);
+    excelChecks(survey)
+      .then(setExcelList)
+      .catch(() => setExcelList([]))
+      .finally(() => setExcelLoading(false));
+  };
+  const showBuilding = (id: string) => {
+    setChecksOpen(false);
+    setClientExport(null);
+    setSelectedId(id);
+  };
 
   // The summary counts only buildings that are on the map, so it matches the client file exactly.
   const placedSurvey = useMemo(
@@ -293,6 +322,12 @@ export default function App() {
             <button className="btn" onClick={() => setConfirmStartOver(true)} title="Close this survey and clear the autosaved copy">Start over</button>
             <button className="btn" onClick={() => setFitKey((k) => k + 1)}>Fit map</button>
             <span className="sep" />
+            <button className="btn" onClick={openChecks} title="Look for mistakes before sending a client the map">
+              Checks
+              <span className={counts.error ? 'checks-badge error' : counts.warn ? 'checks-badge' : 'checks-badge ok'}>
+                {counts.error || counts.warn || '0'}
+              </span>
+            </button>
             <button className="btn" onClick={() => setPreview(true)}>Preview client view</button>
             <button
               className="btn primary"
@@ -339,21 +374,41 @@ export default function App() {
         const v = clientExport.snapshot.view;
         const filtersOn = Object.values(v.filters).some((a) => a.length > 0);
         return (
-          <ConfirmDialog title="Export client file" confirmLabel="Save client file" onCancel={() => setClientExport(null)} onConfirm={exportClientFile}>
+          <ConfirmDialog title="Export client file" confirmLabel={counts.warn ? "Save anyway" : "Save client file"} confirmDisabled={counts.error > 0} onCancel={() => setClientExport(null)} onConfirm={exportClientFile}>
             <p>
               The file opens in any browser with no login and shows <strong>{sum.buildings} buildings ({sum.units} units)</strong>
               {sum.photos ? ` and ${sum.photos} photo${sum.photos === 1 ? '' : 's'}` : ''}. It starts on {v.metric === 'rate' ? 'base rent' : v.metric === 'psf' ? 'rent PSF' : 'net rent'}
               {v.rings ? ' with distance rings on' : ''}{filtersOn ? ', with your current unit filters applied' : ''}. Clients can change the metric and filters but cannot edit anything.
             </p>
-            {sum.unplaced.length > 0 && (
-              <p className="notice warn">Left out because they have no pin yet: {sum.unplaced.join(', ')}.</p>
-            )}
-            {!sum.hasSubject && <p className="notice warn">No subject property is marked, so distance rings are unavailable.</p>}
-            {sum.unitsWithoutRate > 0 && <p className="notice warn">{sum.unitsWithoutRate} unit{sum.unitsWithoutRate === 1 ? ' has' : 's have'} no rent and will show as n/a.</p>}
+            {(() => {
+              const issues = checks.filter((c) => c.severity !== 'info');
+              return issues.length > 0 ? (
+                <div className="export-checks">
+                  <ChecksList checks={issues} onShow={showBuilding} />
+                </div>
+              ) : (
+                <p className="check-ok">Checks passed.</p>
+              );
+            })()}
             <p className="hint">Never included: notes, contact details, unrecognised columns, and your Excel workbook.</p>
           </ConfirmDialog>
         );
       })()}
+      {checksOpen && (
+        <ChecksDialog checks={[...checks, ...excelList]} loadingMore={excelLoading} onShow={showBuilding} onClose={() => setChecksOpen(false)} />
+      )}
+      {skippedEdits && (
+        <ConfirmDialog title="Some edits were not written" confirmLabel="Got it" hideCancel onCancel={() => setSkippedEdits(null)} onConfirm={() => setSkippedEdits(null)}>
+          <p>These changes are only in the app. Change them in Excel yourself, or leave them.</p>
+          <ul>
+            {skippedEdits.map((e, i) => (
+              <li key={i}>
+                <strong>{e.building}</strong>: {e.field} ({e.reason})
+              </li>
+            ))}
+          </ul>
+        </ConfirmDialog>
+      )}
       {needRows && (
         <ConfirmDialog title="Your sheet needs more room" confirmLabel="Got it" hideCancel onCancel={() => setNeedRows(null)} onConfirm={() => setNeedRows(null)}>
           <p>

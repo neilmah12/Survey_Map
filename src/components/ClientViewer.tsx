@@ -16,7 +16,10 @@ interface Props {
 
 /** The read-only client page. Shared by the editor's preview and the exported client file, so they cannot differ. */
 export default function ClientViewer({ survey: initialSurvey, initialView, banner }: Props) {
-  const [view, setView] = useState(initialView);
+  // On a phone the summary starts closed so the map is what you see first; the Market summary button opens it.
+  const [view, setView] = useState<ViewSettings>(() =>
+    typeof window !== 'undefined' && window.innerWidth <= 900 ? { ...initialView, summary: { ...initialView.summary, open: false } } : initialView,
+  );
   // A local copy, so a client who is allowed to switch properties off changes only what they see.
   const [survey, setSurvey] = useState(initialSurvey);
   const canToggle = Boolean(survey.clientCanToggle);

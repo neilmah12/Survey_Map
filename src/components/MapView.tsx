@@ -48,7 +48,9 @@ function pinElement(b: Building, label: string, selected: boolean, excluded: boo
   const pill = el('div', 'pin-pill');
   pill.append(el('span', 'pin-rate', label));
   if (b.units.some((u) => u.incentive)) pill.append(el('span', 'pin-badge', 'Inc'));
-  root.append(pill, el('div', 'pin-name', b.name), el('div', 'pin-tip'));
+  const head = el('div', 'pin-head');
+  head.append(pill, el('div', 'pin-leader'));
+  root.append(head, el('div', 'pin-name', b.name), el('div', 'pin-tip'));
   return root;
 }
 
@@ -131,6 +133,47 @@ function popupContent(b: Building, filter: UnitFilter): HTMLElement {
   return root;
 }
 
+interface Box { l: number; t: number; r: number; b: number }
+const hits = (a: Box, b: Box, pad = 2) => a.l < b.r + pad && a.r + pad > b.l && a.t < b.b + pad && a.b + pad > b.t;
+const shifted = (r: DOMRect, dy: number): Box => ({ l: r.left, r: r.right, t: r.top - dy, b: r.bottom - dy });
+
+/**
+ * Keeps pins readable when they crowd each other. Pills that would overlap are lifted straight up (with a
+ * thin line back to the pin's tip), and a building name that would land on something else is hidden until
+ * hover. The pin's position is never changed. Order of priority: selected, subject, then list order.
+ */
+function layoutPins(markers: Map<string, maplibregl.Marker>, selectedId: string | null) {
+  const items = [...markers.entries()].map(([id, m], i) => {
+    const root = m.getElement();
+    root.style.setProperty('--lift', '0px');
+    root.classList.remove('name-hidden');
+    const pill = root.querySelector('.pin-pill') as HTMLElement;
+    const name = root.querySelector('.pin-name') as HTMLElement;
+    return { id, root, pill, name, order: id === selectedId ? -2 : root.classList.contains('subject') ? -1 : i };
+  });
+  items.sort((a, b) => a.order - b.order);
+  const taken: Box[] = [];
+  const GAP = 3;
+  const plan = items.map((it) => ({ it, pill: it.pill.getBoundingClientRect(), name: it.name.getBoundingClientRect() }));
+  for (const { it, pill } of plan) {
+    let lift = 0;
+    for (let level = 0; level <= 8; level++) {
+      const box = shifted(pill, level * (pill.height + GAP));
+      if (!taken.some((t) => hits(box, t))) {
+        lift = level * (pill.height + GAP);
+        break;
+      }
+    }
+    it.root.style.setProperty('--lift', `${lift}px`);
+    taken.push(shifted(pill, lift));
+  }
+  for (const { it, name } of plan) {
+    const box = { l: name.left, r: name.right, t: name.top, b: name.bottom };
+    if (taken.some((t) => hits(box, t, 1))) it.root.classList.add('name-hidden');
+    else taken.push(box);
+  }
+}
+
 export default function MapView(p: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -172,6 +215,9 @@ export default function MapView(p: Props) {
       setReady(true);
       setStyleVersion((v) => v + 1);
     });
+    const relayout = () => layoutPins(markers.current, live.current.selectedId);
+    map.on('zoomend', relayout);
+    map.on('moveend', relayout);
     map.on('click', (e) => {
       if ((e.originalEvent.target as HTMLElement).closest('.pin')) return;
       if (live.current.placingId) live.current.onPlace([e.lngLat.lng, e.lngLat.lat]);
@@ -211,7 +257,7 @@ export default function MapView(p: Props) {
       const marker = new maplibregl.Marker({ element, draggable: p.editable, anchor: 'bottom' })
         .setLngLat(b.lngLat)
         .setPopup(
-          new maplibregl.Popup({ offset: 14, maxWidth: '380px', closeButton: true }).setDOMContent(
+          new maplibregl.Popup({ offset: 14, maxWidth: window.innerWidth < 520 ? '88vw' : '380px', closeButton: true }).setDOMContent(
             popupContent(b, filter),
           ),
         )
@@ -224,6 +270,8 @@ export default function MapView(p: Props) {
       if (wasOpen) marker.togglePopup();
       markers.current.set(b.id, marker);
     }
+    // Wait a frame so the new pins are laid out, then untangle any that overlap.
+    requestAnimationFrame(() => layoutPins(markers.current, live.current.selectedId));
     for (const [id, m] of markers.current) {
       if (!seen.has(id)) {
         m.remove();
@@ -235,6 +283,7 @@ export default function MapView(p: Props) {
   // Selection only changes the highlight, so it must not rebuild markers (that would close the popup).
   useEffect(() => {
     for (const [id, m] of markers.current) m.getElement().classList.toggle('selected', id === p.selectedId);
+    layoutPins(markers.current, p.selectedId);
   }, [p.selectedId, p.survey.buildings, filter, p.view.metric, ready]);
 
   // Distance rings around the subject property.

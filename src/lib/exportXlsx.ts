@@ -1,9 +1,10 @@
 import JSZip from 'jszip';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import type { Building, Survey } from '../types';
-import { fieldForHeader, type Field } from './parse';
+import { fieldForHeader, parseSurvey, type Field } from './parse';
 import { fromBase64 } from './base64';
 import { safeUrl } from './safeUrl';
+import { normalizeUnitType } from './unitText';
 
 /**
  * Writes pin coordinates and photo URLs back into the uploaded workbook.
@@ -56,8 +57,67 @@ export interface ExportResult {
   name: string;
   /** Buildings added in the app that were written into the sheet as new rows. */
   addedBuildings: number;
+  /** Edits made in the app that were written into existing cells. */
+  editsWritten: number;
+  /** Edits left out, with the reason (a formula cell, or no matching column). */
+  editsSkipped: { building: string; field: string; reason: string }[];
   /** Set when added buildings could not be written because the sheet has no room below its table. */
   needRows?: { buildings: string[]; rows: number; afterRow: number };
+}
+
+/** A value the app has changed that the uploaded sheet still has the old value for. */
+export interface PendingEdit {
+  row: number;
+  field: Field;
+  /** null clears the cell. */
+  value: string | number | null;
+  /** The building the edit belongs to, for messages. */
+  building: string;
+  was: string;
+}
+
+const same = (a: unknown, b: unknown) => (typeof a === 'string' || typeof b === 'string' ? String(a ?? '').trim() === String(b ?? '').trim() : (a ?? null) === (b ?? null));
+
+/**
+ * Compares the survey with the workbook it was read from and lists what was changed in the app:
+ * unit values (type, SF, rent, net rent, parking, utilities, incentive, notes) and building details
+ * (name, address, years, configuration, notes, contact). Buildings added in the app are handled separately.
+ */
+export async function pendingEdits(survey: Survey): Promise<PendingEdit[]> {
+  if (!survey.source) return [];
+  const original = await parseSurvey(fromBase64(survey.source.data));
+  const byRow = new Map<number, { b: Building; u: Building['units'][number] }>();
+  for (const b of original.buildings) for (const u of b.units) if (u.srcRow) byRow.set(u.srcRow, { b, u });
+
+  const edits: PendingEdit[] = [];
+  for (const b of survey.buildings) {
+    if (isAppOnly(b)) continue;
+    const rows = b.units.map((u) => u.srcRow).filter((r): r is number => Boolean(r));
+    if (rows.length === 0) continue;
+    const first = Math.min(...rows);
+    const ob = byRow.get(first)?.b;
+    if (ob) {
+      const building: [Field, string, string][] = [
+        ['name', b.name, ob.name], ['address', b.address, ob.address], ['yearBuilt', b.yearBuilt, ob.yearBuilt],
+        ['yearRenovated', b.yearRenovated, ob.yearRenovated], ['configuration', b.configuration, ob.configuration],
+        ['propertyNotes', b.propertyNotes, ob.propertyNotes], ['contact', b.contact, ob.contact],
+      ];
+      for (const [field, now, was] of building) if (!same(now, was)) edits.push({ row: first, field, value: now.trim() === '' ? null : now.trim(), building: b.name, was });
+    }
+    for (const u of b.units) {
+      const ou = u.srcRow ? byRow.get(u.srcRow)?.u : undefined;
+      if (!u.srcRow || !ou) continue;
+      const fields: [Field, string | number | null, string | number | null][] = [
+        ['unitType', normalizeUnitType(u.type), ou.type], ['sf', u.sf, ou.sf], ['rate', u.rate, ou.rate], ['netRate', u.netRate, ou.netRate],
+        ['parking', u.parking, ou.parking], ['utilities', u.utilities, ou.utilities], ['incentive', u.incentive, ou.incentive], ['notes', u.notes, ou.notes],
+      ];
+      for (const [field, now, was] of fields) {
+        if (same(now, was)) continue;
+        edits.push({ row: u.srcRow, field, value: now == null || String(now).trim() === '' ? null : typeof now === 'number' ? now : String(now).trim(), building: b.name, was: String(was ?? '') });
+      }
+    }
+  }
+  return edits;
 }
 
 const isAppOnly = (b: Building) => Boolean(b.addedInApp) && b.units.every((u) => !u.srcRow);
@@ -186,6 +246,39 @@ export async function exportWithCoordinates(survey: Survey): Promise<ExportResul
     ensure('lng', 'Longitude');
   }
   if (wantsImage) ensure('image', 'Image URL');
+
+  // ---- Edits made in the app to buildings and suites that are already in the sheet.
+  // Formula cells are never overwritten; Excel recalculates everything when the file opens.
+  let editsWritten = 0;
+  const editsSkipped: ExportResult['editsSkipped'] = [];
+  const pending = await pendingEdits(survey);
+  const TEXT_AS_NUMBER = /^[-+]?\$?\s*[\d,]+(\.\d+)?$/;
+  for (const e of pending) {
+    const col = fieldCol[e.field];
+    if (col == null) {
+      editsSkipped.push({ building: e.building, field: e.field, reason: 'the sheet has no column for it' });
+      continue;
+    }
+    const cell = children(rowEl(e.row), 'c').find((c) => c.getAttribute('r') === `${indexToCol(col)}${e.row}`);
+    if (cell && children(cell, 'f').length > 0) {
+      editsSkipped.push({ building: e.building, field: e.field, reason: 'that cell holds a formula' });
+      continue;
+    }
+    const wasNumeric = Boolean(cell) && (!cell!.getAttribute('t') || cell!.getAttribute('t') === 'n') && children(cell!, 'v').length > 0;
+    if (e.value === null) {
+      setStyle(e.row, col, cell?.getAttribute('s') ?? null);
+    } else if (typeof e.value === 'number') {
+      setCell(e.row, col, e.value);
+    } else if (wasNumeric && TEXT_AS_NUMBER.test(e.value)) {
+      setCell(e.row, col, Number(e.value.replace(/[$,\s]/g, '')));
+    } else if (wasNumeric) {
+      editsSkipped.push({ building: e.building, field: e.field, reason: 'the sheet keeps a number there' });
+      continue;
+    } else {
+      setCell(e.row, col, e.value);
+    }
+    editsWritten++;
+  }
 
   // ---- Buildings added in the app go into empty rows directly under the table.
   // Rows are never inserted: shifting rows would also have to move pivot tables, pictures, merged
@@ -346,10 +439,22 @@ export async function exportWithCoordinates(survey: Survey): Promise<ExportResul
     }
   }
 
+  if (editsWritten > 0) {
+    // Cached results (rent PSF, net rent, pivots) are stale after an edit; make Excel recalculate on open.
+    let wb = wbXml;
+    if (/<calcPr\b/.test(wb)) wb = /<calcPr\b[^>]*\bfullCalcOnLoad=/.test(wb) ? wb : wb.replace(/<calcPr\b/, '<calcPr fullCalcOnLoad="1"');
+    else {
+      const anchors = ['</definedNames>', '</externalReferences>', '</functionGroups>', '</sheets>'];
+      const hit = anchors.map((a) => ({ a, i: wb.lastIndexOf(a) })).filter((x) => x.i >= 0).sort((x, y) => y.i - x.i)[0];
+      if (hit) wb = wb.slice(0, hit.i + hit.a.length) + '<calcPr fullCalcOnLoad="1"/>' + wb.slice(hit.i + hit.a.length);
+    }
+    zip.file('xl/workbook.xml', wb, { createFolders: false });
+  }
+
   let out = new XMLSerializer().serializeToString(doc);
   if (!out.startsWith('<?xml')) out = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n${out}`;
   zip.file(sheetPath, out, { createFolders: false });
   const data = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
   const base = survey.source.name.replace(/\.xlsx$/i, '');
-  return { data, name: `${base} (with coordinates).xlsx`, addedBuildings, needRows };
+  return { data, name: `${base} (with coordinates).xlsx`, addedBuildings, editsWritten, editsSkipped, needRows };
 }
