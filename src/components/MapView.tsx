@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import workerUrl from '../lib/workerUrl';
+import { BLANK_STYLE, initialStyle } from '../lib/basemap';
+import { layoutPins as planPins } from '../lib/pinLayout';
 import type { Building, LngLat, Survey, ViewSettings } from '../types';
 import { safeUrl } from '../lib/safeUrl';
 import { DRAG_TYPE } from '../lib/dnd';
@@ -10,16 +11,6 @@ import { circleCoords, ringTop } from '../lib/geo';
 import { money, pinLabel, psf, unitNet, unitPsf } from '../lib/format';
 import { kindContext, unitKind, visibleUnits, type UnitFilter } from '../lib/groups';
 
-maplibregl.setWorkerUrl(workerUrl);
-
-const STYLE_URL =
-  (import.meta.env.VITE_BASEMAP_STYLE as string | undefined) ?? 'https://tiles.openfreemap.org/styles/positron';
-/** Plain background used when the basemap cannot load, so pins stay usable. */
-const BLANK_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {},
-  layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#e6ebf2' } }],
-};
 const EDMONTON: LngLat = [-113.4938, 53.5461];
 
 interface Props {
@@ -33,6 +24,8 @@ interface Props {
   onPlace: (lngLat: LngLat) => void;
   /** A building dragged from the list was dropped on the map. */
   onDropBuilding?: (id: string, lngLat: LngLat) => void;
+  /** Called with the visible area whenever the map stops moving (used by the image export). */
+  onBounds?: (b: [LngLat, LngLat]) => void;
   fitKey: number;
 }
 
@@ -133,44 +126,23 @@ function popupContent(b: Building, filter: UnitFilter): HTMLElement {
   return root;
 }
 
-interface Box { l: number; t: number; r: number; b: number }
-const hits = (a: Box, b: Box, pad = 2) => a.l < b.r + pad && a.r + pad > b.l && a.t < b.b + pad && a.b + pad > b.t;
-const shifted = (r: DOMRect, dy: number): Box => ({ l: r.left, r: r.right, t: r.top - dy, b: r.bottom - dy });
+const toRect = (r: DOMRect) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
 
-/**
- * Keeps pins readable when they crowd each other. Pills that would overlap are lifted straight up (with a
- * thin line back to the pin's tip), and a building name that would land on something else is hidden until
- * hover. The pin's position is never changed. Order of priority: selected, subject, then list order.
- */
+/** Measures every pin on screen, plans the layout with the shared algorithm, and applies it. */
 function layoutPins(markers: Map<string, maplibregl.Marker>, selectedId: string | null) {
   const items = [...markers.entries()].map(([id, m], i) => {
     const root = m.getElement();
     root.style.setProperty('--lift', '0px');
     root.classList.remove('name-hidden');
-    const pill = root.querySelector('.pin-pill') as HTMLElement;
-    const name = root.querySelector('.pin-name') as HTMLElement;
-    return { id, root, pill, name, order: id === selectedId ? -2 : root.classList.contains('subject') ? -1 : i };
+    const pill = (root.querySelector('.pin-pill') as HTMLElement).getBoundingClientRect();
+    const name = (root.querySelector('.pin-name') as HTMLElement).getBoundingClientRect();
+    return { id, root, box: { id, pill: toRect(pill), name: toRect(name), order: id === selectedId ? -2 : root.classList.contains('subject') ? -1 : i } };
   });
-  items.sort((a, b) => a.order - b.order);
-  const taken: Box[] = [];
-  const GAP = 3;
-  const plan = items.map((it) => ({ it, pill: it.pill.getBoundingClientRect(), name: it.name.getBoundingClientRect() }));
-  for (const { it, pill } of plan) {
-    let lift = 0;
-    for (let level = 0; level <= 8; level++) {
-      const box = shifted(pill, level * (pill.height + GAP));
-      if (!taken.some((t) => hits(box, t))) {
-        lift = level * (pill.height + GAP);
-        break;
-      }
-    }
-    it.root.style.setProperty('--lift', `${lift}px`);
-    taken.push(shifted(pill, lift));
-  }
-  for (const { it, name } of plan) {
-    const box = { l: name.left, r: name.right, t: name.top, b: name.bottom };
-    if (taken.some((t) => hits(box, t, 1))) it.root.classList.add('name-hidden');
-    else taken.push(box);
+  const plan = new Map(planPins(items.map((i) => i.box)).map((p) => [p.id, p]));
+  for (const { id, root } of items) {
+    const p = plan.get(id)!;
+    root.style.setProperty('--lift', `${p.lift}px`);
+    root.classList.toggle('name-hidden', p.nameHidden);
   }
 }
 
@@ -197,7 +169,7 @@ export default function MapView(p: Props) {
   useEffect(() => {
     const map = new maplibregl.Map({
       container: container.current!,
-      style: STYLE_URL === 'blank' ? BLANK_STYLE : STYLE_URL,
+      style: initialStyle(),
       center: EDMONTON,
       zoom: 11,
       attributionControl: { compact: true },
@@ -216,8 +188,16 @@ export default function MapView(p: Props) {
       setStyleVersion((v) => v + 1);
     });
     const relayout = () => layoutPins(markers.current, live.current.selectedId);
+    const reportBounds = () => {
+      const bb = map.getBounds();
+      live.current.onBounds?.([[bb.getWest(), bb.getSouth()], [bb.getEast(), bb.getNorth()]]);
+    };
     map.on('zoomend', relayout);
-    map.on('moveend', relayout);
+    map.on('moveend', () => {
+      relayout();
+      reportBounds();
+    });
+    map.on('load', reportBounds);
     map.on('click', (e) => {
       if ((e.originalEvent.target as HTMLElement).closest('.pin')) return;
       if (live.current.placingId) live.current.onPlace([e.lngLat.lng, e.lngLat.lat]);

@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import type { Metric, Survey, ViewSettings } from '../types';
+import type { Survey, ViewSettings } from '../types';
 import { METRIC_LABEL, formatMetric } from '../lib/format';
 import { filterOptions } from '../lib/groups';
-import { computeSummary, type Party, type SummaryRow } from '../lib/summary';
+import { computeSummary } from '../lib/summary';
+import { fmtDiff, fmtValue } from '../lib/summaryFormat';
 
 interface Props {
   /** Only buildings that are on the map: the client file leaves out the rest, so the numbers must too. */
@@ -15,15 +16,6 @@ interface Props {
   onToggleUnit?: (buildingId: string, unitId: string) => void;
   /** Editor only: buildings left out because they have no pin yet. */
   unplaced?: number;
-}
-
-const fmtValue = (p: Party, m: Metric) => (p.value == null ? '-' : formatMetric(p.value, m));
-
-function fmtDiff(r: SummaryRow, m: Metric): string {
-  if (r.diff == null) return '-';
-  const sign = r.diff > 0 ? '+' : r.diff < 0 ? '-' : '';
-  const pct = r.diffPct == null ? '' : ` (${sign}${Math.abs(r.diffPct * 100).toFixed(1)}%)`;
-  return `${sign}${formatMetric(Math.abs(r.diff), m)}${pct}`;
 }
 
 export default function SummaryPanel({ survey, view, onView, canToggle, onToggleBuilding, onToggleUnit, unplaced = 0 }: Props) {

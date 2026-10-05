@@ -13,6 +13,15 @@ export function circleCoords(center: LngLat, km: number, steps = 96): LngLat[] {
   return pts;
 }
 
+/** Great-circle distance in kilometres. */
+export function haversineKm(a: LngLat, b: LngLat): number {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(b[1] - a[1]);
+  const dLng = rad(b[0] - a[0]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+
 export function ringTop(center: LngLat, km: number): LngLat {
   return [center[0], center[1] + km / 111.32];
 }

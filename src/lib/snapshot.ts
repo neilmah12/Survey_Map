@@ -53,6 +53,7 @@ export interface ClientSnapshot {
   location: string;
   asOf: string;
   publishedAt: string;
+  sourceNote?: string;
   /** Clients may switch properties on and off in the summary; their changes are not saved. */
   clientCanToggle?: boolean;
   view: ClientView;
@@ -124,6 +125,7 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
       asOf: str(survey.asOf),
       publishedAt: now.toISOString(),
       ...(survey.clientCanToggle ? { clientCanToggle: true } : {}),
+      ...(str(survey.sourceNote) ? { sourceNote: str(survey.sourceNote) } : {}),
       view: {
         metric: view.metric,
         rings: Boolean(view.rings),
@@ -147,6 +149,7 @@ export function snapshotToSurvey(s: ClientSnapshot): Survey {
     location: s.location,
     asOf: s.asOf,
     clientCanToggle: Boolean(s.clientCanToggle),
+    sourceNote: s.sourceNote,
     buildings: s.buildings.map((b) => ({
       id: b.id,
       name: b.name,

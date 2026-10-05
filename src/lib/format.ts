@@ -49,3 +49,9 @@ export function parseLatLng(s: string): [number, number] | null {
   const lng = parseFloat(m[2]);
   return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? [lng, lat] : null;
 }
+
+/** "2026-10-01" -> "October 1, 2026". Anything that is not a date is returned as it was typed. */
+export function formatDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+}

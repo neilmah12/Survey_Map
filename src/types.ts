@@ -45,6 +45,8 @@ export interface Building {
 }
 
 export interface Survey {
+  /** The line shown under exports and on the client page, for example "Source: Avison Young Research". */
+  sourceNote?: string;
   /** Clients may turn properties on and off in the summary (their changes are not saved). */
   clientCanToggle?: boolean;
   title: string;

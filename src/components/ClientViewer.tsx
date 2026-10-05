@@ -53,6 +53,7 @@ export default function ClientViewer({ survey: initialSurvey, initialView, banne
           </div>
         </div>
       </div>
+      {survey.sourceNote && <footer className="source-note">{survey.sourceNote}</footer>}
     </div>
   );
 }

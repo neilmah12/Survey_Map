@@ -12,6 +12,7 @@ import MergeDialog from './components/MergeDialog';
 import ClientViewer from './components/ClientViewer';
 import SummaryPanel from './components/SummaryPanel';
 import ChecksDialog, { ChecksList } from './components/ChecksDialog';
+import ExportDialog from './components/ExportDialog';
 import { countBySeverity, runChecks, type Check } from './lib/checks';
 import { excelChecks } from './lib/excelChecks';
 import { embedSnapshot, snapshotToSurvey, snapshotToView, summarizeSnapshot, toClientSnapshot, type SnapshotResult } from './lib/snapshot';
@@ -48,6 +49,8 @@ export default function App() {
   const [preview, setPreview] = useState(false);
   const [clientExport, setClientExport] = useState<SnapshotResult | null>(null);
   const [checksOpen, setChecksOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const viewBounds = useRef<[LngLat, LngLat] | null>(null);
   const [excelList, setExcelList] = useState<Check[]>([]);
   const [excelLoading, setExcelLoading] = useState(false);
   const [skippedEdits, setSkippedEdits] = useState<{ building: string; field: string; reason: string }[] | null>(null);
@@ -329,6 +332,9 @@ export default function App() {
               </span>
             </button>
             <button className="btn" onClick={() => setPreview(true)}>Preview client view</button>
+            <button className="btn" onClick={() => setExportOpen(true)} disabled={!survey.buildings.some((b) => b.lngLat)} title="Save the map as a PNG or PDF for a report">
+              Export image / PDF
+            </button>
             <button
               className="btn primary"
               onClick={() => setClientExport(toClientSnapshot(survey, view))}
@@ -394,6 +400,16 @@ export default function App() {
           </ConfirmDialog>
         );
       })()}
+      {exportOpen && placedSurvey && (
+        <ExportDialog
+          survey={placedSurvey}
+          view={view}
+          getBounds={() => viewBounds.current}
+          initialSource={survey.sourceNote ?? ''}
+          onSource={(s) => setSurvey((cur) => cur && { ...cur, sourceNote: s })}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
       {checksOpen && (
         <ChecksDialog checks={[...checks, ...excelList]} loadingMore={excelLoading} onShow={showBuilding} onClose={() => setChecksOpen(false)} />
       )}
@@ -488,6 +504,7 @@ export default function App() {
                 setSelectedId(id);
                 setPlacingId(null);
               }}
+              onBounds={(b) => (viewBounds.current = b)}
               fitKey={fitKey}
             />
             <SummaryPanel

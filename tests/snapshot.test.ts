@@ -114,6 +114,17 @@ describe('client snapshot never contains internal data', () => {
   });
 });
 
+describe('source line', () => {
+  it('travels to the client page only when one is set, trimmed', async () => {
+    const s = await load('clareview-townhomes.xlsx');
+    expect(toClientSnapshot(s, VIEW).snapshot.sourceNote).toBeUndefined();
+    s.sourceNote = '  Source: Avison Young Research  ';
+    const { snapshot } = toClientSnapshot(s, VIEW);
+    expect(snapshot.sourceNote).toBe('Source: Avison Young Research');
+    expect(snapshotToSurvey(snapshot).sourceNote).toBe('Source: Avison Young Research');
+  });
+});
+
 describe('summary settings and exclusions in the snapshot', () => {
   it('carries switched-off buildings and suites, and whether clients may toggle', async () => {
     const s = await load('clareview-townhomes.xlsx');

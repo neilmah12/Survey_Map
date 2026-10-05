@@ -32,6 +32,21 @@ Phase A (re-upload and Excel round trip):
   A re-upload then places every pin automatically.
 - Undo / redo (buttons, Ctrl+Z, Ctrl+Shift+Z) for edits, pin moves and merges.
 
+Image and PDF export (Phase E):
+
+- "Export image / PDF" builds a report page: AY header with the as-of date, the map drawn fresh at print
+  size (so it is sharp at any page size), pins and rings exactly as in the app, scale bar, the map credit
+  OpenFreeMap requires, an optional market summary table and legend, and a source line. Pick Letter
+  landscape, Letter portrait or a 16:9 slide, 150 dpi (Word, email) or 300 dpi (print), and "what I see
+  now" or all buildings. One preview, then Save PNG or Save PDF.
+- It follows the current metric, unit filters, summary settings and switched-off properties, and leaves
+  out buildings with no pin, so it matches the client file. Crowded pins use the same layout algorithm as
+  the map (`src/lib/pinLayout.ts`). If the street map cannot load, the page has a plain background and the
+  dialog says so.
+- The PDF is a print-resolution picture of the page (`src/lib/pdf.ts` writes it, no library). Text in the
+  PDF is therefore not selectable; a vector version is possible later.
+- The source line is a survey field (Survey section of the sidebar); it is also shown on the client page.
+
 Survey checks (Phase C):
 
 - The **Checks** button (badge = count of things to fix) lists mistakes before a client sees the map:
@@ -131,3 +146,10 @@ npm run build
 Basemap: OpenFreeMap "positron" by default. Override with `VITE_BASEMAP_STYLE` (a style URL,
 or `blank` for a plain background). If the basemap fails to load, the app falls back to a
 plain background so pins remain usable.
+
+
+## Reminders
+
+- When the app is hosted on Firebase: open an exported client file on a phone and test the layout
+  (controls strip, popups, summary under the map) on real devices and the real basemap.
+- Excel client export is on hold; the analyst supplies the Excel as the follow-up.
