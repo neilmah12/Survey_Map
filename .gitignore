@@ -7,3 +7,5 @@ dist-single
 .worker-build
 src/generated
 dist-client
+firestore-debug.log
+*-debug.log

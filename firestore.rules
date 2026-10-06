@@ -1,0 +1,46 @@
+rules_version = '2';
+
+// Access model
+// - Team: a signed-in Google user with a verified email that has a document at allowedUsers/<lowercase email>.
+//   Add or remove people in the Firebase console (Firestore, allowedUsers). No deploy needed.
+// - Clients: can read a published snapshot, and its photos, only by exact id. Nobody can list them.
+// - Everything else is denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isTeam() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email.lower()));
+    }
+
+    // Lets the editor tell "not on the list" apart from "signed out". Read-only, own document only.
+    match /allowedUsers/{email} {
+      allow get: if request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == email;
+      allow list, write: if false;
+    }
+
+    // Drafts shared by the team: the survey document, and its workbook and photos as separate documents.
+    match /surveys/{surveyId} {
+      allow read, write: if isTeam();
+      match /files/{fileId} {
+        allow read, write: if isTeam();
+      }
+    }
+
+    // Published client snapshots. Public get by id, never list. Only the team can publish or unpublish.
+    match /published/{pubId} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if isTeam();
+      match /photos/{photoId} {
+        allow get: if true;
+        allow list: if false;
+        allow create, update, delete: if isTeam();
+      }
+    }
+  }
+}
