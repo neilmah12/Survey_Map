@@ -135,24 +135,26 @@ const toRect = (r: DOMRect) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom }
 
 /** Measures every pin on screen, plans the layout with the shared algorithm, and applies it. */
 /**
- * Popup offsets that clear the whole pin. A marker is anchored at its bottom, so the price pill sits well above
- * the map point (more when it is lifted to avoid a neighbour). A popup that opens upward must start above the
- * pill, or it covers it; one that opens downward only needs a small gap.
+ * How far above the map point a popup must start to clear the whole pin. A marker is anchored at its bottom, so
+ * the price pill sits well above the map point (more when it is lifted to avoid a neighbour); a popup that
+ * started at a fixed small gap would cover it.
  */
-function popupOffset(pin: HTMLElement): maplibregl.Offset {
-  const GAP = 8;
+function popupOffset(pin: HTMLElement): [number, number] {
   const pill = pin.querySelector('.pin-pill')?.getBoundingClientRect();
   const base = pin.getBoundingClientRect().bottom; // the map point
-  const above = pill && pill.height > 0 ? Math.max(14, base - pill.top + GAP) : 56;
-  const side = pill && pill.width > 0 ? pill.width / 2 + GAP : 40;
-  const below: [number, number] = [0, 14];
-  const up: [number, number] = [0, -above];
-  return {
-    top: below, 'top-left': below, 'top-right': below,
-    bottom: up, 'bottom-left': up, 'bottom-right': up,
-    left: [side, 0], right: [-side, 0],
-    center: below,
-  };
+  return [0, -(pill && pill.height > 0 ? Math.max(14, base - pill.top + 8) : 56)];
+}
+
+/** Pans the map just enough that an open popup is fully visible (the popup always opens above its pin). */
+function keepPopupInView(map: maplibregl.Map, popup: maplibregl.Popup) {
+  const content = popup.getElement()?.querySelector('.maplibregl-popup-content');
+  if (!content) return;
+  const box = content.getBoundingClientRect();
+  const view = map.getContainer().getBoundingClientRect();
+  const M = 10;
+  const dx = box.left < view.left + M ? view.left + M - box.left : box.right > view.right - M ? view.right - M - box.right : 0;
+  const dy = box.top < view.top + M ? view.top + M - box.top : box.bottom > view.bottom - M ? view.bottom - M - box.bottom : 0;
+  if (dx || dy) map.panBy([-dx, -dy], { duration: 250 });
 }
 
 function layoutPins(markers: Map<string, maplibregl.Marker>, selectedId: string | null) {
@@ -265,10 +267,17 @@ export default function MapView(p: Props) {
       const old = markers.current.get(b.id);
       const wasOpen = old?.getPopup()?.isOpen() ?? false;
       old?.remove();
-      const popup = new maplibregl.Popup({ offset: 14, maxWidth: window.innerWidth < 520 ? '88vw' : '380px', closeButton: true }).setDOMContent(
+      // Always above the pin. Left to itself MapLibre measures the popup before its photo has loaded, finds it
+      // short, and puts it beside the pin on a phone.
+      const popup = new maplibregl.Popup({ anchor: 'bottom', offset: popupOffset(element), maxWidth: window.innerWidth < 520 ? '88vw' : '380px', closeButton: true }).setDOMContent(
         popupContent(b, filter),
       );
-      popup.on('open', () => popup.setOffset(popupOffset(element)));
+      popup.on('open', () => {
+        popup.setOffset(popupOffset(element));
+        requestAnimationFrame(() => keepPopupInView(map, popup));
+        // The photo arrives after the popup opens and makes it taller.
+        popup.getElement()?.addEventListener('load', () => keepPopupInView(map, popup), true);
+      });
       const marker = new maplibregl.Marker({ element, draggable: p.editable, anchor: 'bottom' })
         .setLngLat(b.lngLat)
         .setPopup(popup)

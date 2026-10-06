@@ -240,3 +240,5 @@ button, input { font: inherit; }
 .publish-link { display: flex; gap: 8px; align-items: center; margin: 10px 0; }
 .publish-link input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; font-size: 13px; background: #f9fafb; }
 .publish-link .btn { text-decoration: none; color: var(--ink); white-space: nowrap; }
+
+@media (max-width: 520px) { .popup-img { max-height: 120px; } }
