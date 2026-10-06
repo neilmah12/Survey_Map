@@ -7,6 +7,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   base: '/',
+  publicDir: 'client-public', // 404.html for visits that are not a /s/<id> link
   build: {
     outDir: 'dist/client',
     emptyOutDir: true,
