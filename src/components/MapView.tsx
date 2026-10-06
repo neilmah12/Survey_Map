@@ -5,6 +5,8 @@ import { BLANK_STYLE, initialStyle } from '../lib/basemap';
 import { layoutPins as planPins } from '../lib/pinLayout';
 import type { Building, LngLat, Survey, ViewSettings } from '../types';
 import { safeUrl } from '../lib/safeUrl';
+import { PHOTO_MARK } from '../lib/cloudSplit';
+import { loadPhoto } from '../lib/photoSource';
 import { DRAG_TYPE } from '../lib/dnd';
 import { normalizeUnitType } from '../lib/unitText';
 import { circleCoords, ringTop } from '../lib/geo';
@@ -50,8 +52,9 @@ function pinElement(b: Building, label: string, selected: boolean, excluded: boo
 function popupContent(b: Building, filter: UnitFilter): HTMLElement {
   const root = el('div', 'popup');
   const imgSrc = safeUrl(b.imageUrl, true);
+  const lazyPhoto = !imgSrc && b.imageUrl?.startsWith(PHOTO_MARK) ? loadPhoto(b.imageUrl.slice(PHOTO_MARK.length)) : null;
   const listing = safeUrl(b.url);
-  if (imgSrc) {
+  if (imgSrc || lazyPhoto) {
     const img = document.createElement('img');
     img.className = 'popup-img';
     img.alt = b.name;
@@ -66,7 +69,9 @@ function popupContent(b: Building, filter: UnitFilter): HTMLElement {
       a.append(img);
       root.append(a);
     } else root.append(img);
-    img.src = imgSrc;
+    if (imgSrc) img.src = imgSrc;
+    // Published photos live in their own documents and load only when a popup opens.
+    else lazyPhoto?.then((data) => (safeUrl(data, true) ? (img.src = data) : img.remove())).catch(() => img.remove());
   }
   root.append(el('div', 'popup-title', b.name));
   if (b.isSubject) root.append(el('div', 'popup-tag', 'Subject property'));

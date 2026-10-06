@@ -8,3 +8,6 @@ export const firebaseConfig = {
 };
 
 export const firebaseConfigured = !firebaseConfig.apiKey.startsWith('REPLACE');
+
+/** Where published client links live. `VITE_CLIENT_ORIGIN` overrides it for local testing. */
+export const clientOrigin: string = import.meta.env.VITE_CLIENT_ORIGIN ?? 'https://avison-young-rental-survey.web.app';

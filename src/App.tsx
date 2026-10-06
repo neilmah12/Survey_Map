@@ -23,6 +23,7 @@ import Controls, { DEFAULT_RINGS } from './components/Controls';
 import Sidebar from './components/Sidebar';
 import MapView from './components/MapView';
 import SurveysDialog from './components/SurveysDialog';
+import PublishDialog from './components/PublishDialog';
 import type { TeamUser } from './components/Gate';
 import { useCloudSync, type CloudLink } from './hooks/useCloudSync';
 import { loadSurvey } from './lib/cloud';
@@ -45,6 +46,7 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
   const [draft] = useState(() => loadDraft());
   const [link, setLink] = useState<CloudLink>(() => draft?.cloud ?? NO_LINK);
   const [surveysOpen, setSurveysOpen] = useState(false);
+  const [publishResult, setPublishResult] = useState<SnapshotResult | null>(null);
   const [conflictOpen, setConflictOpen] = useState(true);
   const [restoredAt, setRestoredAt] = useState<string | null>(() => (draft ? draft.savedAt ?? 'earlier' : null));
   const { state: survey, set: setSurvey, reset: resetSurvey, undo, redo, canUndo, canRedo } = useUndoable<Survey | null>(() => draft?.survey ?? null);
@@ -376,6 +378,14 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
             </button>
             <button
               className="btn primary"
+              onClick={() => setPublishResult(toClientSnapshot(survey, view))}
+              disabled={!link.id || link.dirty}
+              title={link.id && !link.dirty ? 'Create or update the private link for your client' : 'Waiting for the survey to save to the cloud'}
+            >
+              Client link
+            </button>
+            <button
+              className="btn"
               onClick={() => setClientExport(toClientSnapshot(survey, view))}
               disabled={!clientTemplate}
               title={clientTemplate ? 'Save a read-only copy of the map to send to a client' : 'Not available in this build. Use the file made by npm run build:single'}
@@ -420,6 +430,19 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
             setLink(NO_LINK);
             setNotice({ text: 'That survey was deleted from the cloud. It is still open here and will save as a new survey on your next change.', warn: true });
           }}
+        />
+      )}
+      {publishResult && link.id && (
+        <PublishDialog
+          surveyId={link.id}
+          result={publishResult}
+          checks={checks}
+          onShow={(id) => {
+            setPublishResult(null);
+            showBuilding(id);
+          }}
+          onClose={() => setPublishResult(null)}
+          onDone={(text) => setNotice({ text })}
         />
       )}
       {cloud.status === 'conflict' && conflictOpen && (

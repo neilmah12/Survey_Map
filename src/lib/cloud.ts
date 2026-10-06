@@ -5,6 +5,7 @@ import {
 import type { Survey } from '../types';
 import { db } from './firebase';
 import { joinSurvey, referencedFileIds, splitSurvey } from './cloudSplit';
+import { removePublished } from './publish';
 
 /**
  * Saved surveys shared by the team.
@@ -22,6 +23,7 @@ export interface CloudEntry {
   rev: number;
   updatedAt: Date | null;
   updatedBy: string;
+  /** Set while a client link is live. */
   publishedId: string | null;
 }
 
@@ -47,7 +49,7 @@ const toEntry = (id: string, d: Record<string, unknown>): CloudEntry => ({
   rev: Number(d.rev ?? 0),
   updatedAt: (d.updatedAt as Timestamp | undefined)?.toDate?.() ?? null,
   updatedBy: String(d.updatedBy ?? ''),
-  publishedId: typeof d.publishedId === 'string' ? d.publishedId : null,
+  publishedId: d.published === true && typeof d.publishedId === 'string' ? d.publishedId : null,
 });
 
 export async function listSurveys(): Promise<CloudEntry[]> {
@@ -123,6 +125,9 @@ async function pruneFiles(sid: string, keep: Set<string>) {
 }
 
 export async function deleteSurvey(id: string): Promise<void> {
+  // A deleted survey must not leave a live client link behind.
+  const meta = await getDoc(metaRef(id));
+  if (typeof meta.data()?.publishedId === 'string') await removePublished(meta.data()!.publishedId as string);
   const snap = await getDocs(collection(db, 'surveys', id, 'files'));
   const batch = writeBatch(db);
   snap.docs.forEach((d) => batch.delete(d.ref));

@@ -10,7 +10,10 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build:single": "bash scripts/build-single.sh",
-    "test:rules": "firebase emulators:exec --only firestore --project avison-young-rental-survey \"vitest run --config vitest.rules.config.ts\""
+    "test:rules": "firebase emulators:exec --only firestore --project avison-young-rental-survey \"vitest run --config vitest.rules.config.ts\"",
+    "build:editor": "tsc --noEmit && vite build --outDir dist/editor --emptyOutDir",
+    "build:client": "vite build --config vite.hosting-client.config.ts && node scripts/check-client-bundle.mjs dist/client",
+    "build:hosting": "npm run build:editor && npm run build:client"
   },
   "dependencies": {
     "@xmldom/xmldom": "^0.9.12",
