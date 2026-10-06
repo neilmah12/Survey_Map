@@ -134,6 +134,27 @@ function popupContent(b: Building, filter: UnitFilter): HTMLElement {
 const toRect = (r: DOMRect) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
 
 /** Measures every pin on screen, plans the layout with the shared algorithm, and applies it. */
+/**
+ * Popup offsets that clear the whole pin. A marker is anchored at its bottom, so the price pill sits well above
+ * the map point (more when it is lifted to avoid a neighbour). A popup that opens upward must start above the
+ * pill, or it covers it; one that opens downward only needs a small gap.
+ */
+function popupOffset(pin: HTMLElement): maplibregl.Offset {
+  const GAP = 8;
+  const pill = pin.querySelector('.pin-pill')?.getBoundingClientRect();
+  const base = pin.getBoundingClientRect().bottom; // the map point
+  const above = pill && pill.height > 0 ? Math.max(14, base - pill.top + GAP) : 56;
+  const side = pill && pill.width > 0 ? pill.width / 2 + GAP : 40;
+  const below: [number, number] = [0, 14];
+  const up: [number, number] = [0, -above];
+  return {
+    top: below, 'top-left': below, 'top-right': below,
+    bottom: up, 'bottom-left': up, 'bottom-right': up,
+    left: [side, 0], right: [-side, 0],
+    center: below,
+  };
+}
+
 function layoutPins(markers: Map<string, maplibregl.Marker>, selectedId: string | null) {
   const items = [...markers.entries()].map(([id, m], i) => {
     const root = m.getElement();
@@ -148,6 +169,11 @@ function layoutPins(markers: Map<string, maplibregl.Marker>, selectedId: string 
     const p = plan.get(id)!;
     root.style.setProperty('--lift', `${p.lift}px`);
     root.classList.toggle('name-hidden', p.nameHidden);
+  }
+  // A pin that moved changes where an open popup must start.
+  for (const [, m] of markers) {
+    const pop = m.getPopup();
+    if (pop?.isOpen()) pop.setOffset(popupOffset(m.getElement()));
   }
 }
 
@@ -239,13 +265,13 @@ export default function MapView(p: Props) {
       const old = markers.current.get(b.id);
       const wasOpen = old?.getPopup()?.isOpen() ?? false;
       old?.remove();
+      const popup = new maplibregl.Popup({ offset: 14, maxWidth: window.innerWidth < 520 ? '88vw' : '380px', closeButton: true }).setDOMContent(
+        popupContent(b, filter),
+      );
+      popup.on('open', () => popup.setOffset(popupOffset(element)));
       const marker = new maplibregl.Marker({ element, draggable: p.editable, anchor: 'bottom' })
         .setLngLat(b.lngLat)
-        .setPopup(
-          new maplibregl.Popup({ offset: 14, maxWidth: window.innerWidth < 520 ? '88vw' : '380px', closeButton: true }).setDOMContent(
-            popupContent(b, filter),
-          ),
-        )
+        .setPopup(popup)
         .addTo(map);
       element.addEventListener('click', () => live.current.onSelect(b.id));
       marker.on('dragend', () => {
