@@ -1,4 +1,5 @@
 import type { Survey } from '../types';
+import type { CloudLink } from '../hooks/useCloudSync';
 
 const KEY = 'survey-map:draft';
 
@@ -6,6 +7,8 @@ export interface Draft {
   survey: Survey;
   /** ISO time of the last autosave; absent for drafts written by older versions. */
   savedAt?: string;
+  /** Which cloud survey this draft belongs to, and whether it has changes not yet saved there. */
+  cloud?: CloudLink;
 }
 
 export function loadDraft(): Draft | null {
@@ -23,9 +26,9 @@ export function loadDraft(): Draft | null {
 }
 
 /** Returns false when the browser refused the write (storage full or unavailable). */
-export function saveDraft(survey: Survey | null): boolean {
+export function saveDraft(survey: Survey | null, cloud?: CloudLink): boolean {
   try {
-    if (survey) localStorage.setItem(KEY, JSON.stringify({ survey, savedAt: new Date().toISOString() } satisfies Draft));
+    if (survey) localStorage.setItem(KEY, JSON.stringify({ survey, savedAt: new Date().toISOString(), cloud } satisfies Draft));
     else localStorage.removeItem(KEY);
     return true;
   } catch {

@@ -22,6 +22,10 @@ import Header from './components/Header';
 import Controls, { DEFAULT_RINGS } from './components/Controls';
 import Sidebar from './components/Sidebar';
 import MapView from './components/MapView';
+import SurveysDialog from './components/SurveysDialog';
+import type { TeamUser } from './components/Gate';
+import { useCloudSync, type CloudLink } from './hooks/useCloudSync';
+import { loadSurvey } from './lib/cloud';
 
 const DEFAULT_VIEW: ViewSettings = { metric: 'rate', summary: DEFAULT_SUMMARY, filters: NO_FILTERS, rings: false, ringsKm: DEFAULT_RINGS };
 
@@ -35,8 +39,13 @@ async function readWorkbook(file: File): Promise<Survey> {
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
 
-export default function App() {
+const NO_LINK: CloudLink = { id: null, rev: 0, dirty: false };
+
+export default function App({ user, onSignOut, offline }: { user: TeamUser; onSignOut: () => void; offline: boolean }) {
   const [draft] = useState(() => loadDraft());
+  const [link, setLink] = useState<CloudLink>(() => draft?.cloud ?? NO_LINK);
+  const [surveysOpen, setSurveysOpen] = useState(false);
+  const [conflictOpen, setConflictOpen] = useState(true);
   const [restoredAt, setRestoredAt] = useState<string | null>(() => (draft ? draft.savedAt ?? 'earlier' : null));
   const { state: survey, set: setSurvey, reset: resetSurvey, undo, redo, canUndo, canRedo } = useUndoable<Survey | null>(() => draft?.survey ?? null);
   const [pendingNew, setPendingNew] = useState<{ fileName: string; survey: Survey } | null>(null);
@@ -62,9 +71,30 @@ export default function App() {
   const excelInput = useRef<HTMLInputElement>(null);
   const jsonInput = useRef<HTMLInputElement>(null);
 
+  // A draft that was fully saved to the cloud last time needs no re-save; one with unsaved changes does.
+  const cloud = useCloudSync(survey, user.email, link, setLink, draft?.cloud?.id && !draft.cloud.dirty ? draft.survey : null);
+
   useEffect(() => {
-    if (!saveDraft(survey)) setNotice({ text: 'Browser autosave is full. Use "Save file" to keep your work.', warn: true });
-  }, [survey]);
+    if (!saveDraft(survey, link)) setNotice({ text: 'Browser autosave is full. Use "Save file" to keep your work.', warn: true });
+  }, [survey, link]);
+
+  useEffect(() => {
+    if (cloud.status === 'conflict') setConflictOpen(true);
+  }, [cloud.status]);
+
+  const openFromCloud = async (id: string) => {
+    setSurveysOpen(false);
+    setError('');
+    try {
+      await cloud.flush();
+      const { survey: loaded, entry } = await loadSurvey(id);
+      cloud.adopt(loaded);
+      installSurvey(loaded, { id, rev: entry.rev, dirty: false });
+      setNotice({ text: `Opened "${entry.title}" from the cloud.` });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not open that survey');
+    }
+  };
 
   useEffect(() => {
     if (!notice || notice.warn) return;
@@ -115,7 +145,10 @@ export default function App() {
     );
   }, []);
 
-  const installSurvey = (next: Survey) => {
+  /** Shows a survey. A survey that came from a file or workbook has no cloud copy until its first save. */
+  const installSurvey = (next: Survey, nextLink: CloudLink = NO_LINK) => {
+    if (nextLink === NO_LINK) cloud.adopt(null);
+    setLink(nextLink);
     resetSurvey(next);
     setView((v) => ({ ...v, filters: NO_FILTERS })); // filter choices belong to the previous survey
     setRestoredAt(null);
@@ -280,9 +313,14 @@ export default function App() {
         <p>Upload a survey workbook to place the properties on a map.</p>
         <div className="row-actions">
           <button className="btn primary" onClick={() => excelInput.current?.click()}>Upload Excel survey</button>
-          <button className="btn" onClick={() => jsonInput.current?.click()}>Open saved survey</button>
+          <button className="btn" onClick={() => setSurveysOpen(true)}>Saved surveys</button>
+          <button className="btn" onClick={() => jsonInput.current?.click()}>Open backup file</button>
         </div>
         {error && <p className="error">{error}</p>}
+        <p className="hint">
+          Signed in as {user.email} <button className="link-btn" onClick={onSignOut}>Sign out</button>
+        </p>
+        {surveysOpen && <SurveysDialog currentId={null} onOpen={openFromCloud} onClose={() => setSurveysOpen(false)} onDeleted={() => {}} />}
       </div>
     );
   }
@@ -320,8 +358,9 @@ export default function App() {
             <button className="btn" onClick={exportExcel} disabled={!survey.source} title={survey.source ? 'Write pin coordinates and photo URLs back into your workbook' : 'Upload the Excel file again to enable export'}>Export Excel</button>
             <span className="sep" />
             <button className="btn" onClick={() => excelInput.current?.click()}>New from Excel</button>
-            <button className="btn" onClick={() => jsonInput.current?.click()}>Open</button>
-            <button className="btn" onClick={() => downloadJson(survey)}>Save file</button>
+            <button className="btn" onClick={() => setSurveysOpen(true)} title="Surveys saved in the cloud, shared with the team">Saved surveys</button>
+            <button className="btn" onClick={() => jsonInput.current?.click()} title="Open a .survey.json backup file">Open</button>
+            <button className="btn" onClick={() => downloadJson(survey)} title="Download a backup copy to your computer">Save file</button>
             <button className="btn" onClick={() => setConfirmStartOver(true)} title="Close this survey and clear the autosaved copy">Start over</button>
             <button className="btn" onClick={() => setFitKey((k) => k + 1)}>Fit map</button>
             <span className="sep" />
@@ -350,6 +389,13 @@ export default function App() {
             <span>Client preview: this is what the client will see. Press Esc to return.</span>
           </>
         )}
+        <span className={cloud.status === 'error' || cloud.status === 'conflict' || offline ? 'cloud-status bad' : 'cloud-status'} title={cloud.message}>
+          {cloud.status === 'saving' && 'Saving to cloud...'}
+          {cloud.status === 'saved' && cloud.savedAt && `Saved to cloud ${cloud.savedAt.toLocaleTimeString('en-CA', { timeStyle: 'short' })}`}
+          {cloud.status === 'error' && 'Not saved to cloud (retrying). Saved on this device.'}
+          {cloud.status === 'conflict' && 'Cloud copy changed: not saved'}
+          {cloud.status === 'idle' && (offline ? 'Offline: saved on this device' : link.id && !link.dirty ? 'In cloud' : link.dirty ? 'Unsaved changes' : '')}
+        </span>
         {error && <span className="error">{error}</span>}
         {notice && editable && <span className={notice.warn ? 'notice warn' : 'notice'}>{notice.text}</span>}
         {restoredAt && editable && !notice && (
@@ -358,7 +404,51 @@ export default function App() {
             <button className="link-btn" onClick={() => setRestoredAt(null)}>Dismiss</button>
           </span>
         )}
+        <span className="who">
+          {user.email}
+          <button className="link-btn" onClick={onSignOut}>Sign out</button>
+        </span>
       </div>
+      {surveysOpen && (
+        <SurveysDialog
+          currentId={link.id}
+          onOpen={openFromCloud}
+          onClose={() => setSurveysOpen(false)}
+          onDeleted={(id) => {
+            if (id !== link.id) return;
+            cloud.adopt(survey);
+            setLink(NO_LINK);
+            setNotice({ text: 'That survey was deleted from the cloud. It is still open here and will save as a new survey on your next change.', warn: true });
+          }}
+        />
+      )}
+      {cloud.status === 'conflict' && conflictOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Cloud copy changed">
+          <div className="modal">
+            <h2>This survey was changed by someone else</h2>
+            <div className="modal-line">
+              <strong>{cloud.conflictBy}</strong> saved a newer version while you were editing. Nothing has been overwritten. Your edits are still on this screen and in this browser.
+            </div>
+            <div className="row-actions">
+              <button
+                className="btn primary"
+                onClick={async () => {
+                  try {
+                    await cloud.keepMine();
+                  } catch {
+                    setError('Could not reach the cloud. Try again.');
+                  }
+                }}
+              >
+                Keep my version (replace theirs)
+              </button>
+              <button className="btn" onClick={() => link.id && void openFromCloud(link.id)} title="Your unsaved edits will be lost. Use Save file first to keep a copy.">Load their version</button>
+              <button className="btn" onClick={() => setConflictOpen(false)}>Decide later</button>
+            </div>
+            <p className="hint">Cloud saving is paused until you choose. "Load their version" discards your unsaved edits; use Save file first if you want a copy.</p>
+          </div>
+        </div>
+      )}
       {pendingNew && (
         <ConfirmDialog
           title="Start a new survey?"
@@ -372,6 +462,7 @@ export default function App() {
           <p>
             Replace the current survey with <strong>{pendingNew.fileName}</strong> ({pendingNew.survey.buildings.length} buildings)? Pins and photos
             will not carry over. To keep them, cancel and use <strong>Update from Excel</strong> instead.
+            {link.id && ' The current survey stays in Saved surveys.'}
           </p>
         </ConfirmDialog>
       )}
@@ -443,13 +534,15 @@ export default function App() {
           confirmLabel="Close survey"
           onCancel={() => setConfirmStartOver(false)}
           onConfirm={() => {
+            cloud.adopt(null);
+            setLink(NO_LINK);
             resetSurvey(null);
             saveDraft(null);
             setRestoredAt(null);
             setConfirmStartOver(false);
           }}
         >
-          <p>This closes the survey and clears the autosaved copy in this browser. Use <strong>Save file</strong> first if you want to keep it.</p>
+          <p>This closes the survey and clears the autosaved copy in this browser. {link.id ? 'It stays in Saved surveys.' : <>Use <strong>Save file</strong> first if you want to keep it.</>}</p>
         </ConfirmDialog>
       )}
       {pending && <MergeDialog fileName={pending.fileName} summary={pending.summary} onApply={applyMerge} onCancel={() => setPending(null)} />}
