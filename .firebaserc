@@ -1,1 +1,17 @@
-{ "projects": { "default": "avison-young-rental-survey" } }
+{
+  "projects": {
+    "default": "avison-young-rental-survey"
+  },
+  "targets": {
+    "avison-young-rental-survey": {
+      "hosting": {
+        "editor": [
+          "avison-young-rental-survey-dev"
+        ],
+        "client": [
+          "avison-young-rental-survey"
+        ]
+      }
+    }
+  }
+}

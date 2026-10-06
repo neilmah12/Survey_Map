@@ -5,7 +5,7 @@
   },
   "hosting": [
     {
-      "site": "avison-young-rental-survey-dev",
+      "target": "editor",
       "public": "dist/editor",
       "ignore": [
         "firebase.json",
@@ -25,7 +25,7 @@
       ]
     },
     {
-      "site": "avison-young-rental-survey",
+      "target": "client",
       "public": "dist/client",
       "ignore": [
         "firebase.json",

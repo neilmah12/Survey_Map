@@ -1,0 +1,102 @@
+name: Test and deploy
+
+# Pull requests: run all tests, then publish preview copies of both sites (temporary, expire in 7 days).
+# Push to main: run all tests, then deploy Firestore rules and both Hosting sites to the live project.
+# Needs one repository secret, FIREBASE_SERVICE_ACCOUNT (the whole service account JSON key), and one
+# repository variable, VITE_FIREBASE_API_KEY (the public web API key). See README, "Deploying".
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write # lets the preview action comment the preview links on the pull request
+  checks: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FIREBASE_PROJECT: avison-young-rental-survey
+  VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4 # the Firestore emulator needs Java
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Security rules tests (Firestore emulator)
+        run: npm run test:rules
+      - name: Build both sites (also checks the client bundle has no editor code)
+        run: npm run build:hosting
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hosting-build
+          path: dist
+          retention-days: 3
+
+  preview:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: hosting-build, path: dist }
+      - name: Skip previews until the FIREBASE_SERVICE_ACCOUNT secret exists
+        if: env.HAS_KEY != 'true'
+        run: echo "::warning::FIREBASE_SERVICE_ACCOUNT is not set, so no preview was created."
+      - name: Preview, editor site
+        if: env.HAS_KEY == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ env.FIREBASE_PROJECT }}
+          target: editor
+      - name: Preview, client site
+        if: env.HAS_KEY == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ env.FIREBASE_PROJECT }}
+          target: client
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: hosting-build, path: dist }
+      - name: Deploy Firestore rules and both Hosting sites
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SERVICE_ACCOUNT_JSON" ]; then
+            echo "::warning::FIREBASE_SERVICE_ACCOUNT is not set, so nothing was deployed."
+            exit 0
+          fi
+          key="$RUNNER_TEMP/firebase-key.json"
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT_JSON" > "$key"
+          export GOOGLE_APPLICATION_CREDENTIALS="$key"
+          npx firebase deploy --only firestore:rules,hosting --project "$FIREBASE_PROJECT" --non-interactive
+          rm -f "$key"

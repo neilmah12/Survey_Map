@@ -104,7 +104,7 @@ Client file (Phase B):
   builds the viewer first and fails if it contains editor, Excel or storage code
   (`scripts/check-client-bundle.mjs`), then embeds it as the editor's export template.
 - "Preview client view" renders the same snapshot through the same viewer, so it matches the file.
-- Firebase publishing will host this same viewer and load the same snapshot.
+- Firebase publishing hosts this same viewer and loads the same snapshot by id (see "Firebase").
 
 Adding buildings in the app:
 
@@ -131,8 +131,7 @@ Unit filters and subjects:
   marker, the building name, the survey title) but only to decide whether Stacked / non-stacked shows.
 - Several buildings can be marked as the subject (for example a portfolio). Rings draw around each.
 
-Planned: Firebase Auth (3-user allowlist), Firestore drafts, published read-only snapshots at
-unguessable URLs, PDF/image export.
+Firebase (sign-in, saved surveys, client links, hosting): see "Firebase" below.
 
 ## Develop
 
@@ -153,3 +152,67 @@ plain background so pins remain usable.
 - When the app is hosted on Firebase: open an exported client file on a phone and test the layout
   (controls strip, popups, summary under the map) on real devices and the real basemap.
 - Excel client export is on hold; the analyst supplies the Excel as the follow-up.
+
+
+## Firebase
+
+Project `avison-young-rental-survey`, Spark (free) plan: Authentication, Firestore and Hosting only. No Cloud
+Storage, no Functions.
+
+- **Two Hosting sites, one project.** The editor is on the dev site (`avison-young-rental-survey-dev.web.app`, `/`).
+  Clients only ever see the client site (`avison-young-rental-survey.web.app/s/<id>`), which is built separately
+  (`vite.hosting-client.config.ts`) and contains the viewer only. `scripts/check-client-bundle.mjs` fails the build if
+  editor, Excel, storage or sign-in code reaches it. Targets are named in `.firebaserc`: `editor` and `client`.
+- **Sign-in:** Google only. A person is on the team when a document exists at `allowedUsers/<lowercase email>` in
+  Firestore. Add or remove people in the Firebase console (Firestore Database > allowedUsers); no deploy needed. The
+  Firestore rules enforce it (verified email required); the sign-in screen only reflects it.
+- **Saved surveys** (`src/lib/cloud.ts`, `cloudSplit.ts`, `hooks/useCloudSync.ts`): `surveys/{id}` is a small metadata
+  document, `surveys/{id}/files/main` holds the survey JSON, and the uploaded workbook and each photo are separate
+  documents named by a hash of their content. Every document stays under 1 MB (a file over about 0.9 MB is refused
+  with a message). Changes autosave a moment after each edit. Each save checks a revision number, so if a teammate
+  saved first you get a choice (keep mine, load theirs) instead of a silent overwrite. The browser copy in
+  localStorage stays as the offline cache, and "Save file" / "Open" still make and read a backup file. Signing out
+  clears the browser copy.
+- **Client link** (`src/lib/publish.ts`, `publishSplit.ts`): "Client link" builds the same snapshot as the preview,
+  runs the same checks, and stores it at `published/<128-bit random id>` with photos in `published/<id>/photos`.
+  Update link re-publishes to the same id; Unpublish deletes the public documents but keeps the id reserved on the
+  survey, so Publish again gives the same link. Deleting a survey also unpublishes it.
+- **Client page** (`src/client/main.tsx`, `lib/publishedRead.ts`): reads the snapshot with a plain `fetch` to the Firestore
+  REST API (no sign-in, no Firebase SDK), and loads each photo only when its popup opens.
+- **Rules** (`firestore.rules`): published documents can be read by exact id (get) and never listed; every other
+  read and write needs a team member. Tests: `npm run test:rules` (starts the Firestore emulator; needs Java).
+
+### Run locally against the emulators
+
+```
+npx firebase emulators:start --only auth,firestore      # in one terminal
+VITE_USE_EMULATORS=1 npm run dev                         # in another
+```
+
+In emulator mode there is a console helper for browser tests: `await window.__testSignIn('you@gmail.com')`
+(the real Google pop-up needs Google's servers). Add that email first at `allowedUsers/<email>` through the
+emulator. This helper does not exist in production builds. Real keys are never needed locally.
+
+### Build
+
+```
+npm run build:hosting    # dist/editor and dist/client, with the client bundle check
+```
+
+### Deploying
+
+`.github/workflows/deploy.yml` runs typecheck, unit tests, the rules tests and both builds on every pull request and
+every push to `main`. Pull requests then get preview copies of both sites; a push to `main` deploys Firestore rules
+and both sites. It needs the repository secret `FIREBASE_SERVICE_ACCOUNT` (the service account JSON key, never
+committed) and the repository variable `VITE_FIREBASE_API_KEY` (the public web API key, not a secret). Until the secret
+exists the deploy and preview steps skip with a warning instead of failing.
+
+Preview sites cannot sign in (each preview has its own random address, which Google sign-in does not trust). They are
+for checking the layout and the build. Test sign-in on the live dev site.
+
+## Security notes
+
+- The client page cannot hide what it shows: anyone with a published link can read that snapshot, and could save or
+  share it. Send links only to the client, and use Unpublish to withdraw one.
+- The editor's JavaScript is served to anyone who finds the dev site's address (static hosting cannot do otherwise).
+  It is useless without a team sign-in, and the data is protected by the Firestore rules, not by hiding the page.
