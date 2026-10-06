@@ -216,3 +216,17 @@ for checking the layout and the build. Test sign-in on the live dev site.
   share it. Send links only to the client, and use Unpublish to withdraw one.
 - The editor's JavaScript is served to anyone who finds the dev site's address (static hosting cannot do otherwise).
   It is useless without a team sign-in, and the data is protected by the Firestore rules, not by hiding the page.
+
+## One-time setup order
+
+Done once, in this order (each step needs the one before it):
+
+1. Firebase console: create the Firestore database (production mode), then add `allowedUsers/<your email>`.
+2. Firebase console, Hosting: add the second site `avison-young-rental-survey-dev`.
+3. Firebase console, Authentication: enable Google, then add `avison-young-rental-survey-dev.web.app` under Settings, Authorized domains.
+4. Firebase console: register a web app (no Hosting setup) and copy its public `apiKey`.
+5. Google Cloud, IAM, Service Accounts: create `github-deploy` with Firebase Hosting Admin, Firebase Rules Admin and Service Usage Consumer, then create a JSON key.
+6. GitHub: set the default branch to `main`, add secret `FIREBASE_SERVICE_ACCOUNT` (the JSON) and variable `VITE_FIREBASE_API_KEY`, then delete the downloaded key file.
+7. Push to `main`. The workflow tests, then deploys the Firestore rules and both sites.
+
+To add a teammate later: Firestore, `allowedUsers`, new document whose ID is their lowercase Gmail address.
