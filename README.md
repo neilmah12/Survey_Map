@@ -176,6 +176,10 @@ or `blank` for a plain background). If the basemap fails to load, the app falls 
 plain background so pins remain usable.
 
 
+## Handoffs
+
+Session handoffs live in `docs/handoffs/` (one dated file per session, newest listed first in its README). Start there when picking the project up in a new conversation.
+
 ## Reminders
 
 - When the app is hosted on Firebase: open an exported client file on a phone and test the layout
