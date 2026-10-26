@@ -308,7 +308,9 @@ export default function MapView(p: Props) {
       old?.remove();
       // Always above the pin. Left to itself MapLibre measures the popup before its photo has loaded, finds it
       // short, and puts it beside the pin on a phone.
-      const popup = new maplibregl.Popup({ anchor: 'bottom', offset: popupOffset(element), maxWidth: window.innerWidth < 520 ? '88vw' : '380px', closeButton: true }).setDOMContent(
+      // A popup reopened because the data changed must not take the keyboard focus, or typing in the sidebar
+      // stops after one character (MapLibre focuses a popup when it opens).
+      const popup = new maplibregl.Popup({ anchor: 'bottom', offset: popupOffset(element), maxWidth: window.innerWidth < 520 ? '88vw' : '380px', closeButton: true, focusAfterOpen: !wasOpen }).setDOMContent(
         popupContent(b, filter, { net, showNet, metric: p.view.metric, split: p.view.summary.split, market }),
       );
       popup.on('open', () => {
