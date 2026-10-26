@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Survey, ViewSettings, Metric } from '../types';
-import { METRIC_LABEL, unitNet } from '../lib/format';
+import type { Survey, ViewSettings, Metric, NetSettings } from '../types';
+import { METRIC_LABEL } from '../lib/format';
+import { NET_PARTS, netAvailable, netDefinition, netOf, partsWithData } from '../lib/net';
 import { NO_FILTERS, filterOptions, isFiltering, kindContext, visibleUnits } from '../lib/groups';
 import type { UnitFilters } from '../lib/groups';
 
@@ -51,15 +52,23 @@ interface Props {
   onChange: (v: ViewSettings) => void;
   /** Edit mode exposes ring distances; the client view only toggles them. */
   editable: boolean;
+  /** Changes what counts toward net rent (saved with the survey in the editor, local in the client page). */
+  onNet?: (n: NetSettings) => void;
 }
 
-export default function Controls({ survey, view, onChange, editable }: Props) {
+export default function Controls({ survey, view, onChange, editable, onNet }: Props) {
   const options = useMemo(() => filterOptions(survey), [survey]);
-  // Only offer a measure the data can show: no net rent without incentives or parking figures, no PSF without SF.
+  const net = netOf(survey);
+  // Only offer a measure the data can show: no net rent without parking, utilities, incentive or misc amounts, no PSF without SF.
   const available = useMemo(() => {
     const units = survey.buildings.flatMap((b) => b.units);
-    return { rate: true, psf: units.some((u) => u.rate != null && u.sf), net: units.some((u) => unitNet(u) != null) } as Record<Metric, boolean>;
+    return { rate: true, psf: units.some((u) => u.rate != null && u.sf), net: netAvailable(survey) } as Record<Metric, boolean>;
   }, [survey]);
+  const withData = useMemo(() => partsWithData(survey), [survey]);
+  const setNet = (patch: Partial<NetSettings>) => onNet?.({ ...net, ...patch });
+  // The client only sees tick boxes for what the survey has data for, and only if the editor allowed it.
+  const netParts = NET_PARTS.filter((p) => editable || withData.has(p.k));
+  const showNetBox = editable ? true : net.enabled && net.clientCanChange && view.metric === 'net' && netParts.length > 0 && Boolean(onNet);
   useEffect(() => {
     if (!available[view.metric]) onChange({ ...view, metric: 'rate' });
   }, [available, view.metric]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -91,7 +100,59 @@ export default function Controls({ survey, view, onChange, editable }: Props) {
             </button>
           ))}
         </div>
+        {view.metric === 'net' && <div className="net-def">{netDefinition(net)}</div>}
       </div>
+
+      {showNetBox && (
+        <div className="control-group net-group">
+          <div className="control-label">Net rent</div>
+          {editable && (
+            <label className="check" title="Off hides net rent everywhere">
+              <input type="checkbox" checked={net.enabled} onChange={(e) => setNet({ enabled: e.target.checked })} />
+              Show net rent
+            </label>
+          )}
+          {net.enabled && (
+            <>
+              <div className="chips" role="group" aria-label="What counts toward net rent">
+                {netParts.map((p) => (
+                  <button
+                    key={p.k}
+                    className={net[p.k] ? 'chip on' : 'chip'}
+                    aria-pressed={net[p.k]}
+                    title={editable && !withData.has(p.k) ? 'No suite has an amount for this yet' : undefined}
+                    onClick={() => setNet({ [p.k]: !net[p.k] } as Partial<NetSettings>)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              {editable && net.incentives && (
+                <label className="check term-field" title="Free rent is spread over the lease term. Used when the incentive text does not say the term.">
+                  Free rent spread over
+                  <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={net.termMonths}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (v >= 1 && v <= 60) setNet({ termMonths: v });
+                    }}
+                  />
+                  months unless the text says
+                </label>
+              )}
+              {editable && (
+                <label className="check" title="Clients can tick the same boxes to see their own version of net rent. Their choices are not saved.">
+                  <input type="checkbox" checked={net.clientCanChange} onChange={(e) => setNet({ clientCanChange: e.target.checked })} />
+                  Clients can change these
+                </label>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="control-group">
         <div className="control-label">Compare</div>

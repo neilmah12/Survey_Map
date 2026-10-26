@@ -1,9 +1,12 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Building, Survey, Unit } from '../types';
-import { parseLatLng } from '../lib/format';
 import { fileToDataUrl } from '../lib/image';
 import { safeUrl } from '../lib/safeUrl';
 import { DRAG_TYPE } from '../lib/dnd';
+import { autoAmount, explainIncentive, netOf, parseTypedIncentive, partAmount, typedAmount, unitNet, type NetPart } from '../lib/net';
+import type { NetSettings } from '../types';
+import { formatDate, money, parseLatLng } from '../lib/format';
+import { localDate } from '../lib/dates';
 
 interface Props {
   survey: Survey;
@@ -32,6 +35,149 @@ function Field(props: { label: string; value: string; onChange: (v: string) => v
       <span>{props.label}</span>
       <input value={props.value} onChange={(e) => props.onChange(e.target.value)} />
     </label>
+  );
+}
+
+/** A dollar box that is empty until you type: empty means "work it out from the text". Accepts a minus sign while typing. */
+/** Reads a dollar box: empty clears it, a dollar figure is kept, anything else is refused (never guessed at). */
+const dollars = (onChange: (v: number | null) => void) => (t: string) => {
+  if (t.trim() === '') return onChange(null), true;
+  const n = typedAmount(t);
+  if (n == null) return false;
+  onChange(n);
+  return true;
+};
+
+function AmountField({
+  label,
+  value,
+  auto,
+  onText,
+  counted,
+  onCount,
+  note,
+  warn,
+  bad = 'Type a dollar amount per month, for example 225.',
+}: {
+  label: string;
+  /** What the box shows for the saved value. */
+  value: string;
+  auto?: number | null;
+  /** Saves the typed text; returns false when it cannot be read, so the box keeps it and says so. */
+  onText: (t: string) => boolean;
+  bad?: string;
+  /** Whether this part counts toward net rent (a survey-wide setting). Undefined: no tag. */
+  counted?: boolean;
+  onCount?: () => void;
+  note?: string;
+  warn?: string;
+}) {
+  const [text, setText] = useState(value);
+  const [unread, setUnread] = useState(false);
+  const focused = useRef(false);
+  const atFocus = useRef(value);
+  useEffect(() => {
+    if (!focused.current && !unread) setText(value);
+  }, [value, unread]);
+  const hint = auto === undefined ? '' : auto == null ? 'not read' : String(Math.round(auto * 100) / 100);
+  return (
+    <label className={counted === false ? 'field amount off' : 'field amount'}>
+      <span>
+        {label}
+        {counted !== undefined && (
+          <button
+            type="button"
+            className={counted ? 'count-tag on' : 'count-tag'}
+            title={`${counted ? 'Counted' : 'Not counted'} in net rent for every building. Click to change it for the whole survey.`}
+            onClick={(e) => {
+              e.preventDefault();
+              onCount?.();
+            }}
+          >
+            {counted ? 'counted' : 'not counted'}
+          </button>
+        )}
+      </span>
+      <input
+        inputMode="decimal"
+        value={text}
+        placeholder={hint ? `auto ${hint}` : ''}
+        onFocus={() => {
+          focused.current = true;
+          atFocus.current = value;
+        }}
+        className={unread ? 'unread' : undefined}
+        onBlur={() => {
+          focused.current = false;
+          if (!unread) setText(value);
+        }}
+        onChange={(e) => {
+          setText(e.target.value);
+          const ok = onText(e.target.value);
+          // Unreadable text: put back what was saved before typing began, so a half-typed "1/" does not leave $1.
+          if (!ok) onText(atFocus.current);
+          setUnread(!ok);
+        }}
+      />
+      {unread && <span className="amount-warn">Not read. The saved value is unchanged. {bad}</span>}
+      {!unread && warn && <span className="amount-warn">{warn}</span>}
+      {!unread && !warn && note && <span className="amount-note">{note}</span>}
+    </label>
+  );
+}
+
+const show = (v: number | null | undefined) => (v == null ? '' : String(v));
+
+const PART_TEXT: Record<Exclude<NetPart, 'misc'>, 'parking' | 'utilities' | 'incentive'> = { parking: 'parking', utilities: 'utilities', incentives: 'incentive' };
+
+/** A warning when a counted part has sheet text but no amount could be read from it and none was typed. */
+function unreadWarning(u: Unit, k: Exclude<NetPart, 'misc'>, net: NetSettings): string | undefined {
+  const text = u[PART_TEXT[k]].trim();
+  if (!net[k] || !text || partAmount(u, k, net.termMonths) != null) return undefined;
+  return `"${text.length > 60 ? `${text.slice(0, 57)}...` : text}" could not be read. Type an amount.`;
+}
+
+/** How the free rent was spread, for example "1 month free over a 13-month lease (from the text): $1,499 x 1 / 13". */
+function incentiveNote(u: Unit, net: NetSettings): string | undefined {
+  if (u.incentiveAmt != null) return undefined;
+  if (u.incentiveFree) {
+    const { months, term } = u.incentiveFree;
+    const t = term ?? net.termMonths;
+    const amt = partAmount(u, 'incentives', net.termMonths);
+    if (u.rate == null || amt == null) return 'Free rent needs a rent to work out.';
+    return `${months} month${months === 1 ? '' : 's'} free over a ${t}-month lease${term == null ? ' (default)' : ''}: ${money(u.rate)} x ${months} / ${t} = ${money(amt)}/mo`;
+  }
+  const c = explainIncentive(u.incentive, u.rate, net.termMonths);
+  if (!c || c.freeMonths == null || c.term == null || u.rate == null) return undefined;
+  const m = Math.round(c.freeMonths * 100) / 100;
+  return `${m} month${m === 1 ? '' : 's'} free over a ${c.term}-month lease (${c.termFromText ? 'from the text' : 'default'}): ${money(u.rate)} x ${m} / ${c.term} = ${money(c.amount)}/mo`;
+}
+
+/** One line showing the suite's net rent and how it adds up. */
+function NetLine({ u, net }: { u: Unit; net: NetSettings }) {
+  if (!net.enabled) return null;
+  const total = unitNet(u, net);
+  if (typeof u.netOverride === 'number') return <div className="net-line">Net rent: <b>{money(u.netOverride)}</b> (override)</div>;
+  if (total == null) return <div className="net-line">Net rent: - (no rent)</div>;
+  const parts: string[] = [`${money(u.rate ?? 0)} base`];
+  const off: string[] = [];
+  const amt = (k: NetPart) => partAmount(u, k, net.termMonths) ?? 0;
+  // A part whose text could not be read adds nothing; say so rather than show $0.
+  const unread = (k: Exclude<NetPart, 'misc'>) => partAmount(u, k, net.termMonths) == null;
+  const add = (k: Exclude<NetPart, 'misc'>, sign: '+' | '-', name: string) =>
+    net[k] ? parts.push(unread(k) ? `${sign} ${name} (not read, left out)` : `${sign} ${money(amt(k))} ${name}`) : off.push(k);
+  add('parking', '+', 'parking');
+  add('utilities', '+', 'utilities');
+  add('incentives', '-', 'incentive');
+  if (net.misc) {
+    const m = amt('misc');
+    parts.push(`${m < 0 ? '-' : '+'} ${money(Math.abs(m))} ${u.miscLabel?.trim() || 'misc'}`);
+  } else off.push('misc');
+  return (
+    <div className="net-line">
+      Net rent: <b>{money(total)}</b> = {parts.join(' ')}
+      {off.length > 0 && <span className="muted"> ({off.join(', ')} not counted)</span>}
+    </div>
   );
 }
 
@@ -139,6 +285,9 @@ function ImageField({ b, onBuilding }: { b: Building; onBuilding: Props['onBuild
 }
 
 function Editor({ b, p }: { b: Building; p: Props }) {
+  const net = netOf(p.survey);
+  const term = net.termMonths;
+  const toggle = (k: NetPart) => p.onSurvey({ net: { ...net, [k]: !net[k] } });
   return (
     <div className="editor">
       <div className="editor-title">Edit building</div>
@@ -189,11 +338,59 @@ function Editor({ b, p }: { b: Building; p: Props }) {
             <div className="row3">
               <Field label="SF" value={u.sf?.toString() ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { sf: numOrNull(v) })} />
               <Field label="Rent" value={u.rate?.toString() ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { rate: numOrNull(v) })} />
-              <Field label="Net rent" value={u.netRate?.toString() ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { netRate: numOrNull(v) })} />
+              <Field label="Net rent (sheet)" value={u.netRate?.toString() ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { netRate: numOrNull(v) })} />
             </div>
             <Field label="Parking" value={u.parking} onChange={(v) => p.onUnit(b.id, u.id, { parking: v })} wide />
             <Field label="Utilities" value={u.utilities} onChange={(v) => p.onUnit(b.id, u.id, { utilities: v })} wide />
             <Field label="Incentive" value={u.incentive} onChange={(v) => p.onUnit(b.id, u.id, { incentive: v })} wide />
+            <div className="unit-sub" title="These feed net rent when ticked above the map. Leave a box empty to use the amount read from the text.">Net rent amounts ($ per month)</div>
+            <div className="row2">
+              {(['parking', 'utilities'] as const).map((k) => (
+                <AmountField
+                  key={k}
+                  label={k === 'parking' ? 'Parking' : 'Utilities'}
+                  value={show(k === 'parking' ? u.parkingAmt : u.utilitiesAmt)}
+                  auto={autoAmount(u, k, term)}
+                  counted={net.enabled ? net[k] : undefined}
+                  onCount={() => toggle(k)}
+                  warn={unreadWarning(u, k, net)}
+                  onText={dollars((v) => p.onUnit(b.id, u.id, k === 'parking' ? { parkingAmt: v } : { utilitiesAmt: v }))}
+                />
+              ))}
+            </div>
+            <AmountField
+              label="Incentive ($ off a month, or 1/13)"
+              value={u.incentiveFree ? `${u.incentiveFree.months}/${u.incentiveFree.term ?? term}` : show(u.incentiveAmt)}
+              auto={autoAmount(u, 'incentives', term)}
+              counted={net.enabled ? net.incentives : undefined}
+              onCount={() => toggle('incentives')}
+              warn={unreadWarning(u, 'incentives', net)}
+              note={incentiveNote(u, net)}
+              bad='Type $ off per month (128), or months free / lease months (1/13).'
+              onText={(t) => {
+                const r = parseTypedIncentive(t);
+                if (!r) return false;
+                p.onUnit(b.id, u.id, r.kind === 'amount' ? { incentiveAmt: r.amount, incentiveFree: null } : r.kind === 'free' ? { incentiveAmt: null, incentiveFree: { months: r.months, term: r.term } } : { incentiveAmt: null, incentiveFree: null });
+                return true;
+              }}
+            />
+            <AmountField
+              label="Misc (+ fee, - credit)"
+              value={show(u.miscAmt)}
+              bad="Type a dollar amount per month: a fee as 25, a credit as -25."
+              counted={net.enabled ? net.misc : undefined}
+              onCount={() => toggle('misc')}
+              onText={dollars((v) => p.onUnit(b.id, u.id, { miscAmt: v }))}
+            />
+            <Field label="Misc label (for example Telus package)" value={u.miscLabel ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { miscLabel: v })} wide />
+            <AmountField label="Net rent override (beats the settings)" value={show(u.netOverride)} bad="Type the monthly net rent, for example 1850." onText={dollars((v) => p.onUnit(b.id, u.id, { netOverride: v }))} />
+            <NetLine u={u} net={net} />
+            {u.netRate != null && u.netOverride !== u.netRate && (
+              <div className="net-hint">
+                The sheet's net rent is {money(u.netRate)}.{' '}
+                <button className="link-btn" onClick={() => p.onUnit(b.id, u.id, { netOverride: u.netRate })}>Use it as the override</button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -226,6 +423,10 @@ export default function Sidebar(p: Props) {
             <span>As of</span>
             <input type="date" value={p.survey.asOf} onChange={(e) => p.onSurvey({ asOf: e.target.value })} />
           </label>
+        </div>
+        <div className="updated">
+          <button className="link-btn" onClick={() => p.onSurvey({ asOf: localDate() })} title="Set the As of date, which clients see, to today">Set As of to today</button>
+          {p.survey.updatedAt && <span> | Last edited {formatDate(localDate(new Date(p.survey.updatedAt)))} (internal)</span>}
         </div>
       </section>
 

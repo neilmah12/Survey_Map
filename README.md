@@ -131,6 +131,45 @@ Unit filters and subjects:
   marker, the building name, the survey title) but only to decide whether Stacked / non-stacked shows.
 - Several buildings can be marked as the subject (for example a portfolio). Rings draw around each.
 
+Net rent:
+
+- Net rent is worked out from tick boxes saved with the survey: **Show net rent** (off hides it
+  everywhere) and what counts: **Parking, Utilities, Incentives, Misc**. Nothing is ticked by default, so net
+  equals base rent until you choose. Net = base + parking + utilities + misc, less incentives, each only
+  when ticked. The definition (for example "Net rent = base rent + parking, less incentives") prints
+  beside the metric, in the summary, and on image / PDF exports, and follows the boxes.
+- Each suite's monthly amounts are read from the sheet's text ("$225 underground", "-$158", "1 month free"
+  over the lease term, 12 months) and can be typed over in the sidebar under "Net rent amounts". An empty box
+  means "use the text". Incentive is a positive discount; Misc is signed (fee positive, credit negative)
+  with an optional label such as a Telus package. "Net rent override" beats the settings for that suite.
+  Text with more than one offer ("1 month free, $500 bonus") or no dollar figure ("$500 gift card") is not
+  guessed: Checks flags it when its box is ticked, and it is left out until an amount is typed.
+- Free rent is spread over the lease term: rent x free months / term months. "1 month free on a 13 month lease"
+  at $1,499 is $1,499 x 1 / 13 = $115 a month off. The term comes from the text ("on 15 month lease", "amortized
+  over 13-month lease", "1 yr lease"); otherwise the default set beside the Incentives chip (12 months).
+- The incentive box takes a dollar discount per month (128), free rent as months free / lease months (1/13, 2/18),
+  or words ("2 months on a 24 month lease", "1 month free" on the default term). Free rent typed as a fraction is
+  saved as months and term, so it follows the rent. Amount boxes take only a dollar figure: other text is not
+  guessed at, the box says it was not read, and the saved value stays as it was.
+- In the sidebar, each amount box is tagged "counted" or "not counted" from the survey-wide chips (clicking the
+  tag changes it for the whole survey, so every building stays on the same definition). Boxes not counted are
+  greyed. A free-rent incentive shows its sum, unreadable text shows a warning, and a line under each suite shows
+  its net rent and how it adds up.
+- The sheet's own Net Rent column is kept for reference and Excel write-back but no longer drives the
+  figures. "Use it as the override" copies it into a suite's override.
+- "Clients can change these" lets the client page tick the same boxes (only those the survey has amounts
+  for). Their choices are not saved. Otherwise the client sees your selection and cannot change it.
+- Popups show a "vs mkt" column: each suite against the market average for its unit type (same metric,
+  average or median, and filters as the summary).
+
+Dates:
+
+- **As of** is the rent date clients see. New from Excel sets it to today. Update from Excel asks for it
+  in the merge dialog: today when rents, SF, incentives or units changed, unchanged when only names,
+  pins or photos did, and it can be set to any date. It can always be edited in the sidebar.
+- **Last edited** is internal: stamped on every change and shown only in the editor sidebar.
+- Dates use the local time zone, not UTC.
+
 Firebase (sign-in, saved surveys, client links, hosting): see "Firebase" below.
 
 ## Develop
@@ -146,6 +185,10 @@ Basemap: OpenFreeMap "positron" by default. Override with `VITE_BASEMAP_STYLE` (
 or `blank` for a plain background). If the basemap fails to load, the app falls back to a
 plain background so pins remain usable.
 
+
+## Handoffs
+
+Session handoffs live in `docs/handoffs/` (one dated file per session, newest listed first in its README). Start there when picking the project up in a new conversation.
 
 ## Reminders
 

@@ -44,8 +44,8 @@ describe('client snapshot never contains internal data', () => {
     const { snapshot } = toClientSnapshot(await load('clareview-townhomes.xlsx'), VIEW);
     expect([...allKeys(snapshot)].sort()).toEqual(
       [
-        'address', 'asOf', 'baths', 'beds', 'buildings', 'configuration', 'filters', 'id', 'imageUrl', 'incentive', 'isSubject',
-        'lngLat', 'location', 'metric', 'name', 'netRate', 'open', 'parking', 'perBuilding', 'publishedAt', 'rate', 'reno', 'rings', 'ringsKm',
+        'address', 'asOf', 'baths', 'beds', 'buildings', 'clientCanChange', 'configuration', 'enabled', 'filters', 'id', 'imageUrl', 'incentive',
+        'incentiveAmt', 'incentives', 'isSubject', 'lngLat', 'location', 'metric', 'misc', 'miscAmt', 'name', 'net', 'open', 'parking', 'parkingAmt', 'termMonths', 'utilitiesAmt', 'perBuilding', 'publishedAt', 'rate', 'reno', 'rings', 'ringsKm',
         'sf', 'split', 'stat', 'summary', 'title', 'type', 'units', 'url', 'utilities', 'version', 'view', 'yearBuilt', 'yearRenovated',
       ].sort(),
     );

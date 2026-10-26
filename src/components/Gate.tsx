@@ -24,6 +24,24 @@ const usingEmulator = import.meta.env.VITE_USE_EMULATORS === '1';
  * Sign-in screen. This only decides what the page shows; the real protection is the Firestore rules, which
  * refuse every read and write unless the verified email is listed at allowedUsers/<email>.
  */
+/** Says why sign-in failed, with Firebase's code, so a setup problem can be fixed rather than guessed at. */
+function signInMessage(code: string | undefined): string {
+  const host = window.location.hostname;
+  const why =
+    code === 'auth/popup-blocked'
+      ? 'Your browser blocked the sign-in window. Allow pop-ups for this site and try again.'
+      : code === 'auth/popup-closed-by-user'
+        ? 'The sign-in window closed before sign-in finished. If you did not close it, check this address is an authorized domain (below).'
+        : code === 'auth/unauthorized-domain'
+          ? `This address (${host}) is not allowed to sign in. Add it in the Firebase console: Authentication > Settings > Authorized domains.`
+          : code === 'auth/operation-not-allowed'
+            ? 'Google sign-in is turned off. Turn it on in the Firebase console: Authentication > Sign-in method > Google.'
+            : code === 'auth/network-request-failed'
+              ? 'Could not reach Google. Check the connection and try again.'
+              : 'Sign-in failed. Please try again.';
+  return code ? `${why} (${code})` : why;
+}
+
 export default function Gate({ children }: { children: (user: TeamUser, signOut: () => void, offline: boolean) => ReactNode }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [error, setError] = useState('');
@@ -50,8 +68,8 @@ export default function Gate({ children }: { children: (user: TeamUser, signOut:
       await signInWithPopup(auth, new GoogleAuthProvider());
     } catch (e) {
       const code = (e as { code?: string }).code;
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
-      setError(code === 'auth/popup-blocked' ? 'Your browser blocked the sign-in window. Allow pop-ups for this site and try again.' : 'Sign-in failed. Please try again.');
+      if (code === 'auth/cancelled-popup-request') return;
+      setError(signInMessage(code));
     }
   };
 
