@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseSurvey } from '../src/lib/parse';
-import { DEFAULT_NET, autoAmount, netAvailable, netDefinition, parseIncentive, partsWithData, unitNet } from '../src/lib/net';
+import { DEFAULT_NET, autoAmount, explainIncentive, netAvailable, netDefinition, parseIncentive, partsWithData, unitNet } from '../src/lib/net';
 import { mergeSurvey } from '../src/lib/merge';
 import { runChecks } from '../src/lib/checks';
 import { embedSnapshot, snapshotToSurvey, toClientSnapshot } from '../src/lib/snapshot';
@@ -58,6 +58,22 @@ describe('net rent', () => {
     expect(parseIncentive('', 1800, 12)).toBe(0);
     expect(parseIncentive('$500 gift card', 1800, 12)).toBeNull();
     expect(parseIncentive('1 month free rent, 500 move in bonus', 1800, 12)).toBeNull(); // two offers: not guessed
+  });
+
+  it('spreads free rent over the lease term the text gives, else the default term', () => {
+    // 1 month free on a 13 month lease at $1,499: 1,499 x 1 / 13 = 115 a month off
+    expect(explainIncentive('1 month free on a 13 month lease', 1499, 12)).toEqual({ amount: 115, freeMonths: 1, term: 13, termFromText: true });
+    expect(parseIncentive('1 Month Free Rent (amortized over 13-month lease)', 1499, 12)).toBe(115);
+    expect(parseIncentive('2 months free rent on 15 month lease', 1500, 12)).toBe(200);
+    expect(parseIncentive('One month free on 1 year lease', 1200, 14)).toBe(100);
+    expect(parseIncentive('1 free month rent', 1200, 12)).toBe(100);
+    expect(parseIncentive('0.5 months free rent', 1200, 12)).toBe(50);
+    expect(explainIncentive('1 month free', 1200, 12)).toEqual({ amount: 100, freeMonths: 1, term: 12, termFromText: false });
+    // a second offer beside the free rent is still not guessed at
+    expect(parseIncentive('2 months free rent on 14 month lease, 3 months free parking', 1500, 12)).toBeNull();
+    expect(parseIncentive('1 month free on 14 month lease (1 bedroom only), 1 week early move in', 1500, 12)).toBeNull();
+    expect(parseIncentive('1 Month free + 500 gift card on 1 yr lease', 1500, 12)).toBeNull();
+    expect(parseIncentive('3 months free on a 2 month lease', 1500, 12)).toBeNull();
   });
 
   it('describes exactly what is ticked', () => {

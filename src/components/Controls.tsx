@@ -127,6 +127,22 @@ export default function Controls({ survey, view, onChange, editable, onNet }: Pr
                   </button>
                 ))}
               </div>
+              {editable && net.incentives && (
+                <label className="check term-field" title="Free rent is spread over the lease term. Used when the incentive text does not say the term.">
+                  Free rent spread over
+                  <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={net.termMonths}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (v >= 1 && v <= 60) setNet({ termMonths: v });
+                    }}
+                  />
+                  months unless the text says
+                </label>
+              )}
               {editable && (
                 <label className="check" title="Clients can tick the same boxes to see their own version of net rent. Their choices are not saved.">
                   <input type="checkbox" checked={net.clientCanChange} onChange={(e) => setNet({ clientCanChange: e.target.checked })} />
