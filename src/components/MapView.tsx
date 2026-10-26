@@ -3,15 +3,17 @@ import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { BLANK_STYLE, initialStyle } from '../lib/basemap';
 import { layoutPins as planPins } from '../lib/pinLayout';
-import type { Building, LngLat, Survey, ViewSettings } from '../types';
+import type { Building, LngLat, NetSettings, Survey, ViewSettings } from '../types';
 import { safeUrl } from '../lib/safeUrl';
 import { PHOTO_MARK } from '../lib/cloudSplit';
 import { loadPhoto } from '../lib/photoSource';
 import { DRAG_TYPE } from '../lib/dnd';
 import { normalizeUnitType } from '../lib/unitText';
 import { circleCoords, ringTop } from '../lib/geo';
-import { money, pinLabel, psf, unitNet, unitPsf } from '../lib/format';
-import { kindContext, unitKind, visibleUnits, type UnitFilter } from '../lib/groups';
+import { METRIC_LABEL, money, metricValue, pinLabel, psf, unitPsf } from '../lib/format';
+import { groupLabel, kindContext, unitKind, visibleUnits, type UnitFilter } from '../lib/groups';
+import { computeSummary, type SummaryResult } from '../lib/summary';
+import { netAvailable, netOf, unitNet } from '../lib/net';
 
 const EDMONTON: LngLat = [-113.4938, 53.5461];
 
@@ -49,7 +51,25 @@ function pinElement(b: Building, label: string, selected: boolean, excluded: boo
   return root;
 }
 
-function popupContent(b: Building, filter: UnitFilter): HTMLElement {
+/** What a popup needs beyond the building itself: the net rent settings and the market figures to compare with. */
+interface PopupCtx {
+  net: NetSettings;
+  showNet: boolean;
+  metric: ViewSettings['metric'];
+  split: ViewSettings['summary']['split'];
+  market: SummaryResult;
+}
+
+/** "+4.6%" for a suite against the market figure for its unit type, or '-' when there is nothing to compare. */
+function versusMarket(v: number | null, row: SummaryResult['rows'][number] | undefined): { text: string; cls: string } {
+  const m = row?.market.value;
+  if (v == null || m == null || m === 0) return { text: '-', cls: '' };
+  const pct = ((v - m) / m) * 100;
+  if (Math.abs(pct) < 0.05) return { text: '0.0%', cls: '' };
+  return { text: `${pct > 0 ? '+' : '-'}${Math.abs(pct).toFixed(1)}%`, cls: pct > 0 ? 'vs-up' : 'vs-down' };
+}
+
+function popupContent(b: Building, filter: UnitFilter, pc: PopupCtx): HTMLElement {
   const root = el('div', 'popup');
   const imgSrc = safeUrl(b.imageUrl, true);
   const lazyPhoto = !imgSrc && b.imageUrl?.startsWith(PHOTO_MARK) ? loadPhoto(b.imageUrl.slice(PHOTO_MARK.length)) : null;
@@ -87,13 +107,23 @@ function popupContent(b: Building, filter: UnitFilter): HTMLElement {
 
   const units = visibleUnits(b, filter);
   // Only show columns that have data for at least one visible unit.
-  const rows = units.map((u) => ({ u, p: unitPsf(u), n: unitNet(u) }));
+  const rows = units.map((u) => ({
+    u,
+    p: unitPsf(u),
+    n: pc.showNet ? unitNet(u, pc.net) : null,
+    vs: versusMarket(metricValue(u, pc.metric, pc.net), pc.market.rows.find((r) => r.key === groupLabel(u, b, pc.split))),
+  }));
   const cols = [
     { h: 'Unit', show: true, cell: (r: (typeof rows)[number]) => el('td', undefined, normalizeUnitType(r.u.type)) },
     { h: 'SF', show: rows.some((r) => r.u.sf), cell: (r: (typeof rows)[number]) => el('td', 'num', r.u.sf ? r.u.sf.toLocaleString('en-CA') : '-') },
     { h: 'Rent', show: true, cell: (r: (typeof rows)[number]) => el('td', 'num', r.u.rate != null ? money(r.u.rate) : '-') },
     { h: 'PSF', show: rows.some((r) => r.p != null), cell: (r: (typeof rows)[number]) => el('td', 'num', r.p != null ? psf(r.p) : '-') },
     { h: 'Net', show: rows.some((r) => r.n != null), cell: (r: (typeof rows)[number]) => el('td', 'num', r.n != null ? money(r.n) : '-') },
+    {
+      h: 'vs mkt',
+      show: rows.some((r) => r.vs.text !== '-'),
+      cell: (r: (typeof rows)[number]) => el('td', `num ${r.vs.cls}`.trim(), r.vs.text),
+    },
   ].filter((c) => c.show);
   const table = el('table', 'popup-table');
   const head = el('tr');
@@ -106,12 +136,15 @@ function popupContent(b: Building, filter: UnitFilter): HTMLElement {
   }
   root.append(table);
   if (rows.some((r) => b.excluded || r.u.excluded)) root.append(el('div', 'popup-note', 'Greyed rows are not counted in the market averages.'));
+  if (rows.some((r) => r.vs.text !== '-'))
+    root.append(el('div', 'popup-note', `vs mkt: ${METRIC_LABEL[pc.metric].toLowerCase()} against the market figure for the same unit type (the subject is not part of the market).`));
 
   const lines = new Map<string, string>();
   for (const u of units) {
     if (u.parking) lines.set('Parking', u.parking);
     if (u.utilities) lines.set('Utilities', u.utilities);
     if (u.incentive) lines.set('Incentive', u.incentive);
+    if (u.miscLabel) lines.set('Other', u.miscLabel);
   }
   for (const [k, v] of lines) {
     const row = el('div', 'popup-line');
@@ -190,6 +223,12 @@ export default function MapView(p: Props) {
   const [styleVersion, setStyleVersion] = useState(0);
 
   const ctx = useMemo(() => kindContext(p.survey), [p.survey]);
+  const net = useMemo(() => netOf(p.survey), [p.survey.net]); // eslint-disable-line react-hooks/exhaustive-deps
+  const showNet = useMemo(() => netAvailable(p.survey), [p.survey]);
+  const market = useMemo(
+    () => computeSummary({ ...p.survey, buildings: p.survey.buildings.filter((x) => x.lngLat) }, { metric: p.view.metric, filters: p.view.filters, settings: p.view.summary }),
+    [p.survey, p.view.metric, p.view.filters, p.view.summary.stat, p.view.summary.split, p.view.summary.perBuilding], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const filter: UnitFilter = useMemo(
     () => ({ filters: p.view.filters, ctx }),
     [p.view.filters, ctx],
@@ -260,7 +299,7 @@ export default function MapView(p: Props) {
       const matches = visibleUnits(b, filter).length > 0;
       if (!matches) continue;
       seen.add(b.id);
-      const label = pinLabel(b, filter, p.view.metric);
+      const label = pinLabel(b, filter, p.view.metric, net);
       const shown = visibleUnits(b, filter);
       const element = pinElement(b, label, b.id === live.current.selectedId, Boolean(b.excluded) || shown.every((u) => u.excluded));
       // Rebuilding a marker closes its popup, so remember and restore it.
@@ -270,7 +309,7 @@ export default function MapView(p: Props) {
       // Always above the pin. Left to itself MapLibre measures the popup before its photo has loaded, finds it
       // short, and puts it beside the pin on a phone.
       const popup = new maplibregl.Popup({ anchor: 'bottom', offset: popupOffset(element), maxWidth: window.innerWidth < 520 ? '88vw' : '380px', closeButton: true }).setDOMContent(
-        popupContent(b, filter),
+        popupContent(b, filter, { net, showNet, metric: p.view.metric, split: p.view.summary.split, market }),
       );
       popup.on('open', () => {
         popup.setOffset(popupOffset(element));
@@ -298,7 +337,7 @@ export default function MapView(p: Props) {
         markers.current.delete(id);
       }
     }
-  }, [p.survey.buildings, filter, p.view.metric, p.editable, ready]);
+  }, [p.survey.buildings, filter, p.view.metric, p.editable, ready, net, showNet, market]);
 
   // Selection only changes the highlight, so it must not rebuild markers (that would close the popup).
   useEffect(() => {

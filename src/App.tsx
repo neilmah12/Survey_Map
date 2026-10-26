@@ -49,7 +49,16 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
   const [publishResult, setPublishResult] = useState<SnapshotResult | null>(null);
   const [conflictOpen, setConflictOpen] = useState(true);
   const [restoredAt, setRestoredAt] = useState<string | null>(() => (draft ? draft.savedAt ?? 'earlier' : null));
-  const { state: survey, set: setSurvey, reset: resetSurvey, undo, redo, canUndo, canRedo } = useUndoable<Survey | null>(() => draft?.survey ?? null);
+  const { state: survey, set: setRawSurvey, reset: resetSurvey, undo, redo, canUndo, canRedo } = useUndoable<Survey | null>(() => draft?.survey ?? null);
+  // Every change made in the app stamps the internal "last edited" time (the As of date that clients see is separate).
+  const setSurvey = useCallback<typeof setRawSurvey>(
+    (next, opts) =>
+      setRawSurvey((s) => {
+        const n = typeof next === 'function' ? (next as (x: Survey | null) => Survey | null)(s) : next;
+        return n && n !== s ? { ...n, updatedAt: new Date().toISOString() } : n;
+      }, opts),
+    [setRawSurvey],
+  );
   const [pendingNew, setPendingNew] = useState<{ fileName: string; survey: Survey } | null>(null);
   const [confirmStartOver, setConfirmStartOver] = useState(false);
   const [needRows, setNeedRows] = useState<{ buildings: string[]; rows: number; afterRow: number } | null>(null);
@@ -212,9 +221,9 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
     setNotice({ text: 'Click the map to place the new building (or drag it from the list), then fill in its details.' });
   };
 
-  const applyMerge = () => {
+  const applyMerge = (asOf: string) => {
     if (!pending) return;
-    setSurvey(pending.survey, { commit: true });
+    setSurvey({ ...pending.survey, asOf }, { commit: true });
     if (selectedId && !pending.survey.buildings.some((b) => b.id === selectedId)) setSelectedId(null);
     setNotice({ text: 'Updated from Excel. Use Undo to revert.' });
     setPending(null);
@@ -568,7 +577,7 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
           <p>This closes the survey and clears the autosaved copy in this browser. {link.id ? 'It stays in Saved surveys.' : <>Use <strong>Save file</strong> first if you want to keep it.</>}</p>
         </ConfirmDialog>
       )}
-      {pending && <MergeDialog fileName={pending.fileName} summary={pending.summary} onApply={applyMerge} onCancel={() => setPending(null)} />}
+      {pending && <MergeDialog fileName={pending.fileName} summary={pending.summary} asOf={survey.asOf} onApply={applyMerge} onCancel={() => setPending(null)} />}
       <div className="body">
         {editable && (
           <Sidebar
@@ -601,7 +610,7 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
           />
         )}
         <div className="stage">
-          <Controls survey={survey} view={view} onChange={setView} editable={editable} />
+          <Controls survey={survey} view={view} onChange={setView} editable={editable} onNet={(net) => setSurvey((s) => s && { ...s, net }, { commit: true })} />
           <div className="stage-main">
             <MapView
               survey={survey}

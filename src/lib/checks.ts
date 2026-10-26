@@ -2,6 +2,7 @@ import type { Building, Survey } from '../types';
 import { unitBedCat, unitBeds } from './groups';
 import { money } from './format';
 import { norm } from './merge';
+import { NET_PARTS, netOf, partAmount, partsWithData, type NetPart } from './net';
 
 export type Severity = 'error' | 'warn' | 'info';
 export type CheckGroup = 'Map' | 'Data' | 'Comparison' | 'Excel';
@@ -112,6 +113,31 @@ export function runChecks(survey: Survey, now: Date = new Date()): Check[] {
       add({ id: `note-${b.id}`, severity: 'warn', group: 'Data', title: `${b.name}: a note looks unfinished`, detail: `${notes.map((n) => `"${snippet(n)}"`).join(' | ')} (internal, not shown to the client)`, buildingId: b.id });
     if (b.propertyNotes && UNFINISHED.test(b.propertyNotes))
       add({ id: `pnote-${b.id}`, severity: 'warn', group: 'Data', title: `${b.name}: a property note looks unfinished`, detail: `"${snippet(b.propertyNotes)}" (internal, not shown to the client)`, buildingId: b.id });
+  }
+
+  // Net rent: a ticked part whose text has no readable dollar amount is silently left out, so say so.
+  const net = netOf(survey);
+  if (net.enabled) {
+    const tick: { k: NetPart; key: 'parking' | 'utilities' | 'incentives'; label: string; text: (u: Building['units'][number]) => string }[] = [
+      { k: 'parking', key: 'parking', label: 'Parking', text: (u) => u.parking },
+      { k: 'utilities', key: 'utilities', label: 'Utilities', text: (u) => u.utilities },
+      { k: 'incentives', key: 'incentives', label: 'Incentive', text: (u) => u.incentive },
+    ];
+    for (const t of tick) {
+      if (!net[t.key]) continue;
+      for (const b of survey.buildings) {
+        const bad = b.units.filter((u) => t.text(u).trim() && !PLACEHOLDER.test(t.text(u)) && partAmount(u, t.k, net.termMonths) == null);
+        if (bad.length)
+          add({
+            id: `net-${t.k}-${b.id}`, severity: 'warn', group: 'Data', buildingId: b.id,
+            title: `${b.name}: ${t.label.toLowerCase()} is in net rent but has no dollar amount`,
+            detail: `"${snippet(t.text(bad[0]), 60)}"${bad.length > 1 ? ` and ${bad.length - 1} more` : ''} could not be read, so it is left out of net rent. Type the monthly amount under "Net rent amounts" for the suite.`,
+          });
+      }
+    }
+    const have = partsWithData(survey);
+    for (const { k, label } of NET_PARTS)
+      if (net[k] && !have.has(k)) add({ id: `net-empty-${k}`, severity: 'info', group: 'Data', title: `${label} is ticked for net rent but no suite has an amount`, detail: 'It changes nothing until an amount is read or typed in.' });
   }
 
   const noSf = survey.buildings.reduce((n, b) => n + b.units.filter((u) => u.rate != null && !u.sf).length, 0);

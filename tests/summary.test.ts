@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseSurvey } from '../src/lib/parse';
 import { NO_FILTERS } from '../src/lib/groups';
 import { computeSummary, type SummaryResult } from '../src/lib/summary';
+import { DEFAULT_NET } from '../src/lib/net';
 import { DEFAULT_SUMMARY, type Metric, type SummarySettings, type Survey } from '../src/types';
 
 async function load(name: string): Promise<Survey> {
@@ -35,7 +36,11 @@ describe('matches the pivot tables in the sample sheets', () => {
 
   it('Glenora: net rent and rent PSF totals', async () => {
     const s = await load('glenora-townhomes.xlsx');
-    expect(run(s, { metric: 'net', settings: unitLevel({}) }).total.market.value).toBeCloseTo(1809.0833333, 5);
+    // The sheet's net rent is base rent less the incentive, which is what the incentives box does.
+    expect(run(s, { metric: 'net', settings: unitLevel({}) }).total.market.value).toBeCloseTo(1869, 5); // nothing ticked: net = base
+    s.net = { ...DEFAULT_NET, incentives: true };
+    // The sheet's discounts carry cents; the app reads them from the whole-dollar text, so allow under 50 cents.
+    expect(run(s, { metric: 'net', settings: unitLevel({}) }).total.market.value).toBeCloseTo(1809.0833333, 0);
     expect(run(s, { metric: 'psf', settings: unitLevel({}) }).total.market.value).toBeCloseTo(1.7300935591627957, 9);
   });
 

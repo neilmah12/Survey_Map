@@ -4,6 +4,7 @@ import { METRIC_LABEL, formatMetric } from '../lib/format';
 import { filterOptions } from '../lib/groups';
 import { computeSummary } from '../lib/summary';
 import { fmtDiff, fmtValue } from '../lib/summaryFormat';
+import { netDefinition, netOf } from '../lib/net';
 
 interface Props {
   /** Only buildings that are on the map: the client file leaves out the rest, so the numbers must too. */
@@ -49,6 +50,7 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
             {METRIC_LABEL[view.metric]}, {s.stat === 'avg' ? 'average' : 'median'} of {result.marketBuildings} comparable building{result.marketBuildings === 1 ? '' : 's'}
             {subjects.length ? `, subject excluded` : ''}
           </div>
+          {view.metric === 'net' && <div className="summary-sub">{netDefinition(netOf(survey))}</div>}
         </div>
         <button className="link-btn" onClick={() => set({ open: false })} aria-label="Hide the market summary">
           Hide

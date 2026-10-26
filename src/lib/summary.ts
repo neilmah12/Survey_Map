@@ -1,6 +1,7 @@
 import type { Metric, Stat, Survey, SummarySettings } from '../types';
 import { groupLabel, groupSortKey, kindContext, visibleUnits, type UnitFilters } from './groups';
 import { metricValue } from './format';
+import { netOf } from './net';
 
 export interface Party {
   /** The average or median, or null when nothing in the group has a value. */
@@ -76,6 +77,7 @@ export function computeSummary(survey: Survey, o: SummaryOptions): SummaryResult
   const ctx = kindContext(survey);
   const dims = o.settings.split;
   const filter = { filters: o.filters, ctx };
+  const net = netOf(survey);
 
   const market = new Map<string, Bucket>();
   const subject = new Map<string, Bucket>();
@@ -97,7 +99,7 @@ export function computeSummary(survey: Survey, o: SummaryOptions): SummaryResult
         if (b.excluded) excludedBuildings.add(b.id);
         continue;
       }
-      const v = metricValue(u, o.metric);
+      const v = metricValue(u, o.metric, net);
       if (v == null) continue;
       const key = groupLabel(u, b, dims);
       if (!sortKeys.has(key)) sortKeys.set(key, groupSortKey(u, b, dims));

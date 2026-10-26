@@ -1,13 +1,20 @@
+import { useState } from 'react';
 import type { MergeSummary } from '../lib/merge';
+import { localDate } from '../lib/dates';
+import { formatDate } from '../lib/format';
 
 interface Props {
   fileName: string;
   summary: MergeSummary;
-  onApply: () => void;
+  /** The survey's current As of date. */
+  asOf: string;
+  onApply: (asOf: string) => void;
   onCancel: () => void;
 }
 
-export default function MergeDialog({ fileName, summary: s, onApply, onCancel }: Props) {
+export default function MergeDialog({ fileName, summary: s, asOf, onApply, onCancel }: Props) {
+  // The As of date describes the rents: it defaults to today when rents or units changed, and stays put when only names or pins did.
+  const [date, setDate] = useState(() => (s.dataChanged ? localDate() : asOf));
   const unchanged = s.changed.length === 0 && s.added.length === 0 && s.removed.length === 0;
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Update from Excel">
@@ -67,9 +74,18 @@ export default function MergeDialog({ fileName, summary: s, onApply, onCancel }:
           </section>
         )}
 
+        <section>
+          <h3>As of date</h3>
+          <label className="field">
+            <span>{s.dataChanged ? 'Rents or units changed, so this defaults to today.' : 'No rent or unit changes, so the date stays as it was.'} Change it if the rents are from another day.</span>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+          <div className="hint">Currently {formatDate(asOf)}. Clients see this date.</div>
+        </section>
+
         <p className="hint">You can undo this after applying.</p>
         <div className="row-actions">
-          <button className="btn primary" onClick={onApply}>Apply update</button>
+          <button className="btn primary" onClick={() => onApply(date || asOf)}>Apply update</button>
           <button className="btn" onClick={onCancel}>Cancel</button>
         </div>
       </div>

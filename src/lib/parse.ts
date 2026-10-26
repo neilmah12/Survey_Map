@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import type { Building, Survey, Unit } from '../types';
 import { normalizeUnitType, parseBeds, parseCharge } from './unitText';
+import { localDate } from './dates';
 
 export { normalizeUnitType, parseBeds, parseCharge };
 
@@ -265,7 +266,7 @@ export async function parseSurvey(data: ArrayBuffer): Promise<Survey> {
   return {
     title,
     location,
-    asOf: new Date().toISOString().slice(0, 10),
+    asOf: localDate(),
     buildings: buildings.filter((b) => b.units.length > 0),
   };
 }

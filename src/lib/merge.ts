@@ -1,4 +1,4 @@
-import type { Building, Survey } from '../types';
+import type { Building, Survey, Unit } from '../types';
 import { money } from './format';
 import { normalizeUnitType } from './unitText';
 
@@ -18,6 +18,8 @@ export function norm(s: string): string {
     .join(' ');
 }
 
+const KEPT_UNIT_FIELDS = ['excluded', 'parkingAmt', 'utilitiesAmt', 'incentiveAmt', 'miscAmt', 'miscLabel', 'netOverride'] as const;
+
 export interface MergeSummary {
   matched: number;
   added: string[];
@@ -32,6 +34,8 @@ export interface MergeSummary {
   photosKept: number;
   /** True when so few buildings matched that this is probably a different survey. */
   looksDifferent: boolean;
+  /** True when rents, SF, incentives, parking, utilities or the unit list changed, which is what the As of date describes. */
+  dataChanged: boolean;
 }
 
 function describeUnitChanges(oldB: Building, newB: Building): string[] {
@@ -70,7 +74,7 @@ function describeBuildingChanges(oldB: Building, newB: Building): string[] {
  * names, units and rents; the app keeps what only it knows: pin positions and photos.
  * Buildings are matched by name plus address, then address alone, then name alone.
  */
-export function mergeSurvey(existing: Survey, incoming: Survey): { survey: Survey; summary: MergeSummary } {
+export function mergeSurvey(existing: Survey, incoming: Survey, asOf?: string): { survey: Survey; summary: MergeSummary } {
   const free = new Set(existing.buildings.map((b) => b.id));
   const byId = new Map(existing.buildings.map((b) => [b.id, b]));
   const take = (pred: (b: Building) => boolean): Building | null => {
@@ -96,7 +100,7 @@ export function mergeSurvey(existing: Survey, incoming: Survey): { survey: Surve
 
   let nextId = Math.max(0, ...existing.buildings.map((b) => Number(b.id.replace(/\D/g, '')) || 0));
   const summary: MergeSummary = {
-    matched: 0, added: [], removed: [], keptLocal: [], changed: [], repositioned: [], pinsKept: 0, photosKept: 0, looksDifferent: false,
+    matched: 0, added: [], removed: [], keptLocal: [], changed: [], repositioned: [], pinsKept: 0, photosKept: 0, looksDifferent: false, dataChanged: false,
   };
 
   const subjectInSheet = incoming.buildings.some((b) => b.isSubject);
@@ -108,6 +112,7 @@ export function mergeSurvey(existing: Survey, incoming: Survey): { survey: Surve
     summary.matched++;
     const details = describeBuildingChanges(old, nb);
     if (details.length) summary.changed.push({ name: nb.name, details });
+    if (describeUnitChanges(old, nb).length) summary.dataChanged = true;
 
     let lngLat = old.lngLat;
     if (nb.lngLat) {
@@ -122,9 +127,16 @@ export function mergeSurvey(existing: Survey, incoming: Survey): { survey: Surve
 
     // A photo embedded in the app is kept over the sheet's link (the person chose to keep a copy).
     const imageUrl = old.imageUrl?.startsWith('data:') ? old.imageUrl : nb.imageUrl || old.imageUrl || '';
-    // Suite-level exclusions follow the unit type, since the sheet's units replace the old ones.
-    const offTypes = new Set(old.units.filter((u) => u.excluded).map((u) => norm(normalizeUnitType(u.type))));
-    const units = offTypes.size ? nb.units.map((u) => (offTypes.has(norm(normalizeUnitType(u.type))) ? { ...u, excluded: true } : u)) : nb.units;
+    // What only the app knows about a suite (switched off, net rent amounts typed in) follows the unit type,
+    // since the sheet's units replace the old ones.
+    const oldByType = new Map(old.units.map((u) => [norm(normalizeUnitType(u.type)), u]));
+    const units = nb.units.map((u) => {
+      const o = oldByType.get(norm(normalizeUnitType(u.type)));
+      if (!o) return u;
+      const carried: Partial<Unit> = {};
+      for (const k of KEPT_UNIT_FIELDS) if (o[k] != null && o[k] !== '') (carried as Record<string, unknown>)[k] = o[k];
+      return { ...u, ...carried };
+    });
     if (imageUrl) summary.photosKept++;
 
     return {
@@ -148,12 +160,15 @@ export function mergeSurvey(existing: Survey, incoming: Survey): { survey: Surve
   for (const b of keep) if (b.lngLat) summary.pinsKept++;
   buildings.push(...keep);
   const denom = Math.max(existing.buildings.length, incoming.buildings.length, 1);
+  if (summary.added.length || summary.removed.length) summary.dataChanged = true;
   summary.looksDifferent = existing.buildings.length > 2 && summary.matched / denom < 0.4;
 
   return {
     summary,
     survey: {
       ...existing,
+      // The As of date describes the rents, so it only moves when the caller says so.
+      asOf: asOf ?? existing.asOf,
       title: incoming.title || existing.title,
       location: incoming.location || existing.location,
       buildings,

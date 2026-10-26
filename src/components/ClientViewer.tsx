@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import type { Survey, ViewSettings } from '../types';
+import type { NetSettings, Survey, ViewSettings } from '../types';
 import Header from './Header';
 import Controls from './Controls';
 import MapView from './MapView';
@@ -36,7 +36,7 @@ export default function ClientViewer({ survey: initialSurvey, initialView, banne
       <Header survey={survey} />
       <div className="body">
         <div className="stage">
-          <Controls survey={survey} view={view} onChange={setView} editable={false} />
+          <Controls survey={survey} view={view} onChange={setView} editable={false} onNet={(net: NetSettings) => setSurvey((s) => ({ ...s, net }))} />
           <div className="stage-main">
             <MapView
               survey={survey}
