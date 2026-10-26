@@ -48,7 +48,6 @@ button, input { font: inherit; }
 .unit { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; margin-bottom: 8px; background: #fafbfd; }
 
 .btn { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 6px 12px; cursor: pointer; color: var(--ink); }
-.btn:hover:not(:disabled) { border-color: var(--navy); }
 .btn:disabled { opacity: .55; cursor: default; }
 .btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
 .btn.on { background: var(--amber); border-color: var(--amber); }
@@ -56,7 +55,6 @@ button, input { font: inherit; }
 
 .blist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .brow { width: 100%; display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 7px 8px; border-radius: 6px; cursor: pointer; text-align: left; }
-.brow:hover { background: var(--bg); }
 .brow.on { background: #e5ebf7; }
 .bname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dot { width: 10px; height: 10px; border-radius: 99px; background: #fff; border: 2px solid var(--navy); flex: none; }
@@ -136,7 +134,6 @@ button, input { font: inherit; }
 .ring-item input:focus { outline: 2px solid var(--navy-2); outline-offset: -2px; }
 .ring-item span { font-size: 12px; color: var(--muted); padding-right: 4px; }
 .ring-item button { border: 0; border-left: 1px solid var(--line); background: #f6f7fa; padding: 4px 7px; cursor: pointer; color: var(--muted); }
-.ring-item button:hover { color: #b42318; }
 .link-btn { border: 0; background: none; color: var(--navy-2); cursor: pointer; padding: 2px 4px; font-size: 12px; text-decoration: underline; }
 .thumb { width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px; margin: 4px 0 6px; display: block; background: #e6ebf2; }
 .maplibregl-popup { z-index: 6; }
@@ -233,8 +230,6 @@ button, input { font: inherit; }
 .pin-pill { transform: translateY(calc(var(--lift, 0px) * -1)); position: relative; z-index: 1; }
 .pin-leader { position: absolute; left: 50%; top: calc(100% - var(--lift, 0px)); height: var(--lift, 0px); width: 2px; margin-left: -1px; background: var(--navy); opacity: .7; }
 .pin.name-hidden .pin-name { opacity: 0; }
-.pin.name-hidden:hover .pin-name { opacity: 1; z-index: 5; }
-.pin:hover { z-index: 6; }
 .source-note { padding: 4px 14px; font-size: 11.5px; color: var(--muted); background: #fff; border-top: 1px solid var(--line); }
 
 /* Export dialog */
@@ -259,3 +254,15 @@ button, input { font: inherit; }
 .publish-link .btn { text-decoration: none; color: var(--ink); white-space: nowrap; }
 
 @media (max-width: 520px) { .popup-img { max-height: 120px; } }
+
+/* Hover only where there is a mouse: on touch, :hover sticks after a tap and looks selected. */
+@media (hover: hover) {
+  .btn:hover:not(:disabled):not(.on) { border-color: var(--navy); }
+  .brow:hover:not(.on) { background: var(--bg); }
+  .ring-item button:hover { color: #b42318; }
+  .pin.name-hidden:hover .pin-name { opacity: 1; z-index: 5; }
+  .pin:hover { z-index: 6; }
+}
+
+/* Scrolling past the end of a panel or dialog does not scroll the page behind it. */
+.sidebar, .summary-panel, .modal, .export-checks { overscroll-behavior: contain; }
