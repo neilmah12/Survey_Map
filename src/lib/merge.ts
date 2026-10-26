@@ -18,7 +18,7 @@ export function norm(s: string): string {
     .join(' ');
 }
 
-const KEPT_UNIT_FIELDS = ['excluded', 'parkingAmt', 'utilitiesAmt', 'incentiveAmt', 'miscAmt', 'miscLabel', 'netOverride'] as const;
+const KEPT_UNIT_FIELDS = ['excluded', 'parkingAmt', 'utilitiesAmt', 'incentiveAmt', 'incentiveFree', 'miscAmt', 'miscLabel', 'netOverride'] as const;
 
 export interface MergeSummary {
   matched: number;

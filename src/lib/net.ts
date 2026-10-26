@@ -85,16 +85,57 @@ export function explainIncentive(text: string, rate: number | null, termMonths: 
     }
     // Text with more figures than the phrases we understood ("1 month free, $500 move-in bonus") is not guessed at.
     if (/\d/.test(rest)) return null;
-    if (rate == null || !(term >= 1)) return null;
     const n = num(free[1]);
     const months = /^w/i.test(free[2]) ? (n * 12) / 52 : n;
-    if (months >= term) return null;
-    return { amount: Math.round((rate * months) / term), freeMonths: months, term, termFromText };
+    const amount = freeRentAmount(rate, months, term);
+    return amount == null ? null : { amount, freeMonths: months, term, termFromText };
   }
   const neg = t.match(/^-\s*\$?\s*([\d,]+(?:\.\d+)?)\s*(?:\/\s*(?:mo|month)|per month|monthly|a month)?\s*$/i);
   if (neg) return { amount: parseFloat(neg[1].replace(/,/g, '')) };
   const monthly = t.match(/\$\s*([\d,]+(?:\.\d+)?)\s*(?:\/\s*(?:mo|month)|per month|monthly|a month|off (?:per|each|every) month)\b/i);
   if (monthly && !/\d/.test(t.replace(monthly[0], ''))) return { amount: parseFloat(monthly[1].replace(/,/g, '')) };
+  return null;
+}
+
+/** Free rent spread over the lease: rent x free months / term months, rounded to the dollar. */
+export function freeRentAmount(rate: number | null, months: number, term: number): number | null {
+  if (rate == null || !(months > 0) || !(term >= 1) || months >= term) return null;
+  return Math.round((rate * months) / term);
+}
+
+/** A dollar figure typed in an amount box: "115", "$1,250.50", "-20". Anything else is null, never a guess. */
+export function typedAmount(text: string): number | null {
+  const m = text.trim().match(/^([-+])?\s*\$?\s*(\d[\d,]*(?:\.\d+)?|\.\d+)$/);
+  if (!m) return null;
+  const v = parseFloat(m[2].replace(/,/g, ''));
+  return m[1] === '-' ? -v : v;
+}
+
+export type TypedIncentive = { kind: 'clear' } | { kind: 'amount'; amount: number } | { kind: 'free'; months: number; term: number | null };
+
+const TYPED_FREE = new RegExp(
+  String.raw`^${NUM}\s*(?:months?|mos?)?\s*(?:free)?\s*(?:rent)?\s*(?:\/|on|over|of|in)\s*(?:a\s+)?${NUM}\s*-?\s*(?:months?|mos?)?\s*(?:lease|term)?$`,
+  'i',
+);
+
+/**
+ * What was typed in the incentive box: a monthly dollar discount ("115"), free rent as months free over
+ * lease months ("1/13", "2 months on a 24 month lease"), or free rent on the default term ("1 month free").
+ * null when it cannot be read.
+ */
+export function parseTypedIncentive(text: string): TypedIncentive | null {
+  const t = text.trim();
+  if (!t) return { kind: 'clear' };
+  const amount = typedAmount(t);
+  if (amount != null) return amount >= 0 ? { kind: 'amount', amount } : null;
+  const f = t.match(TYPED_FREE);
+  if (f) {
+    const months = num(f[1]);
+    const term = num(f[2]);
+    return months > 0 && term >= 1 && months < term ? { kind: 'free', months, term } : null;
+  }
+  const c = explainIncentive(t, 1, 12);
+  if (c?.freeMonths != null) return { kind: 'free', months: c.freeMonths, term: c.termFromText ? (c.term ?? null) : null };
   return null;
 }
 
@@ -111,6 +152,7 @@ export function parseIncentive(text: string, rate: number | null, termMonths: nu
 export function partAmount(u: Unit, part: NetPart, termMonths = DEFAULT_NET.termMonths): number | null {
   const manual = part === 'parking' ? u.parkingAmt : part === 'utilities' ? u.utilitiesAmt : part === 'incentives' ? u.incentiveAmt : u.miscAmt;
   if (typeof manual === 'number' && Number.isFinite(manual)) return manual;
+  if (part === 'incentives' && u.incentiveFree) return freeRentAmount(u.rate, u.incentiveFree.months, u.incentiveFree.term ?? termMonths);
   if (part === 'misc') return 0;
   const text = part === 'parking' ? u.parking : part === 'utilities' ? u.utilities : u.incentive;
   if (!text.trim()) return 0;
@@ -153,5 +195,5 @@ export function netDefinition(net: NetSettings): string {
 
 /** The amount worked out from the text alone, ignoring anything typed in the app (shown as a hint beside the box). */
 export function autoAmount(u: Unit, part: NetPart, termMonths = DEFAULT_NET.termMonths): number | null {
-  return partAmount({ ...u, parkingAmt: null, utilitiesAmt: null, incentiveAmt: null, miscAmt: null }, part, termMonths);
+  return partAmount({ ...u, parkingAmt: null, utilitiesAmt: null, incentiveAmt: null, incentiveFree: null, miscAmt: null }, part, termMonths);
 }

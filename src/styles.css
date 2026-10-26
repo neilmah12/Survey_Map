@@ -81,6 +81,7 @@ button, input { font: inherit; }
 .count-tag { font: inherit; font-size: 10px; line-height: 1; padding: 2px 6px; border-radius: 999px; border: 1px solid #c7ced9; background: #fff; color: var(--muted); cursor: pointer; }
 .count-tag.on { background: #002060; border-color: #002060; color: #fff; }
 .amount-note { font-size: 11px; color: var(--muted); }
+.field.amount input.unread { border-color: #b45309; }
 .amount-warn { font-size: 11px; color: #b45309; }
 .net-line { font-size: 12px; margin-top: 6px; padding: 6px 8px; background: #eef2f8; border-radius: 6px; }
 .net-line .muted { color: var(--muted); }

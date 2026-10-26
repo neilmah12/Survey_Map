@@ -22,6 +22,8 @@ export interface Unit {
   utilitiesAmt?: number | null;
   /** The monthly value of the incentive as a discount (positive), for example 100 for $100 off a month. */
   incentiveAmt?: number | null;
+  /** Free rent typed in the app as months free over lease months (1/13). Spread over the term; follows the rent. Term null: the survey default. */
+  incentiveFree?: { months: number; term: number | null } | null;
   /** Anything else that changes the real cost, signed: a fee is positive and a credit (a gift card, say) is negative. */
   miscAmt?: number | null;
   miscLabel?: string;

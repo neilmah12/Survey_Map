@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseSurvey } from '../src/lib/parse';
-import { DEFAULT_NET, autoAmount, explainIncentive, netAvailable, netDefinition, parseIncentive, partsWithData, unitNet } from '../src/lib/net';
+import { DEFAULT_NET, autoAmount, explainIncentive, netAvailable, parseTypedIncentive, partAmount, typedAmount, netDefinition, parseIncentive, partsWithData, unitNet } from '../src/lib/net';
 import { mergeSurvey } from '../src/lib/merge';
 import { runChecks } from '../src/lib/checks';
 import { embedSnapshot, snapshotToSurvey, toClientSnapshot } from '../src/lib/snapshot';
@@ -58,6 +58,35 @@ describe('net rent', () => {
     expect(parseIncentive('', 1800, 12)).toBe(0);
     expect(parseIncentive('$500 gift card', 1800, 12)).toBeNull();
     expect(parseIncentive('1 month free rent, 500 move in bonus', 1800, 12)).toBeNull(); // two offers: not guessed
+  });
+
+  it('reads what is typed in the incentive box: dollars, months free / lease months, or words', () => {
+    expect(parseTypedIncentive('128')).toEqual({ kind: 'amount', amount: 128 });
+    expect(parseTypedIncentive('$1,000')).toEqual({ kind: 'amount', amount: 1000 });
+    expect(parseTypedIncentive('1/13')).toEqual({ kind: 'free', months: 1, term: 13 });
+    expect(parseTypedIncentive('2 / 18')).toEqual({ kind: 'free', months: 2, term: 18 });
+    expect(parseTypedIncentive('2 months on a 24 month lease')).toEqual({ kind: 'free', months: 2, term: 24 });
+    expect(parseTypedIncentive('1 month free over 13 months')).toEqual({ kind: 'free', months: 1, term: 13 });
+    expect(parseTypedIncentive('1 month free')).toEqual({ kind: 'free', months: 1, term: null });
+    expect(parseTypedIncentive('')).toEqual({ kind: 'clear' });
+    for (const bad of ['2 months', '1/', '13/1', '$500 gift card', '-50', 'abc']) expect(parseTypedIncentive(bad)).toBeNull();
+  });
+
+  it('only takes whole dollar figures in amount boxes, never the first number in some text', () => {
+    expect(typedAmount('225')).toBe(225);
+    expect(typedAmount('-25')).toBe(-25);
+    expect(typedAmount('$1,250.50')).toBe(1250.5);
+    expect(typedAmount('2 months on a 24 month lease')).toBeNull();
+    expect(typedAmount('$225 underground')).toBeNull();
+  });
+
+  it('spreads typed free rent over its term and follows the rent', () => {
+    const u = unit({ rate: 1665, incentiveFree: { months: 2, term: 24 } });
+    expect(partAmount(u, 'incentives')).toBe(139); // 1,665 x 2 / 24
+    expect(partAmount({ ...u, rate: 1800 }, 'incentives')).toBe(150);
+    expect(partAmount(unit({ rate: 1300, incentiveFree: { months: 1, term: null } }), 'incentives', 13)).toBe(100); // default term
+    expect(partAmount(unit({ rate: 1665, incentiveAmt: 50, incentiveFree: { months: 2, term: 24 } }), 'incentives')).toBe(50); // a dollar figure wins
+    expect(unitNet(u, { ...DEFAULT_NET, incentives: true })).toBe(1665 - 139);
   });
 
   it('spreads free rent over the lease term the text gives, else the default term', () => {
@@ -117,10 +146,12 @@ describe('merging keeps amounts typed in the app', () => {
     const a = await load('churchill-apartments.xlsx');
     a.buildings[0].units[0].parkingAmt = 99;
     a.buildings[0].units[0].miscLabel = 'Telus';
+    a.buildings[0].units[0].incentiveFree = { months: 1, term: 13 };
     const b = await load('churchill-apartments.xlsx');
     const same = mergeSurvey(a, b);
     expect(same.survey.buildings[0].units[0].parkingAmt).toBe(99);
     expect(same.survey.buildings[0].units[0].miscLabel).toBe('Telus');
+    expect(same.survey.buildings[0].units[0].incentiveFree).toEqual({ months: 1, term: 13 });
     expect(same.summary.dataChanged).toBe(false);
     const c = await load('churchill-apartments.xlsx');
     c.buildings[0].units[0].rate = (c.buildings[0].units[0].rate ?? 0) + 50;

@@ -147,6 +147,10 @@ Net rent:
 - Free rent is spread over the lease term: rent x free months / term months. "1 month free on a 13 month lease"
   at $1,499 is $1,499 x 1 / 13 = $115 a month off. The term comes from the text ("on 15 month lease", "amortized
   over 13-month lease", "1 yr lease"); otherwise the default set beside the Incentives chip (12 months).
+- The incentive box takes a dollar discount per month (128), free rent as months free / lease months (1/13, 2/18),
+  or words ("2 months on a 24 month lease", "1 month free" on the default term). Free rent typed as a fraction is
+  saved as months and term, so it follows the rent. Amount boxes take only a dollar figure: other text is not
+  guessed at, the box says it was not read, and the saved value stays as it was.
 - In the sidebar, each amount box is tagged "counted" or "not counted" from the survey-wide chips (clicking the
   tag changes it for the whole survey, so every building stays on the same definition). Boxes not counted are
   greyed. A free-rent incentive shows its sum, unreadable text shows a warning, and a line under each suite shows
