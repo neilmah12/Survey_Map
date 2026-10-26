@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Building, Survey, Unit } from '../types';
-import { parseLatLng } from '../lib/format';
 import { fileToDataUrl } from '../lib/image';
 import { safeUrl } from '../lib/safeUrl';
 import { DRAG_TYPE } from '../lib/dnd';
+import { autoAmount, netOf, type NetPart } from '../lib/net';
+import { formatDate, money, parseLatLng } from '../lib/format';
+import { localDate } from '../lib/dates';
 
 interface Props {
   survey: Survey;
@@ -31,6 +33,39 @@ function Field(props: { label: string; value: string; onChange: (v: string) => v
     <label className={props.wide ? 'field wide' : 'field'}>
       <span>{props.label}</span>
       <input value={props.value} onChange={(e) => props.onChange(e.target.value)} />
+    </label>
+  );
+}
+
+/** A dollar box that is empty until you type: empty means "work it out from the text". Accepts a minus sign while typing. */
+function AmountField({ label, value, auto, onChange }: { label: string; value: number | null | undefined; auto?: number | null; onChange: (v: number | null) => void }) {
+  const [text, setText] = useState(value == null ? '' : String(value));
+  const focused = useRef(false);
+  useEffect(() => {
+    if (!focused.current) setText(value == null ? '' : String(value));
+  }, [value]);
+  const hint = auto === undefined ? '' : auto == null ? 'not read' : String(Math.round(auto * 100) / 100);
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input
+        inputMode="decimal"
+        value={text}
+        placeholder={hint ? `auto ${hint}` : ''}
+        onFocus={() => (focused.current = true)}
+        onBlur={() => {
+          focused.current = false;
+          setText(value == null ? '' : String(value));
+        }}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (e.target.value.trim() === '') onChange(null);
+          else {
+            const n = numOrNull(e.target.value);
+            if (n != null) onChange(n);
+          }
+        }}
+      />
     </label>
   );
 }
@@ -139,6 +174,7 @@ function ImageField({ b, onBuilding }: { b: Building; onBuilding: Props['onBuild
 }
 
 function Editor({ b, p }: { b: Building; p: Props }) {
+  const term = netOf(p.survey).termMonths;
   return (
     <div className="editor">
       <div className="editor-title">Edit building</div>
@@ -189,11 +225,35 @@ function Editor({ b, p }: { b: Building; p: Props }) {
             <div className="row3">
               <Field label="SF" value={u.sf?.toString() ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { sf: numOrNull(v) })} />
               <Field label="Rent" value={u.rate?.toString() ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { rate: numOrNull(v) })} />
-              <Field label="Net rent" value={u.netRate?.toString() ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { netRate: numOrNull(v) })} />
+              <Field label="Net rent (sheet)" value={u.netRate?.toString() ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { netRate: numOrNull(v) })} />
             </div>
             <Field label="Parking" value={u.parking} onChange={(v) => p.onUnit(b.id, u.id, { parking: v })} wide />
             <Field label="Utilities" value={u.utilities} onChange={(v) => p.onUnit(b.id, u.id, { utilities: v })} wide />
             <Field label="Incentive" value={u.incentive} onChange={(v) => p.onUnit(b.id, u.id, { incentive: v })} wide />
+            <div className="unit-sub" title="These feed net rent when ticked above the map. Leave a box empty to use the amount read from the text.">Net rent amounts ($ per month)</div>
+            <div className="row2">
+              {(['parking', 'utilities'] as NetPart[]).map((k) => (
+                <AmountField
+                  key={k}
+                  label={k === 'parking' ? 'Parking' : 'Utilities'}
+                  value={k === 'parking' ? u.parkingAmt : u.utilitiesAmt}
+                  auto={autoAmount(u, k, term)}
+                  onChange={(v) => p.onUnit(b.id, u.id, k === 'parking' ? { parkingAmt: v } : { utilitiesAmt: v })}
+                />
+              ))}
+            </div>
+            <div className="row2">
+              <AmountField label="Incentive (discount)" value={u.incentiveAmt} auto={autoAmount(u, 'incentives', term)} onChange={(v) => p.onUnit(b.id, u.id, { incentiveAmt: v })} />
+              <AmountField label="Misc (+ fee, - credit)" value={u.miscAmt} onChange={(v) => p.onUnit(b.id, u.id, { miscAmt: v })} />
+            </div>
+            <Field label="Misc label (for example Telus package)" value={u.miscLabel ?? ''} onChange={(v) => p.onUnit(b.id, u.id, { miscLabel: v })} wide />
+            <AmountField label="Net rent override (beats the settings)" value={u.netOverride} onChange={(v) => p.onUnit(b.id, u.id, { netOverride: v })} />
+            {u.netRate != null && u.netOverride !== u.netRate && (
+              <div className="net-hint">
+                The sheet's net rent is {money(u.netRate)}.{' '}
+                <button className="link-btn" onClick={() => p.onUnit(b.id, u.id, { netOverride: u.netRate })}>Use it as the override</button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -226,6 +286,10 @@ export default function Sidebar(p: Props) {
             <span>As of</span>
             <input type="date" value={p.survey.asOf} onChange={(e) => p.onSurvey({ asOf: e.target.value })} />
           </label>
+        </div>
+        <div className="updated">
+          <button className="link-btn" onClick={() => p.onSurvey({ asOf: localDate() })} title="Set the As of date, which clients see, to today">Set As of to today</button>
+          {p.survey.updatedAt && <span> | Last edited {formatDate(localDate(new Date(p.survey.updatedAt)))} (internal)</span>}
         </div>
       </section>
 

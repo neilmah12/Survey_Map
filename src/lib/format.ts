@@ -1,6 +1,6 @@
-import type { Building, Metric, Unit } from '../types';
+import type { Building, Metric, NetSettings, Unit } from '../types';
 import { visibleUnits, type UnitFilter } from './groups';
-import { parseCharge } from './unitText';
+import { DEFAULT_NET, unitNet } from './net';
 
 export const money = (n: number) => `$${Math.round(n).toLocaleString('en-CA')}`;
 export const psf = (n: number) => `$${n.toFixed(2)}`;
@@ -9,15 +9,8 @@ export function unitPsf(u: Unit): number | null {
   return u.rate != null && u.sf ? u.rate / u.sf : null;
 }
 
-/** Net rent: the sheet's value if present, else base rent plus a dollar parking charge. */
-export function unitNet(u: Unit): number | null {
-  if (u.netRate != null) return u.netRate;
-  const parking = parseCharge(u.parking);
-  return u.rate != null && parking ? u.rate + parking : null;
-}
-
-export function metricValue(u: Unit, m: Metric): number | null {
-  return m === 'rate' ? u.rate : m === 'psf' ? unitPsf(u) : unitNet(u);
+export function metricValue(u: Unit, m: Metric, net: NetSettings = DEFAULT_NET): number | null {
+  return m === 'rate' ? u.rate : m === 'psf' ? unitPsf(u) : unitNet(u, net);
 }
 
 export const METRIC_LABEL: Record<Metric, string> = {
@@ -31,9 +24,9 @@ export function formatMetric(v: number, m: Metric): string {
 }
 
 /** Pin label: a single value or "min - max" over the visible units. */
-export function pinLabel(b: Building, f: UnitFilter, m: Metric): string {
+export function pinLabel(b: Building, f: UnitFilter, m: Metric, net: NetSettings = DEFAULT_NET): string {
   const vals = visibleUnits(b, f)
-    .map((u) => metricValue(u, m))
+    .map((u) => metricValue(u, m, net))
     .filter((v): v is number => v != null);
   if (vals.length === 0) return 'n/a';
   const lo = Math.min(...vals);

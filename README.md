@@ -131,6 +131,34 @@ Unit filters and subjects:
   marker, the building name, the survey title) but only to decide whether Stacked / non-stacked shows.
 - Several buildings can be marked as the subject (for example a portfolio). Rings draw around each.
 
+Net rent:
+
+- Net rent is worked out from tick boxes saved with the survey: **Show net rent** (off hides it
+  everywhere) and what counts: **Parking, Utilities, Incentives, Misc**. Nothing is ticked by default, so net
+  equals base rent until you choose. Net = base + parking + utilities + misc, less incentives, each only
+  when ticked. The definition (for example "Net rent = base rent + parking, less incentives") prints
+  beside the metric, in the summary, and on image / PDF exports, and follows the boxes.
+- Each suite's monthly amounts are read from the sheet's text ("$225 underground", "-$158", "1 month free"
+  over the lease term, 12 months) and can be typed over in the sidebar under "Net rent amounts". An empty box
+  means "use the text". Incentive is a positive discount; Misc is signed (fee positive, credit negative)
+  with an optional label such as a Telus package. "Net rent override" beats the settings for that suite.
+  Text with more than one offer ("1 month free, $500 bonus") or no dollar figure ("$500 gift card") is not
+  guessed: Checks flags it when its box is ticked, and it is left out until an amount is typed.
+- The sheet's own Net Rent column is kept for reference and Excel write-back but no longer drives the
+  figures. "Use it as the override" copies it into a suite's override.
+- "Clients can change these" lets the client page tick the same boxes (only those the survey has amounts
+  for). Their choices are not saved. Otherwise the client sees your selection and cannot change it.
+- Popups show a "vs mkt" column: each suite against the market average for its unit type (same metric,
+  average or median, and filters as the summary).
+
+Dates:
+
+- **As of** is the rent date clients see. New from Excel sets it to today. Update from Excel asks for it
+  in the merge dialog: today when rents, SF, incentives or units changed, unchanged when only names,
+  pins or photos did, and it can be set to any date. It can always be edited in the sidebar.
+- **Last edited** is internal: stamped on every change and shown only in the editor sidebar.
+- Dates use the local time zone, not UTC.
+
 Planned: Firebase Auth (3-user allowlist), Firestore drafts, published read-only snapshots at
 unguessable URLs, PDF/image export.
 

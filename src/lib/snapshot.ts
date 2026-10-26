@@ -1,4 +1,5 @@
-import { DEFAULT_SUMMARY, type LngLat, type Metric, type Stat, type Survey, type SummarySettings, type ViewSettings } from '../types';
+import { DEFAULT_SUMMARY, type LngLat, type Metric, type NetSettings, type Stat, type Survey, type SummarySettings, type ViewSettings } from '../types';
+import { cleanNet, netOf, partAmount } from './net';
 import { kindContext, unitKind } from './groups';
 import { safeUrl } from './safeUrl';
 
@@ -15,10 +16,16 @@ export interface ClientUnit {
   type: string;
   sf: number | null;
   rate: number | null;
-  netRate: number | null;
   parking: string;
   utilities: string;
   incentive: string;
+  /** Monthly dollar amounts behind net rent, already worked out (incentive is a positive discount, misc is signed). */
+  parkingAmt: number;
+  utilitiesAmt: number;
+  incentiveAmt: number;
+  miscAmt: number;
+  miscLabel?: string;
+  netOverride?: number;
 }
 
 export interface ClientBuilding {
@@ -56,6 +63,8 @@ export interface ClientSnapshot {
   sourceNote?: string;
   /** Clients may switch properties on and off in the summary; their changes are not saved. */
   clientCanToggle?: boolean;
+  /** What counts toward net rent, and whether the client may change it. */
+  net: NetSettings;
   view: ClientView;
   buildings: ClientBuilding[];
 }
@@ -82,6 +91,7 @@ export interface SnapshotResult {
 
 export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date = new Date()): SnapshotResult {
   const ctx = kindContext(survey);
+  const net = netOf(survey);
   const unplaced: string[] = [];
   const buildings: ClientBuilding[] = [];
   for (const b of survey.buildings) {
@@ -109,10 +119,15 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
         type: str(u.type),
         sf: numOrNull(u.sf),
         rate: numOrNull(u.rate),
-        netRate: numOrNull(u.netRate),
         parking: str(u.parking),
         utilities: str(u.utilities),
         incentive: str(u.incentive),
+        parkingAmt: partAmount(u, 'parking', net.termMonths) ?? 0,
+        utilitiesAmt: partAmount(u, 'utilities', net.termMonths) ?? 0,
+        incentiveAmt: partAmount(u, 'incentives', net.termMonths) ?? 0,
+        miscAmt: partAmount(u, 'misc', net.termMonths) ?? 0,
+        ...(str(u.miscLabel) ? { miscLabel: str(u.miscLabel) } : {}),
+        ...(numOrNull(u.netOverride) != null ? { netOverride: numOrNull(u.netOverride)! } : {}),
       })),
     });
   }
@@ -125,6 +140,7 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
       asOf: str(survey.asOf),
       publishedAt: now.toISOString(),
       ...(survey.clientCanToggle ? { clientCanToggle: true } : {}),
+      net,
       ...(str(survey.sourceNote) ? { sourceNote: str(survey.sourceNote) } : {}),
       view: {
         metric: view.metric,
@@ -149,6 +165,7 @@ export function snapshotToSurvey(s: ClientSnapshot): Survey {
     location: s.location,
     asOf: s.asOf,
     clientCanToggle: Boolean(s.clientCanToggle),
+    net: cleanNet(s.net),
     sourceNote: s.sourceNote,
     buildings: s.buildings.map((b) => ({
       id: b.id,
@@ -165,7 +182,7 @@ export function snapshotToSurvey(s: ClientSnapshot): Survey {
       contact: '',
       url: b.url,
       imageUrl: b.imageUrl,
-      units: b.units.map((u) => ({ ...u, beds: null, notes: '', extras: {} })),
+      units: b.units.map((u) => ({ ...u, beds: null, netRate: null, notes: '', extras: {} })),
     })),
   };
 }
