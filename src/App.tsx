@@ -6,7 +6,7 @@ import { toBase64 } from './lib/base64';
 import { exportWithCoordinates } from './lib/exportXlsx';
 import { mergeSurvey, type MergeSummary } from './lib/merge';
 import { downloadBlob, downloadJson, loadDraft, saveDraft } from './lib/store';
-import { NO_FILTERS } from './lib/groups';
+import { NO_FILTERS, filterOptions } from './lib/groups';
 import { useUndoable } from './hooks/useUndoable';
 import MergeDialog from './components/MergeDialog';
 import ClientViewer from './components/ClientViewer';
@@ -161,7 +161,10 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
     if (nextLink === NO_LINK) cloud.adopt(null);
     setLink(nextLink);
     resetSurvey(next);
-    setView((v) => ({ ...v, filters: NO_FILTERS })); // filter choices belong to the previous survey
+    // Filter choices belong to the previous survey. A survey with both townhomes and apartments starts with
+    // the summary split by property type, so a townhome is not compared with apartments of the same size.
+    const mixed = filterOptions(next).kind.length > 0;
+    setView((v) => ({ ...v, filters: NO_FILTERS, summary: { ...v.summary, split: { ...v.summary.split, kind: mixed } } }));
     setRestoredAt(null);
     setSelectedId(null);
     setPlacingId(null);

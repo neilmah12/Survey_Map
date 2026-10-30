@@ -88,7 +88,7 @@ describe('legend', () => {
 describe('captions and text', () => {
   it('describes the unit filters, or says nothing', () => {
     expect(filterCaption(NO_FILTERS)).toBe('');
-    expect(filterCaption({ beds: ['2 Beds', '2 + Den'], baths: ['1', '2'], reno: [] })).toBe('Showing Bedrooms: 2 Beds, 2 + Den; Bathrooms: 1, 2');
+    expect(filterCaption({ kind: [], beds: ['2 Beds', '2 + Den'], baths: ['1', '2'], reno: [] })).toBe('Showing Bedrooms: 2 Beds, 2 + Den; Bathrooms: 1, 2');
   });
   it('wraps text on spaces to a width', () => {
     const m = (s: string) => s.length * 6;

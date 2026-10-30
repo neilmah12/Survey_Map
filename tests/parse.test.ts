@@ -179,3 +179,39 @@ describe('incentive column', () => {
     expect(inc['Woodcroft Townhomes']).toBe('-$100');
   });
 });
+
+describe('product column', () => {
+  it('reads Apartment / Townhouse into the property type, and Vintage as year built', async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const { filterOptions, kindContext, visibleUnits, NO_FILTERS } = await import('../src/lib/groups');
+    const { computeSummary } = await import('../src/lib/summary');
+    const { DEFAULT_SUMMARY } = await import('../src/types');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('S');
+    ws.getCell('A1').value = 'Rental Market Survey\nModern Purpose-Built Rentals\nFort Saskatchewan, AB';
+    ws.addRow(['Building Name', 'Address', 'Product', 'Vintage', 'Unit Type', 'SF', 'Base Rent']);
+    ws.addRow(['Birch Hills Landing', '8605 Southfort Blvd', 'Apartment', '2011-2014', '3 Bed/1 Bath', 971, 1928]);
+    ws.addRow([null, null, 'Apartment', null, '2 Bed/1 Bath', 847, 1548]);
+    ws.addRow(['Southfort Village', '8401 Southfort Blvd', 'Townhouse', 2018, '3 Bed/2.5 Bath', 1200, 1850]);
+    ws.addRow(['Westpark Place', '60 Woodcrest Lane', 'Townhouse', 2025, '3 Bed/2.5 Bath', 1550, 2275]);
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    const s = await parseSurvey(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer);
+    expect(s.buildings.map((b) => [b.name, b.propertyType, b.yearBuilt])).toEqual([
+      ['Birch Hills Landing', 'Apartment', '2011-2014'],
+      ['Southfort Village', 'Townhome', '2018'],
+      ['Westpark Place', 'Townhome', '2025'],
+    ]);
+    expect(s.buildings[0].units[0].extras).toEqual({}); // Product is no longer an unrecognised column
+    expect(filterOptions(s).kind).toEqual(['Apartment', 'Townhome']);
+
+    const ctx = kindContext(s);
+    const shown = (kind: string[]) => s.buildings.filter((b) => visibleUnits(b, { filters: { ...NO_FILTERS, kind }, ctx }).length).map((b) => b.name);
+    expect(shown(['Townhome'])).toEqual(['Southfort Village', 'Westpark Place']);
+    expect(shown(['Apartment'])).toEqual(['Birch Hills Landing']);
+
+    // Split by property type: the 3 bed apartment and the 3 bed townhomes are separate rows, apartments first.
+    const split = { ...DEFAULT_SUMMARY, split: { kind: true, baths: false, reno: false } };
+    const rows = computeSummary(s, { metric: 'rate', filters: NO_FILTERS, settings: split }).rows;
+    expect(rows.map((r) => [r.label, r.market.value])).toEqual([['2 Beds Apartment', 1548], ['3 Beds Apartment', 1928], ['3 Beds Townhome', 2062.5]]);
+  });
+});

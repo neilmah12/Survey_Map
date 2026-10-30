@@ -14,4 +14,5 @@ One file per working session, so a new conversation can pick up where the last o
 ## Index (newest first)
 | Date | File | Status | Covers |
 | --- | --- | --- | --- |
-| 2026-10-26 | [2026-10-26-net-rent-and-dates.md](2026-10-26-net-rent-and-dates.md) | current | Net rent toggles, per-suite amounts, client net controls, vs-market popups, As of and last-edited dates. Next: Firebase. |
+| 2026-10-30 | [2026-10-30-property-type-filter.md](2026-10-30-property-type-filter.md) | current | Townhome / apartment filter, Product column, summary split by property type. |
+| 2026-10-26 | [2026-10-26-net-rent-and-dates.md](2026-10-26-net-rent-and-dates.md) | superseded | Net rent toggles, per-suite amounts, client net controls, vs-market popups, As of and last-edited dates. Next: Firebase. |

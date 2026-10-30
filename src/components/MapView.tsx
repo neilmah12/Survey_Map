@@ -111,7 +111,7 @@ function popupContent(b: Building, filter: UnitFilter, pc: PopupCtx): HTMLElemen
     u,
     p: unitPsf(u),
     n: pc.showNet ? unitNet(u, pc.net) : null,
-    vs: versusMarket(metricValue(u, pc.metric, pc.net), pc.market.rows.find((r) => r.key === groupLabel(u, b, pc.split))),
+    vs: versusMarket(metricValue(u, pc.metric, pc.net), pc.market.rows.find((r) => r.key === groupLabel(u, b, pc.split, filter.ctx))),
   }));
   const cols = [
     { h: 'Unit', show: true, cell: (r: (typeof rows)[number]) => el('td', undefined, normalizeUnitType(r.u.type)) },
