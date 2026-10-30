@@ -44,7 +44,7 @@ describe('client snapshot never contains internal data', () => {
     const { snapshot } = toClientSnapshot(await load('clareview-townhomes.xlsx'), VIEW);
     expect([...allKeys(snapshot)].sort()).toEqual(
       [
-        'address', 'asOf', 'baths', 'beds', 'kind', 'buildings', 'clientCanChange', 'configuration', 'enabled', 'filters', 'id', 'imageUrl', 'incentive',
+        'address', 'asOf', 'baths', 'beds', 'kind', 'utils', 'buildings', 'clientCanChange', 'configuration', 'enabled', 'filters', 'id', 'imageUrl', 'incentive',
         'incentiveAmt', 'incentives', 'isSubject', 'lngLat', 'location', 'metric', 'misc', 'miscAmt', 'name', 'net', 'open', 'parking', 'parkingAmt', 'termMonths', 'utilitiesAmt', 'perBuilding', 'publishedAt', 'rate', 'reno', 'rings', 'ringsKm',
         'sf', 'split', 'stat', 'summary', 'title', 'type', 'units', 'url', 'utilities', 'version', 'view', 'yearBuilt', 'yearRenovated',
       ].sort(),
@@ -163,7 +163,7 @@ describe('snapshot to survey and embedding', () => {
     const summary = { open: false, stat: 'median' as const, split: { kind: false, baths: true, reno: false }, perBuilding: false };
     const view: ViewSettings = { metric: 'psf', summary, filters: { ...NO_FILTERS, beds: ['2 Beds'] }, rings: false, ringsKm: [1, 3] };
     const { snapshot } = toClientSnapshot(await load('churchill-apartments.xlsx'), view);
-    expect(snapshot.view).toEqual({ metric: 'psf', summary, rings: false, ringsKm: [1, 3], filters: { kind: [], beds: ['2 Beds'], baths: [], reno: [] } });
+    expect(snapshot.view).toEqual({ metric: 'psf', summary, rings: false, ringsKm: [1, 3], filters: { kind: [], beds: ['2 Beds'], baths: [], reno: [], utils: [] } });
   });
 
   it('embeds safely even when text contains script tags or line separators', async () => {

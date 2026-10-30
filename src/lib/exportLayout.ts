@@ -1,5 +1,6 @@
 import type { NetSettings, Survey, ViewSettings } from '../types';
 import { isFiltering, visibleUnits, kindContext, type UnitFilters } from './groups';
+import { pinBadges, utilStatus } from './utilities';
 import { METRIC_LABEL } from './format';
 import { netDefinition } from './net';
 import type { SummaryResult } from './summary';
@@ -63,7 +64,7 @@ export function niceScale(metersPerPx: number, maxPx: number): { meters: number;
 }
 
 export interface LegendItem {
-  kind: 'subject' | 'comp' | 'excluded' | 'incentive' | 'rings';
+  kind: 'subject' | 'comp' | 'excluded' | 'incentive' | 'utils' | 'rings';
   label: string;
 }
 
@@ -78,7 +79,8 @@ export function legendItems(survey: Survey, view: ViewSettings): LegendItem[] {
   if (shown.some((x) => x.b.isSubject)) items.push({ kind: 'subject', label: 'Subject property' });
   if (shown.some((x) => !x.b.isSubject)) items.push({ kind: 'comp', label: 'Comparable property' });
   if (shown.some((x) => x.b.excluded || x.units.every((u) => u.excluded))) items.push({ kind: 'excluded', label: 'Not counted in the averages' });
-  if (shown.some((x) => x.units.some((u) => u.incentive))) items.push({ kind: 'incentive', label: 'Incentive offered' });
+  if (shown.some((x) => pinBadges(x.units).some((p) => p.kind === 'incentive'))) items.push({ kind: 'incentive', label: 'Incentive offered' });
+  if (shown.some((x) => x.units.some((u) => utilStatus(u) === 'included'))) items.push({ kind: 'utils', label: 'Utilities included in rent (tag names which)' });
   if (view.rings && shown.some((x) => x.b.isSubject)) items.push({ kind: 'rings', label: `Distance from subject (${view.ringsKm.join(', ')} km)` });
   return items;
 }
@@ -98,6 +100,7 @@ export function filterCaption(f: UnitFilters): string {
   if (f.beds.length) parts.push(`Bedrooms: ${f.beds.join(', ')}`);
   if (f.baths.length) parts.push(`Bathrooms: ${f.baths.join(', ')}`);
   if (f.reno.length) parts.push(`Renovation: ${f.reno.join(', ')}`);
+  if (f.utils?.length) parts.push(`Utilities: ${f.utils.join(', ')}`);
   return `Showing ${parts.join('; ')}`;
 }
 

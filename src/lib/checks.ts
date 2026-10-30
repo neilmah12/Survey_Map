@@ -3,6 +3,7 @@ import { unitBedCat, unitBeds } from './groups';
 import { money } from './format';
 import { norm } from './merge';
 import { NET_PARTS, netOf, partAmount, partsWithData, type NetPart } from './net';
+import { PLACEHOLDER } from './utilities';
 
 export type Severity = 'error' | 'warn' | 'info';
 export type CheckGroup = 'Map' | 'Data' | 'Comparison' | 'Excel';
@@ -17,7 +18,6 @@ export interface Check {
   buildingId?: string;
 }
 
-const PLACEHOLDER = /\b(tbc|tbd|to be confirmed|to be determined|pending)\b|^\s*\?+\s*$/i;
 const UNFINISHED = /\b(need|needs|needed|confirm|verify|check|follow[ -]?up|call back|tbc|tbd)\b|\?/i;
 const ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 

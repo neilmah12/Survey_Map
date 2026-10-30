@@ -13,7 +13,7 @@ const survey: Survey = {
   title: 'T', location: 'L', asOf: '2026-01-01', buildings: [b('a', PNG), b('c', 'https://example.com/p.jpg')],
   source: { name: 'wb.xlsx', data: 'WORKBOOKBYTES' },
 };
-const view: ViewSettings = { metric: 'rate', summary: DEFAULT_SUMMARY, filters: { kind: [], beds: [], baths: [], reno: [] }, rings: false, ringsKm: [] };
+const view: ViewSettings = { metric: 'rate', summary: DEFAULT_SUMMARY, filters: { kind: [], beds: [], baths: [], reno: [], utils: [] }, rings: false, ringsKm: [] };
 
 describe('splitSnapshot', () => {
   it('moves embedded photos into their own documents', async () => {

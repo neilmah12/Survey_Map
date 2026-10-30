@@ -109,8 +109,8 @@ export const DEFAULT_SUMMARY: SummarySettings = {
 export interface ViewSettings {
   metric: Metric;
   summary: SummarySettings;
-  /** Unit filters: property type, bedrooms, bathrooms, renovation. Empty means any. */
-  filters: { kind: string[]; beds: string[]; baths: string[]; reno: string[] };
+  /** Unit filters: property type, bedrooms, bathrooms, renovation, utilities. Empty means any. */
+  filters: { kind: string[]; beds: string[]; baths: string[]; reno: string[]; utils: string[] };
   rings: boolean;
   ringsKm: number[];
 }
