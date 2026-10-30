@@ -151,6 +151,7 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
           beds: strings(view.filters.beds),
           baths: strings(view.filters.baths),
           reno: strings(view.filters.reno),
+          utils: strings(view.filters.utils),
         },
         summary: cleanSummary(view.summary),
       },
@@ -189,8 +190,9 @@ export function snapshotToSurvey(s: ClientSnapshot): Survey {
 }
 
 export function snapshotToView(s: ClientSnapshot): ViewSettings {
-  // Snapshots published before the property type filter have no kind list.
-  return { ...s.view, filters: { ...s.view.filters, kind: strings(s.view.filters?.kind) }, summary: cleanSummary(s.view.summary) };
+  // Snapshots published before the property type and utilities filters have no kind or utils list.
+  const f = s.view.filters;
+  return { ...s.view, filters: { ...f, kind: strings(f?.kind), utils: strings(f?.utils) }, summary: cleanSummary(s.view.summary) };
 }
 
 /** Looks like a snapshot this version of the viewer can show. */

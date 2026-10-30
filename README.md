@@ -122,7 +122,7 @@ Unit filters and subjects:
 
 - Filters are independent multi-select chips that combine: Property type (Apartment, Townhome), Bedrooms
   (Studio, 1 Bed, 1 + Den, 2 Beds, 2 + Den, 3 Beds, 3 + Den, 4+), Bathrooms (1, 1.5, 2, 2.5, 3+) and Renovation
-  (from a trailing "- Partial Reno" in the unit type). Choices within a
+  (from a trailing "- Partial Reno" in the unit type) and Utilities (Included, Extra charge, Not included). Choices within a
   detail are OR, details combine with AND, and empty means any. So "2 Beds" with bathrooms 1, 2 and
   2.5 shows all three, and "2 Beds" alone ignores bathrooms. Only choices present in the data are
   offered, and a building with no matching unit leaves the map.
@@ -133,6 +133,17 @@ Unit filters and subjects:
 - A survey with both types loads with the summary split by Property type ("3 Beds Townhome" and "3 Beds Apartment"
   are separate rows), so popups' "vs mkt" compares a townhome with townhomes. The split can be turned off.
 - A `Vintage` column is read as Year built.
+
+Pin tags and utilities:
+
+- A pin shows an amber **Incentive** tag when a suite on show has an incentive (placeholder text such as "TBC" does not
+  count; Checks lists it), and a teal tag when utilities are in the rent. The teal tag names what is included when the
+  text says: "Heat + water incl.", "Water incl.", or "Utils incl." for all or unstated. The popup gives the full text.
+- Utilities are read from the Utilities text (`src/lib/utilities.ts`): **Included** ("Heat + Water included"),
+  **Extra charge** (a dollar figure, such as "$300 includes all utilities", or an amount typed in the app) and
+  **Not included** ("Not Included", "Tenant responsible"). Nothing is estimated: a suite where the tenant pays the
+  utility company is marked and filterable, never priced. Known charges still count toward net rent when Utilities is ticked.
+- On the live map, a lifted pill stacks under the pills its line passes, so the line never crosses a tag.
 - Several buildings can be marked as the subject (for example a portfolio). Rings draw around each.
 
 Net rent:

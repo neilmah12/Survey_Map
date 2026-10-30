@@ -1,8 +1,9 @@
 import type { Building, Survey, Unit } from '../types';
 import { parseBeds } from './unitText';
+import { UTIL_CATS, utilCat } from './utilities';
 
 /**
- * Unit filters. Each detail (property type, bedrooms, bathrooms, renovation) is its own multi-select;
+ * Unit filters. Each detail (property type, bedrooms, bathrooms, renovation, utilities) is its own multi-select;
  * choices within one detail are OR, and the details combine with AND. An empty selection means "any".
  */
 export interface UnitFilters {
@@ -11,8 +12,10 @@ export interface UnitFilters {
   beds: string[];
   baths: string[];
   reno: string[];
+  /** Included, Extra charge, Not included. */
+  utils: string[];
 }
-export const NO_FILTERS: UnitFilters = { kind: [], beds: [], baths: [], reno: [] };
+export const NO_FILTERS: UnitFilters = { kind: [], beds: [], baths: [], reno: [], utils: [] };
 
 export const BED_CATS = ['Studio', '1 Bed', '1 + Den', '2 Beds', '2 + Den', '3 Beds', '3 + Den', '4+'] as const;
 export const BATH_CATS = ['1', '1.5', '2', '2.5', '3+'] as const;
@@ -115,13 +118,14 @@ export interface UnitFilter {
   ctx: KindContext;
 }
 
-export const isFiltering = (f: UnitFilters) => (f.kind?.length ?? 0) + f.beds.length + f.baths.length + f.reno.length > 0;
+export const isFiltering = (f: UnitFilters) => (f.kind?.length ?? 0) + f.beds.length + f.baths.length + f.reno.length + (f.utils?.length ?? 0) > 0;
 
 export function unitMatches(u: Unit, b: Building, { filters: f, ctx }: UnitFilter): boolean {
   if (f.kind?.length && !f.kind.includes(unitKind(u, b, ctx) ?? '')) return false;
   if (f.beds.length && !f.beds.includes(unitBedCat(u) ?? '')) return false;
   if (f.baths.length && !f.baths.includes(unitBathCat(u) ?? '')) return false;
   if (f.reno.length && !f.reno.includes(unitReno(u) ?? '')) return false;
+  if (f.utils?.length && !f.utils.includes(utilCat(u) ?? '')) return false;
   return true;
 }
 
@@ -134,6 +138,7 @@ export interface FilterOptions {
   beds: string[];
   baths: string[];
   reno: string[];
+  utils: string[];
 }
 
 /** The choices present in the survey, in display order. A detail with fewer than two choices is left out. */
@@ -143,6 +148,7 @@ export function filterOptions(s: Survey): FilterOptions {
   const beds = new Set<string>();
   const baths = new Set<string>();
   const reno = new Set<string>();
+  const utils = new Set<string>();
   for (const b of s.buildings)
     for (const u of b.units) {
       const k = unitKind(u, b, ctx);
@@ -153,6 +159,8 @@ export function filterOptions(s: Survey): FilterOptions {
       if (ba) baths.add(ba);
       const r = unitReno(u);
       if (r) reno.add(r);
+      const ut = utilCat(u);
+      if (ut) utils.add(ut);
     }
   const ordered = (all: readonly string[], have: Set<string>) => all.filter((x) => have.has(x));
   const two = (xs: string[]) => (xs.length > 1 ? xs : []);
@@ -161,6 +169,7 @@ export function filterOptions(s: Survey): FilterOptions {
     beds: two(ordered(BED_CATS, beds)),
     baths: two(ordered(BATH_CATS, baths)),
     reno: two([...reno].sort()),
+    utils: two(ordered(UTIL_CATS, utils)),
   };
 }
 

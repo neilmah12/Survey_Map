@@ -21,6 +21,13 @@ DONE IN THE LAST SESSION
 - Summary split by Property type (split.kind). Turned on automatically when a mixed survey is loaded.
   Snapshots published before this have no filters.kind; snapshotToView fills it in.
 
+ALSO DONE (same session, second PR)
+- Pin tags: "Inc" became "Incentive" (not shown for "TBC"); a teal tag shows utilities in the rent
+  ("Heat + water incl."). Image / PDF export and legend match.
+- Utilities filter: Included / Extra charge / Not included (src/lib/utilities.ts). The user decided NOT to estimate
+  utility costs: tenant-paid utilities are only marked and filterable, never priced. Do not add an allowance.
+- Live map: lifted pins stack lower (CSS --z), so leader lines pass under other pills.
+
 OPEN / IDEAS
 - The sidebar Property type setting is not written back to the sheet's Product column on Export Excel.
 - Earlier handoff items (Firebase, phone checks) still apply; see 2026-10-26-net-rent-and-dates.md.

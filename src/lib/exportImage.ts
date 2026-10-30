@@ -5,6 +5,7 @@ import { circleCoords, haversineKm, ringTop } from './geo';
 import { METRIC_LABEL, formatDate, pinLabel } from './format';
 import { netDefinition, netOf } from './net';
 import { kindContext, visibleUnits } from './groups';
+import { pinBadges, type PinBadge } from './utilities';
 import { layoutPins, type PinBox } from './pinLayout';
 import { computeSummary } from './summary';
 import { fmtDiff, fmtValue } from './summaryFormat';
@@ -156,7 +157,7 @@ function drawFooter(ctx: CanvasRenderingContext2D, box: Box, note: string) {
   if (note.trim()) text(ctx, ellipsize(ctx, note.trim(), box.w), box.x, box.y + 20, `400 11px ${FONT}`, MUTED);
 }
 
-interface PinDraw { b: Survey['buildings'][number]; label: string; badge: boolean; excluded: boolean; p: { x: number; y: number }; box: PinBox; pillW: number; nameW: number }
+interface PinDraw { b: Survey['buildings'][number]; label: string; badges: PinBadge[]; excluded: boolean; p: { x: number; y: number }; box: PinBox; pillW: number; nameW: number }
 
 function drawPins(ctx: CanvasRenderingContext2D, mapBox: Box, map: maplibregl.Map, o: ExportOptions) {
   const kctx = kindContext(o.survey);
@@ -171,12 +172,11 @@ function drawPins(ctx: CanvasRenderingContext2D, mapBox: Box, map: maplibregl.Ma
     const p = { x: mapBox.x + pt.x, y: mapBox.y + pt.y };
     if (p.x < mapBox.x - 40 || p.x > mapBox.x + mapBox.w + 40 || p.y < mapBox.y - 10 || p.y > mapBox.y + mapBox.h + 60) continue;
     const label = pinLabel(b, filter, o.view.metric, netOf(o.survey));
-    const badge = units.some((u) => u.incentive);
+    const badges = pinBadges(units);
     ctx.font = `700 13px ${FONT}`;
     const tw = ctx.measureText(label).width;
     ctx.font = `700 10px ${FONT}`;
-    const badgeW = badge ? ctx.measureText('Inc').width + 12 : 0;
-    const pillW = tw + 20 + (badge ? badgeW + 6 : 0);
+    const pillW = tw + 20 + badges.reduce((w, x) => w + ctx.measureText(x.text).width + 12 + 6, 0);
     ctx.font = `600 11px ${FONT}`;
     const nameW = ctx.measureText(b.name).width;
     const tipTop = p.y - 8;
@@ -187,7 +187,7 @@ function drawPins(ctx: CanvasRenderingContext2D, mapBox: Box, map: maplibregl.Ma
       pill: { l: p.x - pillW / 2, r: p.x + pillW / 2, t: pillBottom - 26, b: pillBottom },
       name: { l: p.x - nameW / 2, r: p.x + nameW / 2, t: nameTop, b: tipTop },
     };
-    pins.push({ b, label, badge, excluded: Boolean(b.excluded) || units.every((u) => u.excluded), p, box, pillW, nameW });
+    pins.push({ b, label, badges, excluded: Boolean(b.excluded) || units.every((u) => u.excluded), p, box, pillW, nameW });
   }
   const plan = new Map(layoutPins(pins.map((x) => x.box)).map((x) => [x.id, x]));
 
@@ -247,16 +247,14 @@ function drawPins(ctx: CanvasRenderingContext2D, mapBox: Box, map: maplibregl.Ma
     ctx.textBaseline = 'middle';
     ctx.fillStyle = b.isSubject ? '#fff' : NAVY;
     ctx.fillText(pin.label, p.x - pillW / 2 + 10, top + 13.5);
-    if (pin.badge) {
-      ctx.font = `700 10px ${FONT}`;
-      const bw = ctx.measureText('Inc').width + 12;
-      const bx = p.x + pillW / 2 - 10 - bw + 4;
-      roundRectPath(ctx, bx, top + 5, bw, 16, 8);
-      ctx.fillStyle = AMBER;
-      ctx.fill();
-      ctx.fillStyle = '#3a2a00';
-      ctx.textAlign = 'center';
-      ctx.fillText('Inc', bx + bw / 2, top + 13.5);
+    // Tags sit after the rent, left to right, in the order the live map shows them.
+    ctx.font = `700 13px ${FONT}`;
+    let bx = p.x - pillW / 2 + 10 + ctx.measureText(pin.label).width + 6;
+    ctx.font = `700 10px ${FONT}`;
+    for (const x of pin.badges) {
+      const bw = ctx.measureText(x.text).width + 12;
+      drawBadge(ctx, x, bx, top + 5, bw);
+      bx += bw + 6;
     }
     ctx.textBaseline = 'alphabetic';
     ctx.beginPath();
@@ -333,6 +331,21 @@ function drawMapFurniture(ctx: CanvasRenderingContext2D, mapBox: Box, map: mapli
   text(ctx, MAP_CREDIT, mapBox.x + mapBox.w - 4, mapBox.y + mapBox.h - 4, `400 8.5px ${FONT}`, MUTED, 'right');
 }
 
+const BADGE_STYLE: Record<PinBadge['kind'], { bg: string; ink: string }> = {
+  incentive: { bg: AMBER, ink: '#3a2a00' },
+  utils: { bg: '#d3eef0', ink: '#0b4f5c' },
+};
+
+/** One pin tag. The caller sets the font and a middle text baseline. */
+function drawBadge(ctx: CanvasRenderingContext2D, b: PinBadge, x: number, y: number, w: number, h = 16) {
+  roundRectPath(ctx, x, y, w, h, h / 2);
+  ctx.fillStyle = BADGE_STYLE[b.kind].bg;
+  ctx.fill();
+  ctx.fillStyle = BADGE_STYLE[b.kind].ink;
+  ctx.textAlign = 'center';
+  ctx.fillText(b.text, x + w / 2, y + h / 2 + 0.5);
+}
+
 function legendGlyph(ctx: CanvasRenderingContext2D, kind: LegendItem['kind'], x: number, y: number) {
   ctx.save();
   if (kind === 'rings') {
@@ -343,11 +356,11 @@ function legendGlyph(ctx: CanvasRenderingContext2D, kind: LegendItem['kind'], x:
     ctx.moveTo(x, y + 8);
     ctx.lineTo(x + 34, y + 8);
     ctx.stroke();
-  } else if (kind === 'incentive') {
-    roundRectPath(ctx, x + 6, y + 1, 24, 15, 7.5);
-    ctx.fillStyle = AMBER;
-    ctx.fill();
-    text(ctx, 'Inc', x + 18, y + 12, `700 10px ${FONT}`, '#3a2a00', 'center');
+  } else if (kind === 'incentive' || kind === 'utils') {
+    // A sample tag, shrunk to the glyph column: the label beside it says what it means.
+    ctx.font = `700 8px ${FONT}`;
+    ctx.textBaseline = 'middle';
+    drawBadge(ctx, { kind, text: kind === 'utils' ? 'Utils' : 'Inc.' }, x, y + 1, 34, 15);
   } else {
     ctx.globalAlpha = kind === 'excluded' ? 0.55 : 1;
     roundRectPath(ctx, x, y + 1, 34, 15, 7.5);

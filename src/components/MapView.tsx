@@ -12,6 +12,7 @@ import { normalizeUnitType } from '../lib/unitText';
 import { circleCoords, ringTop } from '../lib/geo';
 import { METRIC_LABEL, money, metricValue, pinLabel, psf, unitPsf } from '../lib/format';
 import { groupLabel, kindContext, unitKind, visibleUnits, type UnitFilter } from '../lib/groups';
+import { pinBadges, type PinBadge } from '../lib/utilities';
 import { computeSummary, type SummaryResult } from '../lib/summary';
 import { netAvailable, netOf, unitNet } from '../lib/net';
 
@@ -40,11 +41,11 @@ function el(tag: string, cls?: string, txt?: string): HTMLElement {
   return e;
 }
 
-function pinElement(b: Building, label: string, selected: boolean, excluded: boolean): HTMLElement {
+function pinElement(b: Building, label: string, badges: PinBadge[], selected: boolean, excluded: boolean): HTMLElement {
   const root = el('div', `pin${b.isSubject ? ' subject' : ''}${selected ? ' selected' : ''}${excluded ? ' excluded' : ''}`);
   const pill = el('div', 'pin-pill');
   pill.append(el('span', 'pin-rate', label));
-  if (b.units.some((u) => u.incentive)) pill.append(el('span', 'pin-badge', 'Inc'));
+  for (const x of badges) pill.append(el('span', `pin-badge ${x.kind}`, x.text));
   const head = el('div', 'pin-head');
   head.append(pill, el('div', 'pin-leader'));
   root.append(head, el('div', 'pin-name', b.name), el('div', 'pin-tip'));
@@ -204,6 +205,8 @@ function layoutPins(markers: Map<string, maplibregl.Marker>, selectedId: string 
     const p = plan.get(id)!;
     root.style.setProperty('--lift', `${p.lift}px`);
     root.classList.toggle('name-hidden', p.nameHidden);
+    // The higher a pill is lifted, the lower it stacks (1 to 5; hover is 6), so its line runs under the pills it passes.
+    root.style.setProperty('--z', String(Math.max(1, 5 - Math.round(p.lift / 30))));
   }
   // A pin that moved changes where an open popup must start.
   for (const [, m] of markers) {
@@ -301,7 +304,7 @@ export default function MapView(p: Props) {
       seen.add(b.id);
       const label = pinLabel(b, filter, p.view.metric, net);
       const shown = visibleUnits(b, filter);
-      const element = pinElement(b, label, b.id === live.current.selectedId, Boolean(b.excluded) || shown.every((u) => u.excluded));
+      const element = pinElement(b, label, pinBadges(shown), b.id === live.current.selectedId, Boolean(b.excluded) || shown.every((u) => u.excluded));
       // Rebuilding a marker closes its popup, so remember and restore it.
       const old = markers.current.get(b.id);
       const wasOpen = old?.getPopup()?.isOpen() ?? false;
