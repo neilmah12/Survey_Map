@@ -94,6 +94,7 @@ export function metricCaption(view: ViewSettings, net?: NetSettings): string {
 export function filterCaption(f: UnitFilters): string {
   if (!isFiltering(f)) return '';
   const parts: string[] = [];
+  if (f.kind?.length) parts.push(`Property type: ${f.kind.join(', ')}`);
   if (f.beds.length) parts.push(`Bedrooms: ${f.beds.join(', ')}`);
   if (f.baths.length) parts.push(`Bathrooms: ${f.baths.join(', ')}`);
   if (f.reno.length) parts.push(`Renovation: ${f.reno.join(', ')}`);

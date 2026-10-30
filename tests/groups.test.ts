@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseSurvey } from '../src/lib/parse';
 import {
-  NO_FILTERS, filterOptions, kindContext, unitBathCat, unitBedCat, unitBaths, unitKind, unitReno, visibleUnits,
+  NO_FILTERS, filterOptions, kindFromText, kindContext, unitBathCat, unitBedCat, unitBaths, unitKind, unitReno, visibleUnits,
   type UnitFilter, type UnitFilters,
 } from '../src/lib/groups';
 import { pinLabel } from '../src/lib/format';
@@ -123,7 +123,8 @@ describe('filter options from real surveys', () => {
     const churchill = filterOptions(await load('churchill-apartments.xlsx'));
     expect(churchill.beds).toEqual(['1 Bed', '2 Beds', '3 Beds']);
     expect(churchill.baths).toEqual(['1', '2']);
-    expect(Object.keys(boardwalk).sort()).toEqual(['baths', 'beds', 'reno']); // no property type filter
+    expect(boardwalk.kind).toEqual(['Apartment', 'Townhome']); // the portfolio mixes both
+    expect(churchill.kind).toEqual([]); // all apartments, so nothing to filter
   });
 
   it('filters a real survey: Churchill 2 bed with 2 baths', async () => {
@@ -144,7 +145,7 @@ describe('filter options from real surveys', () => {
   });
 });
 
-describe('property type (only decides whether Stacked / non-stacked shows)', () => {
+describe('property type', () => {
   it('infers from survey title, building override, then explicit markers', async () => {
     const s = await load('boardwalk-portfolio.xlsx');
     const ctx = kindContext(s);
@@ -156,5 +157,29 @@ describe('property type (only decides whether Stacked / non-stacked shows)', () 
     const rv = await load('river-valley-townhomes.xlsx');
     const hooke = rv.buildings[0]; // "Hooke County" has no townhome in its name; the survey title does
     expect(unitKind(hooke.units[0], hooke, kindContext(rv))).toBe('Townhome');
+  });
+
+  it('filters Boardwalk to townhomes, and combines with bedrooms', async () => {
+    const s = await load('boardwalk-portfolio.xlsx');
+    const th = s.buildings.filter((b) => visibleUnits(b, filter({ kind: ['Townhome'] }, s)).length).map((b) => b.name);
+    expect(th.length).toBeGreaterThan(0);
+    expect(th.every((n) => /townhome/i.test(n))).toBe(true);
+    const apt = s.buildings.filter((b) => visibleUnits(b, filter({ kind: ['Apartment'] }, s)).length).map((b) => b.name);
+    expect(apt).toContain('Bev Manor');
+    expect(apt.some((n) => th.includes(n))).toBe(false);
+    const both = s.buildings.filter((b) => visibleUnits(b, filter({ kind: ['Apartment', 'Townhome'] }, s)).length);
+    expect(both.length).toBe(s.buildings.length);
+    const th3 = s.buildings.flatMap((b) => visibleUnits(b, filter({ kind: ['Townhome'], beds: ['3 Beds'] }, s)));
+    expect(th3.every((u) => unitBedCat(u) === '3 Beds')).toBe(true);
+  });
+
+  it('reads Townhouse / Apartment from a Product or Property type cell', () => {
+    expect(kindFromText('Townhouse')).toBe('Townhome');
+    expect(kindFromText('Townhome')).toBe('Townhome');
+    expect(kindFromText('TH')).toBe('Townhome');
+    expect(kindFromText('Apartment')).toBe('Apartment');
+    expect(kindFromText('Walk-up')).toBe('Apartment');
+    expect(kindFromText('')).toBeNull();
+    expect(kindFromText('Mixed use')).toBeNull();
   });
 });

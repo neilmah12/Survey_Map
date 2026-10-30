@@ -45,7 +45,7 @@ export interface Building {
   excluded?: boolean;
   /** Created in the app and not yet found in the uploaded sheet; kept when the sheet is re-uploaded. */
   addedInApp?: boolean;
-  /** Overrides the townhome/apartment guess used when splitting unit groups. */
+  /** Townhome or apartment: from the sheet's Product / Property type column, or set in the app. Beats the guess from names. */
   propertyType?: 'Townhome' | 'Apartment';
   lngLat: LngLat | null;
   propertyNotes: string;
@@ -94,7 +94,7 @@ export interface SummarySettings {
   open: boolean;
   stat: Stat;
   /** Extra details the summary rows are split by (bedrooms always apply). */
-  split: { baths: boolean; reno: boolean };
+  split: { kind?: boolean; baths: boolean; reno: boolean };
   /** True: each building counts once per row (its own average first). False: every unit counts. */
   perBuilding: boolean;
 }
@@ -102,15 +102,15 @@ export interface SummarySettings {
 export const DEFAULT_SUMMARY: SummarySettings = {
   open: true,
   stat: 'avg',
-  split: { baths: false, reno: false },
+  split: { kind: false, baths: false, reno: false },
   perBuilding: true,
 };
 
 export interface ViewSettings {
   metric: Metric;
   summary: SummarySettings;
-  /** Unit filters: bedrooms, bathrooms, renovation. Empty means any. */
-  filters: { beds: string[]; baths: string[]; reno: string[] };
+  /** Unit filters: property type, bedrooms, bathrooms, renovation. Empty means any. */
+  filters: { kind: string[]; beds: string[]; baths: string[]; reno: string[] };
   rings: boolean;
   ringsKm: number[];
 }

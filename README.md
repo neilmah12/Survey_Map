@@ -120,15 +120,19 @@ Adding buildings in the app:
 
 Unit filters and subjects:
 
-- Filters are independent multi-select chips that combine: Bedrooms (Studio, 1 Bed, 1 + Den,
-  2 Beds, 2 + Den, 3 Beds, 3 + Den, 4+), Bathrooms (1, 1.5, 2, 2.5, 3+) and Renovation (from a trailing
-  "- Partial Reno" in the unit type). There is no townhome / apartment filter or split: a survey is
-  normally one or the other. Choices within a
+- Filters are independent multi-select chips that combine: Property type (Apartment, Townhome), Bedrooms
+  (Studio, 1 Bed, 1 + Den, 2 Beds, 2 + Den, 3 Beds, 3 + Den, 4+), Bathrooms (1, 1.5, 2, 2.5, 3+) and Renovation
+  (from a trailing "- Partial Reno" in the unit type). Choices within a
   detail are OR, details combine with AND, and empty means any. So "2 Beds" with bathrooms 1, 2 and
   2.5 shows all three, and "2 Beds" alone ignores bathrooms. Only choices present in the data are
   offered, and a building with no matching unit leaves the map.
-- Townhome or apartment is still detected (the building's Property type setting, a "TH" or "Townhome"
-  marker, the building name, the survey title) but only to decide whether Stacked / non-stacked shows.
+- Property type comes from, in order: the building's Property type setting in the sidebar, a `Product` /
+  `Property type` / `Building type` column in the sheet ("Townhouse", "Townhome", "TH", "Apartment"), a "TH" or
+  "Townhome" marker in the unit type, the building name, then the survey title. The Property type chips show only
+  when the survey has both. The sheet's value wins on Update from Excel; the sidebar setting is not written back.
+- A survey with both types loads with the summary split by Property type ("3 Beds Townhome" and "3 Beds Apartment"
+  are separate rows), so popups' "vs mkt" compares a townhome with townhomes. The split can be turned off.
+- A `Vintage` column is read as Year built.
 - Several buildings can be marked as the subject (for example a portfolio). Rings draw around each.
 
 Net rent:

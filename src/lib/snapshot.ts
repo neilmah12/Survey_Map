@@ -78,7 +78,7 @@ function cleanSummary(s: Partial<SummarySettings> | undefined): SummarySettings 
   return {
     open: s?.open ?? DEFAULT_SUMMARY.open,
     stat: (s?.stat === 'median' ? 'median' : 'avg') satisfies Stat,
-    split: { baths: Boolean(split?.baths), reno: Boolean(split?.reno) },
+    split: { kind: Boolean(split?.kind), baths: Boolean(split?.baths), reno: Boolean(split?.reno) },
     perBuilding: s?.perBuilding ?? DEFAULT_SUMMARY.perBuilding,
   };
 }
@@ -147,6 +147,7 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
         rings: Boolean(view.rings),
         ringsKm: view.ringsKm.filter((n) => Number.isFinite(n) && n > 0),
         filters: {
+          kind: strings(view.filters.kind),
           beds: strings(view.filters.beds),
           baths: strings(view.filters.baths),
           reno: strings(view.filters.reno),
@@ -188,7 +189,8 @@ export function snapshotToSurvey(s: ClientSnapshot): Survey {
 }
 
 export function snapshotToView(s: ClientSnapshot): ViewSettings {
-  return { ...s.view, summary: cleanSummary(s.view.summary) };
+  // Snapshots published before the property type filter have no kind list.
+  return { ...s.view, filters: { ...s.view.filters, kind: strings(s.view.filters?.kind) }, summary: cleanSummary(s.view.summary) };
 }
 
 /** Looks like a snapshot this version of the viewer can show. */

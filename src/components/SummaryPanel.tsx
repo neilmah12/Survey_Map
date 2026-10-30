@@ -29,6 +29,7 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
   const set = (patch: Partial<typeof s>) => onView({ ...view, summary: { ...s, ...patch } });
   type SplitKey = keyof typeof s.split;
   const allSplits: { k: SplitKey; label: string }[] = [
+    { k: 'kind', label: 'Property type' },
     { k: 'baths', label: 'Bathrooms' },
     { k: 'reno', label: 'Renovation' },
   ];
@@ -71,7 +72,7 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
             <span className="control-label">Split by</span>
             {splits.map((o) => (
               <label key={o.k} className="check">
-                <input type="checkbox" checked={s.split[o.k]} onChange={(e) => set({ split: { ...s.split, [o.k]: e.target.checked } })} />
+                <input type="checkbox" checked={Boolean(s.split[o.k])} onChange={(e) => set({ split: { ...s.split, [o.k]: e.target.checked } })} />
                 {o.label}
               </label>
             ))}

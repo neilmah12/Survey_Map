@@ -294,7 +294,7 @@ function Editor({ b, p }: { b: Building; p: Props }) {
       <Field label="Name" value={b.name} onChange={(v) => p.onBuilding(b.id, { name: v })} wide />
       <Field label="Address" value={b.address} onChange={(v) => p.onBuilding(b.id, { address: v })} wide />
  <label className="field wide">
-        <span>Property type (decides whether Stacked / non-stacked shows)</span>
+        <span>Property type (property type filter and split; Stacked / non-stacked shows for townhomes)</span>
         <select value={b.propertyType ?? ''} onChange={(e) => p.onBuilding(b.id, { propertyType: (e.target.value || undefined) as Building['propertyType'] })}>
           <option value="">Auto-detect</option>
           <option value="Townhome">Townhome</option>

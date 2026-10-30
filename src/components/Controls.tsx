@@ -78,6 +78,7 @@ export default function Controls({ survey, view, onChange, editable, onNet }: Pr
     onChange({ ...view, filters: { ...view.filters, [k]: cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v] } });
   };
   const sections: { k: keyof UnitFilters; label: string }[] = [
+    { k: 'kind', label: 'Property type' },
     { k: 'beds', label: 'Bedrooms' },
     { k: 'baths', label: 'Bathrooms' },
     { k: 'reno', label: 'Renovation' },

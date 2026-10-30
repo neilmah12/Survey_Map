@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import type { Building, Survey, Unit } from '../types';
 import { normalizeUnitType, parseBeds, parseCharge } from './unitText';
 import { localDate } from './dates';
+import { kindFromText } from './groups';
 
 export { normalizeUnitType, parseBeds, parseCharge };
 
@@ -9,13 +10,13 @@ export type Field =
   | 'name' | 'configuration' | 'yearBuilt' | 'yearRenovated' | 'address'
   | 'unitType' | 'sf' | 'rate' | 'psf' | 'parking' | 'utilities'
   | 'incentive' | 'netRate' | 'netPsf' | 'notes' | 'propertyNotes'
-  | 'contact' | 'url' | 'image' | 'lat' | 'lng';
+  | 'contact' | 'url' | 'image' | 'lat' | 'lng' | 'propertyType';
 
 /** Normalised header text -> canonical field. Add aliases here as sheets vary. */
 const ALIASES: Record<string, Field> = {
   buildingname: 'name', building: 'name', property: 'name', propertyname: 'name',
   unitconfiguration: 'configuration', configuration: 'configuration',
-  yearbuilt: 'yearBuilt',
+  yearbuilt: 'yearBuilt', vintage: 'yearBuilt',
   yearrenovated: 'yearRenovated', renovated: 'yearRenovated',
   address: 'address',
   unittype: 'unitType', type: 'unitType',
@@ -32,6 +33,8 @@ const ALIASES: Record<string, Field> = {
   contact: 'contact', contactinfo: 'contact',
   url: 'url', link: 'url',
   image: 'image', imageurl: 'image', photo: 'image', photourl: 'image', picture: 'image',
+  product: 'propertyType', producttype: 'propertyType', propertytype: 'propertyType', buildingtype: 'propertyType',
+  assettype: 'propertyType',
   latitude: 'lat', lat: 'lat',
   longitude: 'lng', lng: 'lng', long: 'lng', lon: 'lng',
 };
@@ -233,6 +236,8 @@ export async function parseSurvey(data: ArrayBuffer): Promise<Survey> {
     current.contact ||= getText(r, 'contact');
     current.url ||= getLink(r, 'url');
     current.imageUrl ||= getLink(r, 'image');
+    // Product / Property type column: "Townhouse", "Apartment" (and close variants). Other text is ignored.
+    current.propertyType ??= kindFromText(getText(r, 'propertyType')) ?? undefined;
     if (!current.lngLat) {
       const lat = getNum(r, 'lat');
       const lng = getNum(r, 'lng');
