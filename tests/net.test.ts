@@ -56,7 +56,10 @@ describe('net rent', () => {
     expect(parseIncentive('-$158', 1800, 12)).toBe(158);
     expect(parseIncentive('$100/month off', 1800, 12)).toBe(100);
     expect(parseIncentive('', 1800, 12)).toBe(0);
-    expect(parseIncentive('$500 gift card', 1800, 12)).toBeNull();
+    expect(parseIncentive('$500 gift card', 1800, 12)).toBe(42); // one-time value over a flat 12 months
+    expect(parseIncentive('$1,000 move-in bonus', 1800, 15)).toBe(83); // not the lease term: always 12
+    expect(explainIncentive('$500 gift card', 1800, 12)).toEqual({ amount: 42, oneTime: 500 });
+    expect(parseIncentive('Ask about specials', 1800, 12)).toBeNull();
     expect(parseIncentive('1 month free rent, 500 move in bonus', 1800, 12)).toBeNull(); // two offers: not guessed
   });
 
@@ -165,7 +168,7 @@ describe('merging keeps amounts typed in the app', () => {
 
 describe('checks for net rent', () => {
   it('warns when a ticked part has text but no dollar amount, and stays quiet otherwise', () => {
-    const s = { title: 't', location: '', asOf: localDate(), buildings: [{ id: 'b1', name: 'A', address: '1 St', yearBuilt: '', yearRenovated: '', configuration: '', isSubject: false, lngLat: [-113.5, 53.5], propertyNotes: '', contact: '', url: '', units: [unit({ incentive: '$500 gift card' })] }] } as unknown as Survey;
+    const s = { title: 't', location: '', asOf: localDate(), buildings: [{ id: 'b1', name: 'A', address: '1 St', yearBuilt: '', yearRenovated: '', configuration: '', isSubject: false, lngLat: [-113.5, 53.5], propertyNotes: '', contact: '', url: '', units: [unit({ incentive: 'Ask about specials' })] }] } as unknown as Survey;
     expect(runChecks(s).some((c) => c.id.startsWith('net-'))).toBe(false);
     s.net = { ...DEFAULT_NET, incentives: true };
     expect(runChecks(s).some((c) => c.id === 'net-incentives-b1')).toBe(true);

@@ -3,7 +3,7 @@ import type { Building, Survey, Unit } from '../types';
 import { fileToDataUrl } from '../lib/image';
 import { safeUrl } from '../lib/safeUrl';
 import { DRAG_TYPE } from '../lib/dnd';
-import { autoAmount, explainIncentive, netOf, parseTypedIncentive, partAmount, typedAmount, unitNet, type NetPart } from '../lib/net';
+import { ONE_TIME_MONTHS, autoAmount, explainIncentive, netOf, parseTypedIncentive, partAmount, typedAmount, unitNet, type NetPart } from '../lib/net';
 import type { NetSettings } from '../types';
 import { formatDate, money, parseLatLng } from '../lib/format';
 import { localDate } from '../lib/dates';
@@ -148,6 +148,7 @@ function incentiveNote(u: Unit, net: NetSettings): string | undefined {
     return `${months} month${months === 1 ? '' : 's'} free over a ${t}-month lease${term == null ? ' (default)' : ''}: ${money(u.rate)} x ${months} / ${t} = ${money(amt)}/mo`;
   }
   const c = explainIncentive(u.incentive, u.rate, net.termMonths);
+  if (c?.oneTime != null) return `One-time ${money(c.oneTime)} spread over ${ONE_TIME_MONTHS} months = ${money(c.amount)}/mo`;
   if (!c || c.freeMonths == null || c.term == null || u.rate == null) return undefined;
   const m = Math.round(c.freeMonths * 100) / 100;
   return `${m} month${m === 1 ? '' : 's'} free over a ${c.term}-month lease (${c.termFromText ? 'from the text' : 'default'}): ${money(u.rate)} x ${m} / ${c.term} = ${money(c.amount)}/mo`;

@@ -59,14 +59,20 @@ export interface IncentiveCalc {
   term?: number;
   /** True when the term came from the text, false when it is the survey's default. */
   termFromText?: boolean;
+  /** A one-time dollar value (a gift card, a move-in bonus), spread over ONE_TIME_MONTHS. */
+  oneTime?: number;
 }
+
+/** One-time dollar offers are always spread over a year, whatever the lease term, so they compare like for like. */
+export const ONE_TIME_MONTHS = 12;
 
 /**
  * The monthly value of an incentive as a positive discount, with how it was worked out. Free rent is
  * spread over the lease term: rent x free months / term months, so "1 month free on a 13 month lease" at
  * $1,499 is $115 a month. The term comes from the text when it says one, else the survey default.
- * "-$158" (how the sheet writes an amortised discount) is already monthly. Anything else, such as
- * "$500 gift card", or a second offer beside the free rent, is not guessed at: it returns null.
+ * "-$158" (how the sheet writes an amortised discount) is already monthly. A lone one-time dollar offer
+ * such as "$500 gift card" counts as its face value spread over 12 months. Anything else, such as a
+ * second offer beside the free rent, is not guessed at: it returns null.
  */
 export function explainIncentive(text: string, rate: number | null, termMonths: number): IncentiveCalc | null {
   const t = text.trim();
@@ -94,6 +100,13 @@ export function explainIncentive(text: string, rate: number | null, termMonths: 
   if (neg) return { amount: parseFloat(neg[1].replace(/,/g, '')) };
   const monthly = t.match(/\$\s*([\d,]+(?:\.\d+)?)\s*(?:\/\s*(?:mo|month)|per month|monthly|a month|off (?:per|each|every) month)\b/i);
   if (monthly && !/\d/.test(t.replace(monthly[0], ''))) return { amount: parseFloat(monthly[1].replace(/,/g, '')) };
+  // One dollar figure and nothing else numeric ("$500 gift card", "$1,000 move-in bonus"): a one-time
+  // value, treated like free rent and spread over a flat 12 months so every offer compares like for like.
+  const once = t.match(/^[^\d$]*\$\s*(\d[\d,]*(?:\.\d+)?)[^\d$]*$/);
+  if (once) {
+    const oneTime = parseFloat(once[1].replace(/,/g, ''));
+    return { amount: Math.round(oneTime / ONE_TIME_MONTHS), oneTime };
+  }
   return null;
 }
 
