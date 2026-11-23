@@ -27,6 +27,12 @@ describe('summary rows carry what the chart needs', () => {
     expect(row.market.value).toBeCloseTo(mean, 6); // the average of the dots is the bar
   });
 
+  it('says how many suites each comparable building contributes', async () => {
+    const row = run(await load('clareview-townhomes.xlsx')).rows.find((x) => x.label === '3 Beds')!;
+    expect(row.comps.find((c) => c.name.includes('Prince Charles'))!.units).toBe(3); // three suites averaged into one figure
+    expect(row.comps.find((c) => c.name.includes('Pilot'))!.units).toBe(1);
+  });
+
   it('gives base rent beside net rent only on the net view', async () => {
     const s = await load('clareview-townhomes.xlsx');
     s.buildings[1].units[0].incentiveAmt = 100; // one suite carries a $100 a month incentive

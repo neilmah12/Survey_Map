@@ -15,6 +15,8 @@ export interface CompValue {
   id: string;
   name: string;
   value: number;
+  /** How many of the building's suites are averaged into the value. */
+  units: number;
 }
 
 export interface SummaryRow {
@@ -84,7 +86,7 @@ function row(key: string, label: string, market: Bucket, subject: Bucket, o: Sum
   const base = (b?: Bucket) => (b && b.size ? party(b, o.settings.stat, o.settings.perBuilding).value : null);
   return {
     key, label, market: m, subject: s,
-    comps: [...market].map(([id, vals]) => ({ id, name: x.names.get(id) ?? '', value: mean(vals) })),
+    comps: [...market].map(([id, vals]) => ({ id, name: x.names.get(id) ?? '', value: mean(vals), units: vals.length })),
     marketBase: base(x.baseMarket),
     subjectBase: base(x.baseSubject),
     diff, diffPct: diff != null && m.value ? diff / m.value : null,

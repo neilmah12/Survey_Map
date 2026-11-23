@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ChartMode, Metric, Stat } from '../types';
 import { formatMetric } from '../lib/format';
 import type { SummaryResult, SummaryRow } from '../lib/summary';
@@ -139,7 +139,7 @@ export default function SummaryChart({ result, metric, mode, dots, stat, compact
             />
           ))}
         </svg>
-        {tip && r && <Tip row={r} metric={metric} stat={stat} hasSubject={result.hasSubject} x={tip.x} y={tip.y} box={wrap.current?.clientWidth ?? w} />}
+        {tip && r && <Tip row={r} metric={metric} stat={stat} hasSubject={result.hasSubject} x={tip.x} y={tip.y} box={wrap.current?.clientWidth ?? w} plotH={model.height} />}
       </div>
       {notes.length > 0 && (
         <ul className="chart-notes">
@@ -150,37 +150,88 @@ export default function SummaryChart({ result, metric, mode, dots, stat, compact
   );
 }
 
-function Tip({ row, metric, stat, hasSubject, x, y, box }: { row: SummaryRow; metric: Metric; stat: Stat; hasSubject: boolean; x: number; y: number; box: number }) {
+const suites = (n: number) => `${n} suite${n === 1 ? '' : 's'}`;
+
+function Tip({ row, metric, stat, hasSubject, x, y, box, plotH }: { row: SummaryRow; metric: Metric; stat: Stat; hasSubject: boolean; x: number; y: number; box: number; plotH: number }) {
   const net = metric === 'net';
-  const left = x + 190 > box ? Math.max(0, x - 200) : x + 12;
+  const el = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: x + 14, top: y + 14 });
+  // The bubble is as wide as its longest line, so it is measured, then kept on screen: beside the pointer,
+  // flipped to the other side at an edge, and above the pointer when there is no room below.
+  useLayoutEffect(() => {
+    const t = el.current;
+    if (!t) return;
+    const tw = t.offsetWidth;
+    const th = t.offsetHeight;
+    let left = x + 14;
+    if (left + tw > box) left = x - tw - 14;
+    left = Math.max(0, Math.min(left, box - tw));
+    let top = y + 14;
+    if (top + th > plotH + 24) top = Math.max(0, y - th - 14);
+    setPos({ left, top });
+  }, [x, y, box, plotH, row, metric, stat]);
+  const baseM = net && baseDiffers(row.marketBase, row.market.value);
+  const baseS = net && baseDiffers(row.subjectBase, row.subject.value);
   return (
-    <div className="chart-tip" style={{ left, top: y + 12 }}>
-      <b>{row.label}</b>
-      {row.market.value != null ? (
-        <>
-          <div className="tip-row"><span>Market {stat === 'median' ? 'median' : 'average'}</span><b>{formatMetric(row.market.value, metric)}</b></div>
-          {net && baseDiffers(row.marketBase, row.market.value) && <div className="tip-row"><span>Base rent before extras</span><span>{formatMetric(row.marketBase, metric)}</span></div>}
-          {[...row.comps].sort((a, b) => b.value - a.value).map((c) => (
-            <div className="tip-row sub" key={c.id}><span>{c.name}</span><span>{formatMetric(c.value, metric)}</span></div>
-          ))}
-        </>
-      ) : (
-        <div className="tip-row"><span>Market</span><span>no comparable</span></div>
-      )}
-      {hasSubject && (
-        <>
-          <hr />
-          {row.subject.value != null ? (
-            <>
-              <div className="tip-row"><span>Subject</span><b>{formatMetric(row.subject.value, metric)}</b></div>
-              {net && baseDiffers(row.subjectBase, row.subject.value) && <div className="tip-row"><span>Base rent before extras</span><span>{formatMetric(row.subjectBase, metric)}</span></div>}
-            </>
-          ) : (
-            <div className="tip-row"><span>Subject</span><span>no units</span></div>
-          )}
-          {row.diff != null && <div className="tip-row"><span>Difference</span><b>{fmtDiff(row, metric)}</b></div>}
-        </>
-      )}
+    <div className="chart-tip" ref={el} style={pos}>
+      <div className="tip-title">{row.label}</div>
+      <div className="tip-grid">
+        {row.market.value != null ? (
+          <>
+            <span className="name strong">Market {stat === 'median' ? 'median' : 'average'}</span>
+            <b className="val">{formatMetric(row.market.value, metric)}</b>
+            {baseM && (
+              <>
+                <span className="name sub">Base rent before incentives</span>
+                <span className="val sub">{formatMetric(row.marketBase!, metric)}</span>
+              </>
+            )}
+            <span className="tip-section">Comparable buildings</span>
+            {[...row.comps].sort((a, b) => b.value - a.value).map((c) => (
+              <Fragment key={c.id}>
+                <span className="name">
+                  <span className="nm">{c.name}</span>
+                  {c.units > 1 && <em>· {suites(c.units)}</em>}
+                </span>
+                <span className="val">{formatMetric(c.value, metric)}</span>
+              </Fragment>
+            ))}
+          </>
+        ) : (
+          <>
+            <span className="name strong">Market</span>
+            <span className="val">no comparable</span>
+          </>
+        )}
+        {hasSubject && (
+          <>
+            <span className="tip-rule" />
+            {row.subject.value != null ? (
+              <>
+                <span className="name strong">Subject</span>
+                <b className="val">{formatMetric(row.subject.value, metric)}</b>
+                {baseS && (
+                  <>
+                    <span className="name sub">Base rent before incentives</span>
+                    <span className="val sub">{formatMetric(row.subjectBase!, metric)}</span>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="name strong">Subject</span>
+                <span className="val">no units</span>
+              </>
+            )}
+            {row.diff != null && (
+              <>
+                <span className="name">Difference</span>
+                <b className="val">{fmtDiff(row, metric)}</b>
+              </>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
