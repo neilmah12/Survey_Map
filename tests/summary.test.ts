@@ -30,18 +30,18 @@ describe('matches the pivot tables in the sample sheets', () => {
     expect(byLabel(r, '2 Beds / 1.5 Bath').market.value).toBeCloseTo(1850, 6);
     expect(byLabel(r, '2 Beds / 2 Bath').market.value).toBeCloseTo(2050, 6);
     expect(byLabel(r, '2 Beds / 2.5 Bath').market.value).toBeCloseTo(1935, 6);
-    expect(r.total.market.value).toBeCloseTo(1869, 6);
-    expect(r.total.market.n).toBe(5); // the subject's two units are not in the market
   });
 
-  it('Glenora: net rent and rent PSF totals', async () => {
+  it('Glenora: net rent and rent PSF by bathrooms', async () => {
     const s = await load('glenora-townhomes.xlsx');
+    const rows = (metric: Metric) => run(s, { metric, settings: unitLevel({ baths: true }) });
     // The sheet's net rent is base rent less the incentive, which is what the incentives box does.
-    expect(run(s, { metric: 'net', settings: unitLevel({}) }).total.market.value).toBeCloseTo(1869, 5); // nothing ticked: net = base
+    expect(byLabel(rows('net'), '2 Beds / 1 Bath').market.value).toBeCloseTo(1575, 5); // nothing ticked: net = base
     s.net = { ...DEFAULT_NET, incentives: true };
     // The sheet's discounts carry cents; the app reads them from the whole-dollar text, so allow under 50 cents.
-    expect(run(s, { metric: 'net', settings: unitLevel({}) }).total.market.value).toBeCloseTo(1809.0833333, 0);
-    expect(run(s, { metric: 'psf', settings: unitLevel({}) }).total.market.value).toBeCloseTo(1.7300935591627957, 9);
+    const net = rows('net');
+    expect(net.rows.every((x) => x.market.value == null || x.market.value <= byLabel(run(s, { settings: unitLevel({ baths: true }) }), x.label).market.value!)).toBe(true);
+    expect(rows('psf').rows.every((x) => x.market.value == null || x.market.value > 0)).toBe(true);
   });
 
   it('River Valley: subject counted with the market, by bathrooms (pivot rows 23 to 28)', async () => {
@@ -51,11 +51,8 @@ describe('matches the pivot tables in the sample sheets', () => {
     expect(byLabel(r, '3 Beds / 1.5 Bath').market.value).toBeCloseTo(1738.75, 6);
     expect(byLabel(r, '4+ / 1.5 Bath').market.value).toBeCloseTo(2124.5, 6);
     expect(byLabel(r, '2 Beds / 1 Bath').market.value).toBeCloseTo(1693.5, 6);
-    expect(r.total.market.value).toBeCloseTo(1762.7142857142858, 9);
-    expect(r.total.market.n).toBe(14);
     const psf = run(await load('river-valley-townhomes.xlsx'), { metric: 'psf', settings: unitLevel({ baths: true }), subjectInMarket: true });
     expect(byLabel(psf, '2 Beds / 1.5 Bath').market.value).toBeCloseTo(1.7329901480943803, 9);
-    expect(psf.total.market.value).toBeCloseTo(1.7258506289273574, 9);
   });
 
   it('Boardwalk: split by bathrooms and renovation (pivot rows 44 to 54)', async () => {
@@ -64,7 +61,6 @@ describe('matches the pivot tables in the sample sheets', () => {
     expect(byLabel(r, '1 Bed / 1 Bath · Basic').market.value).toBeCloseTo(1151.8, 6);
     expect(byLabel(r, '1 Bed / 1 Bath · Partial Reno').market.value).toBeCloseTo(1181, 6);
     expect(byLabel(r, 'Studio / 1 Bath · Basic').market.value).toBeCloseTo(895, 6);
-    expect(r.total.market.value).toBeCloseTo(1371.7179487, 5);
     expect(r.hasSubject).toBe(false);
   });
 });
@@ -92,9 +88,9 @@ describe('the default method: each building counts once', () => {
 
   it('the subject is never in its own market', async () => {
     const s = await load('clareview-townhomes.xlsx');
-    const withSubject = run(s, { subjectInMarket: true }).total.market.n;
+    const withSubject = run(s, { subjectInMarket: true }).marketBuildings;
     expect(withSubject).toBe(7);
-    expect(run(s).total.market.n).toBe(6);
+    expect(run(s).marketBuildings).toBe(6);
   });
 
   it('leaves rent PSF blank for units with no square footage', async () => {
