@@ -410,22 +410,16 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
     ctx.fillStyle = LINE;
     ctx.fillRect(box.x, y, box.w, 1);
     y += 5;
-    const rows = [...result.rows, result.total];
+    const rows = result.rows;
     const foot = summaryFootnotes(result, o.view.summary.perBuilding, result.subjectBuildings);
     const reserve = foot.length * 13 + 10 + legendH + 8;
     let shown = 0;
     for (const r of rows) {
-      const total = r.key === '__all__';
-      const font = `${total ? 700 : 400} 11px ${FONT}`;
+      const font = `400 11px ${FONT}`;
       ctx.font = font;
       const lines = wrapText(r.label, labelW - 4, (s) => ctx.measureText(s).width);
       const rowH = lines.length * 13 + 8;
-      if (y + rowH > box.y + box.h - reserve && !total) break;
-      if (total) {
-        ctx.fillStyle = NAVY;
-        ctx.fillRect(box.x, y - 2, box.w, 2);
-        y += 4;
-      }
+      if (y + rowH > box.y + box.h - reserve) break;
       lines.forEach((l, i) => text(ctx, l, box.x, y + 10 + i * 13, font, INK));
       text(ctx, fmtValue(r.market, o.view.metric), xM, y + 10, font, INK, 'right');
       if (sj) {
@@ -433,14 +427,12 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
         text(ctx, fmtDiff(r, o.view.metric), xD, y + 10, font, INK, 'right');
       }
       y += rowH;
-      if (!total) {
-        ctx.fillStyle = '#eef1f6';
-        ctx.fillRect(box.x, y - 3, box.w, 1);
-      }
+      ctx.fillStyle = '#eef1f6';
+      ctx.fillRect(box.x, y - 3, box.w, 1);
       shown++;
     }
-    if (shown < rows.length - 1) {
-      text(ctx, `${rows.length - 1 - shown} more unit types not shown`, box.x, y + 10, `400 10px ${FONT}`, MUTED);
+    if (shown < rows.length) {
+      text(ctx, `${rows.length - shown} more unit types not shown`, box.x, y + 10, `400 10px ${FONT}`, MUTED);
       y += 14;
     }
     y += 6;

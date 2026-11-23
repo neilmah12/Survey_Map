@@ -96,8 +96,8 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
             </tr>
           </thead>
           <tbody>
-            {[...result.rows, result.total].map((r) => (
-              <tr key={r.key} className={r.key === '__all__' ? 'total' : ''}>
+            {result.rows.map((r) => (
+              <tr key={r.key}>
                 <td>{r.label}</td>
                 <td className="num muted">{r.market.n || '-'}</td>
                 <td className="num">{fmtValue(r.market, view.metric)}</td>

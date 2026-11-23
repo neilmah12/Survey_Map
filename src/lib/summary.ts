@@ -22,8 +22,6 @@ export interface SummaryRow {
 
 export interface SummaryResult {
   rows: SummaryRow[];
-  /** Everything at once, regardless of unit type. */
-  total: SummaryRow;
   hasSubject: boolean;
   marketBuildings: number;
   subjectBuildings: number;
@@ -82,8 +80,6 @@ export function computeSummary(survey: Survey, o: SummaryOptions): SummaryResult
   const market = new Map<string, Bucket>();
   const subject = new Map<string, Bucket>();
   const sortKeys = new Map<string, string>();
-  const allMarket: Bucket = new Map();
-  const allSubject: Bucket = new Map();
   let excludedUnits = 0;
   const excludedBuildings = new Set<string>();
   const marketIds = new Set<string>();
@@ -106,7 +102,6 @@ export function computeSummary(survey: Survey, o: SummaryOptions): SummaryResult
       const side = asSubject ? subject : market;
       if (!side.has(key)) side.set(key, new Map());
       push(side.get(key)!, b.id, v);
-      push(asSubject ? allSubject : allMarket, b.id, v);
       (asSubject ? subjectIds : marketIds).add(b.id);
     }
   }
@@ -115,7 +110,6 @@ export function computeSummary(survey: Survey, o: SummaryOptions): SummaryResult
   const empty: Bucket = new Map();
   return {
     rows: keys.map((k) => row(k, k, market.get(k) ?? empty, subject.get(k) ?? empty, o)),
-    total: row('__all__', 'All unit types', allMarket, allSubject, o),
     hasSubject: survey.buildings.some((b) => b.isSubject),
     marketBuildings: marketIds.size,
     subjectBuildings: subjectIds.size,

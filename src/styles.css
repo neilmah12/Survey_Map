@@ -69,6 +69,8 @@ button, input { font: inherit; }
 .seg button { border: 0; background: #fff; padding: 5px 10px; cursor: pointer; border-right: 1px solid var(--line); }
 .seg button:last-child { border-right: 0; }
 .seg button.on { background: var(--navy); color: #fff; }
+.summary-controls .seg { display: flex; width: 100%; }
+.summary-controls .seg button { flex: 1 1 0; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 3px 11px; cursor: pointer; }
 .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
@@ -175,7 +177,6 @@ button, input { font: inherit; }
 .summary-table td { padding: 6px 4px; border-bottom: 1px solid #eef1f6; vertical-align: top; }
 .summary-table .num { text-align: right; white-space: nowrap; }
 .summary-table .muted { color: var(--muted); }
-.summary-table tr.total td { font-weight: 700; border-top: 2px solid var(--navy); border-bottom: 0; background: #f6f8fc; }
 .summary-table .diff { font-variant-numeric: tabular-nums; }
 .summary-props { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
 .summary-props summary { cursor: pointer; font-weight: 600; color: var(--navy); }
