@@ -11,7 +11,11 @@ interface Props {
   mode: Exclude<ChartMode, 'off'>;
   dots: boolean;
   stat: Stat;
+  /** The small phone drawer: a shorter chart, so the whole of it shows without scrolling. */
+  compact?: boolean;
 }
+
+const COMPACT_H = 168;
 
 function draw(s: Shape, i: number) {
   switch (s.k) {
@@ -39,7 +43,7 @@ function draw(s: Shape, i: number) {
   }
 }
 
-export default function SummaryChart({ result, metric, mode, dots, stat }: Props) {
+export default function SummaryChart({ result, metric, mode, dots, stat, compact = false }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(372);
   const [tip, setTip] = useState<{ row: number; x: number; y: number } | null>(null);
@@ -53,7 +57,7 @@ export default function SummaryChart({ result, metric, mode, dots, stat }: Props
     return () => ro.disconnect();
   }, []);
 
-  const model = useMemo(() => layoutChart(result, mode, { metric, W: w, dots }), [result, mode, metric, w, dots]);
+  const model = useMemo(() => layoutChart(result, mode, { metric, W: w, dots, H: compact ? COMPACT_H : undefined }), [result, mode, metric, w, dots, compact]);
   const notes = useMemo(() => chartNotes(result, mode), [result, mode]);
   const noSubject = mode === 'diff' && !result.hasSubject;
   const how = stat === 'median' ? 'median' : 'average';

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Survey, ViewSettings } from '../types';
 import { METRIC_LABEL, formatMetric } from '../lib/format';
 import { filterOptions } from '../lib/groups';
@@ -20,8 +20,45 @@ interface Props {
   unplaced?: number;
 }
 
+const EXPANDED_KEY = 'survey-map:summary-expanded';
+const PHONE = '(max-width: 900px)';
+
+/** Remembered on this device only: it is how someone likes to look at the panel, not part of the survey. */
+function useExpanded(): [boolean, (v: boolean) => void] {
+  const [on, setOn] = useState(() => {
+    try {
+      return localStorage.getItem(EXPANDED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const set = (v: boolean) => {
+    setOn(v);
+    try {
+      localStorage.setItem(EXPANDED_KEY, v ? '1' : '0');
+    } catch {
+      /* private window or blocked storage: it just is not remembered */
+    }
+  };
+  return [on, set];
+}
+
+function usePhone(): boolean {
+  const [phone, setPhone] = useState(() => typeof matchMedia !== 'undefined' && matchMedia(PHONE).matches);
+  useEffect(() => {
+    if (typeof matchMedia === 'undefined') return;
+    const m = matchMedia(PHONE);
+    const f = () => setPhone(m.matches);
+    m.addEventListener('change', f);
+    return () => m.removeEventListener('change', f);
+  }, []);
+  return phone;
+}
+
 export default function SummaryPanel({ survey, view, onView, canToggle, onToggleBuilding, onToggleUnit, unplaced = 0 }: Props) {
   const s = view.summary;
+  const [expanded, setExpanded] = useExpanded();
+  const phone = usePhone();
   const result = useMemo(
     () => computeSummary(survey, { metric: view.metric, filters: view.filters, settings: s }),
     [survey, view.metric, view.filters, s],
@@ -44,7 +81,7 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
 
   if (!s.open) return null;
   return (
-    <aside className="summary-panel" aria-label="Market summary">
+    <aside className={`summary-panel${expanded ? ' expanded' : ''}`} aria-label="Market summary">
       <div className="summary-head">
         <div>
           <div className="summary-title">Market summary</div>
@@ -54,9 +91,14 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
           </div>
           {view.metric === 'net' && <div className="summary-sub">{netDefinition(netOf(survey))}</div>}
         </div>
-        <button className="link-btn" onClick={() => set({ open: false })} aria-label="Hide the market summary">
-          Hide
-        </button>
+        <div className="summary-actions">
+          <button className="link-btn" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} title={expanded ? 'Back to the smaller panel' : phone ? 'Show the summary full screen' : 'Make the panel wider'}>
+            {expanded ? 'Collapse' : 'Expand'}
+          </button>
+          <button className="link-btn" onClick={() => set({ open: false })} aria-label="Hide the market summary">
+            Hide
+          </button>
+        </div>
       </div>
 
       <div className="summary-controls">
@@ -97,7 +139,7 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
 
       {!result.hasSubject && <p className="summary-note">Mark a subject property to compare it with the market.</p>}
 
-      {s.chart !== 'off' && result.rows.length > 0 && <SummaryChart result={result} metric={view.metric} mode={s.chart} dots={s.dots} stat={s.stat} />}
+      {s.chart !== 'off' && result.rows.length > 0 && <SummaryChart result={result} metric={view.metric} mode={s.chart} dots={s.dots} stat={s.stat} compact={phone && !expanded} />}
 
       {result.rows.length === 0 ? (
         <p className="summary-note">Nothing to compare with the current filters.</p>
