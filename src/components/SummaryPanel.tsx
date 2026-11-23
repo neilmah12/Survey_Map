@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Survey, ViewSettings } from '../types';
 import { METRIC_LABEL, formatMetric } from '../lib/format';
 import { filterOptions } from '../lib/groups';
@@ -61,7 +61,9 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
 
   if (!s.open) return null;
   return (
-    <aside className={`summary-panel${expanded ? ' expanded' : ''}`} aria-label="Market summary">
+    <div className={`summary-wrap${expanded ? ' expanded' : ''}`}>
+    {phone ? <GrabBar expanded={expanded} onToggle={setExpanded} /> : <EdgeTab expanded={expanded} onToggle={() => setExpanded(!expanded)} />}
+    <aside className="summary-panel" aria-label="Market summary">
       <div className="summary-head">
         <div>
           <div className="summary-title">Market summary</div>
@@ -71,14 +73,9 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
           </div>
           {view.metric === 'net' && <div className="summary-sub">{netDefinition(netOf(survey))}</div>}
         </div>
-        <div className="summary-actions">
-          <button className="link-btn" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} title={expanded ? 'Back to the smaller panel' : phone ? 'Show the summary full screen' : 'Make the panel wider'}>
-            {expanded ? 'Collapse' : 'Expand'}
-          </button>
-          <button className="link-btn" onClick={() => set({ open: false })} aria-label="Hide the market summary">
-            Hide
-          </button>
-        </div>
+        <button className="link-btn" onClick={() => set({ open: false })} aria-label="Hide the market summary">
+          Hide
+        </button>
       </div>
 
       <div className="summary-controls">
@@ -188,5 +185,53 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
         </details>
       )}
     </aside>
+    </div>
+  );
+}
+
+const Chevron = ({ dir }: { dir: 'left' | 'right' | 'up' | 'down' }) => (
+  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style={{ transform: `rotate(${{ left: 0, up: 90, right: 180, down: 270 }[dir]}deg)` }}>
+    <path d="M9 2.5 4.5 7 9 11.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/** Desktop: a tab on the drawer's left edge. The arrow points the way the drawer will move. */
+function EdgeTab({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
+  const label = expanded ? 'Make the summary narrower' : 'Make the summary wider';
+  return (
+    <button className="panel-handle" onClick={onToggle} aria-expanded={expanded} aria-label={label} title={label}>
+      <Chevron dir={expanded ? 'right' : 'left'} />
+    </button>
+  );
+}
+
+/** Phone: a bar across the top of the drawer. Tap it, or drag it up or down. */
+function GrabBar({ expanded, onToggle }: { expanded: boolean; onToggle: (v: boolean) => void }) {
+  const start = useRef<number | null>(null);
+  const label = expanded ? 'Back to the map' : 'Show the summary full screen';
+  return (
+    <button
+      className="panel-grab"
+      aria-expanded={expanded}
+      aria-label={label}
+      title={label}
+      onPointerDown={(e) => {
+        start.current = e.clientY;
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerUp={(e) => {
+        const from = start.current;
+        start.current = null;
+        if (from == null) return;
+        const dy = e.clientY - from;
+        if (Math.abs(dy) < 10) onToggle(!expanded); // a tap
+        else onToggle(dy < 0); // up opens it, down closes it
+      }}
+      onPointerCancel={() => { start.current = null; }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(!expanded); } }}
+    >
+      <Chevron dir={expanded ? 'down' : 'up'} />
+      <span className="grab-pill" />
+    </button>
   );
 }

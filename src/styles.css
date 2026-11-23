@@ -167,8 +167,14 @@ button, input { font: inherit; }
 .stage-main .map { flex: 1; min-width: 0; }
 .summary-panel { width: 400px; flex: none; overflow-y: auto; background: #fff; border-left: 1px solid var(--line); padding: 12px 14px; font-size: 13px; }
 .summary-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.summary-actions { display: flex; gap: 14px; flex: none; }
-.summary-panel.expanded { width: 60%; min-width: 400px; max-width: 920px; }
+.summary-wrap { position: relative; display: flex; flex: none; min-height: 0; }
+.summary-wrap.expanded .summary-panel { width: clamp(400px, 60vw, 920px); }
+/* Desktop: a tab on the drawer's left edge; its arrow points the way the drawer will move */
+.panel-handle { position: absolute; left: -28px; top: 50%; transform: translateY(-50%); z-index: 6; width: 28px; height: 76px; padding: 0; display: flex; align-items: center; justify-content: center; color: var(--navy); background: #fff; border: 1px solid var(--line); border-right: 0; border-radius: 10px 0 0 10px; box-shadow: -3px 0 10px rgba(16,24,40,.12); cursor: pointer; }
+.panel-handle svg { width: 20px; height: 20px; }
+.panel-handle:hover, .panel-handle:focus-visible { background: #eef2fb; }
+.panel-handle:focus-visible, .panel-grab:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.panel-grab { display: none; }
 .summary-title { font-weight: 700; color: var(--navy); font-size: 15px; }
 .summary-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .summary-controls { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
@@ -214,14 +220,19 @@ button, input { font: inherit; }
 @media (max-width: 900px) {
   /* The summary sits under the map instead of covering it */
   .stage-main { flex-direction: column; }
-  .summary-panel { width: auto; max-width: none; max-height: 50%; border-left: 0; border-top: 1px solid var(--line); box-shadow: 0 -4px 14px rgba(16,24,40,.12); display: flex; flex-direction: column; }
+  .summary-wrap { flex-direction: column; width: auto; max-height: 52%; background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -4px 14px rgba(16,24,40,.12); }
+  /* Phone: a bar across the top of the drawer, with an arrow, in the usual bottom-sheet style */
+  .panel-grab { display: flex; flex: none; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 30px; padding: 0; border: 0; background: #fff; color: var(--navy); cursor: pointer; touch-action: none; }
+  .grab-pill { width: 40px; height: 4px; border-radius: 2px; background: #c3cad6; }
+  .summary-panel { width: auto; max-width: none; flex: 1 1 auto; min-height: 0; border-left: 0; display: flex; flex-direction: column; padding-top: 4px; }
   /* The chart comes first on a small screen: the controls sit under it, not above it */
   .summary-panel > * { order: 3; flex: none; }
   .summary-panel > .summary-head { order: 0; }
   .summary-panel > .summary-chart { order: 1; }
   .summary-panel > .summary-controls { order: 2; }
   /* Expanded on a phone: the summary fills the space the map had */
-  .summary-panel.expanded { position: absolute; inset: 0; width: auto; min-width: 0; max-height: none; z-index: 20; border-top: 0; box-shadow: none; }
+  .summary-wrap.expanded { position: absolute; inset: 0; max-height: none; z-index: 20; border-top: 0; box-shadow: none; }
+  .summary-wrap.expanded .summary-panel { width: auto; }
   .maplibregl-ctrl-scale { display: none; }
   /* Controls become one strip you can swipe sideways */
   .controls { flex-wrap: nowrap; overflow-x: auto; gap: 14px; padding: 6px 10px; align-items: flex-end; -webkit-overflow-scrolling: touch; }
