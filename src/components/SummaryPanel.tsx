@@ -20,28 +20,7 @@ interface Props {
   unplaced?: number;
 }
 
-const EXPANDED_KEY = 'survey-map:summary-expanded';
 const PHONE = '(max-width: 900px)';
-
-/** Remembered on this device only: it is how someone likes to look at the panel, not part of the survey. */
-function useExpanded(): [boolean, (v: boolean) => void] {
-  const [on, setOn] = useState(() => {
-    try {
-      return localStorage.getItem(EXPANDED_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-  const set = (v: boolean) => {
-    setOn(v);
-    try {
-      localStorage.setItem(EXPANDED_KEY, v ? '1' : '0');
-    } catch {
-      /* private window or blocked storage: it just is not remembered */
-    }
-  };
-  return [on, set];
-}
 
 function usePhone(): boolean {
   const [phone, setPhone] = useState(() => typeof matchMedia !== 'undefined' && matchMedia(PHONE).matches);
@@ -57,7 +36,8 @@ function usePhone(): boolean {
 
 export default function SummaryPanel({ survey, view, onView, canToggle, onToggleBuilding, onToggleUnit, unplaced = 0 }: Props) {
   const s = view.summary;
-  const [expanded, setExpanded] = useExpanded();
+  // Not saved anywhere: the client file may not touch browser storage, so it opens collapsed each visit.
+  const [expanded, setExpanded] = useState(false);
   const phone = usePhone();
   const result = useMemo(
     () => computeSummary(survey, { metric: view.metric, filters: view.filters, settings: s }),
