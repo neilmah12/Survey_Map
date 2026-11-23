@@ -79,8 +79,23 @@ Pins, measures and phones:
 Market summary (Phase D):
 
 - A panel beside the map, in the editor and in the client file, compares the subject with the market
-  by unit type: market figure, subject figure and the difference in dollars and percent, plus a total
-  row. It follows the metric (base rent, rent PSF, net rent) and the unit filters.
+  by unit type: market figure, subject figure and the difference in dollars and percent. There is no
+  all-unit-types total, because the subject and the comps rarely share a unit mix and a total would
+  compare the mixes, not the rents. It follows the metric (base rent, rent PSF, net rent) and the unit filters.
+- A chart sits above the table (Compare, Difference %, or Off; the choice travels with the client file).
+  Compare draws the market and the subject side by side from zero, with a dot for each comparable
+  building, and on net rent a tick for the base rent before extras and incentives. Difference % shows how
+  far the subject is from the market. A unit type with no comps, or no subject units, is labelled rather
+  than drawn as zero, and a market made of one building is called out. The chart follows the metric
+  selector, so it always agrees with the table. Many rows switch it to horizontal bars. The layout lives
+  in `src/lib/chartLayout.ts` and is drawn by `SummaryChart.tsx` on screen and `exportChart.ts` in the
+  exported page, so the two cannot drift apart. The export dialog has a Chart tick box; if a page has no
+  room for the chart beside the whole table (Letter portrait with the legend, for example), the page says
+  so instead of cutting table rows.
+- Incentives: free rent is spread over the lease term (the text's, else the survey default). A one-time
+  dollar offer ("$500 gift card") is spread over a flat 12 months. "2 months free on 15 months" reads
+  as a 15 month term. A free service ("3 months free internet") is not free rent: it is left unread and
+  the checks flag it, like any text the app cannot turn into dollars.
 - The market is every building that is not a subject, so the subject is never compared with itself.
   Several subjects are averaged together. Average or median; default is that each building counts
   once (its own average per unit type first), and a switch makes every unit count instead.

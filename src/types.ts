@@ -97,13 +97,21 @@ export interface SummarySettings {
   split: { kind?: boolean; baths: boolean; reno: boolean };
   /** True: each building counts once per row (its own average first). False: every unit counts. */
   perBuilding: boolean;
+  /** The chart under the summary controls: subject beside the market, the subject's difference from it, or hidden. */
+  chart: ChartMode;
+  /** Draw a dot for each comparable building on its market bar. */
+  dots: boolean;
 }
+
+export type ChartMode = 'off' | 'compare' | 'diff';
 
 export const DEFAULT_SUMMARY: SummarySettings = {
   open: true,
   stat: 'avg',
   split: { kind: false, baths: false, reno: false },
   perBuilding: true,
+  chart: 'compare',
+  dots: true,
 };
 
 export interface ViewSettings {

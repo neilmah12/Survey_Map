@@ -27,6 +27,7 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
   const [dpi, setDpi] = useState(300);
   const [extent, setExtent] = useState<'view' | 'all'>('view');
   const [includeSummary, setIncludeSummary] = useState(true);
+  const [includeChart, setIncludeChart] = useState(true);
   const [includeLegend, setIncludeLegend] = useState(true);
   const [source, setSource] = useState(initialSource || DEFAULT_SOURCE);
   const [status, setStatus] = useState<'idle' | 'rendering' | 'ready' | 'error'>('idle');
@@ -46,7 +47,7 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
     setStale(false);
     try {
       const r = await renderExport({
-        survey, view, page, dpi, extent, viewBounds: getBounds(), includeSummary, includeLegend, sourceNote: source, logoUrl,
+        survey, view, page, dpi, extent, viewBounds: getBounds(), includeSummary, includeChart, includeLegend, sourceNote: source, logoUrl,
       });
       const small = document.createElement('canvas');
       small.width = Math.min(1100, r.canvas.width);
@@ -109,6 +110,9 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
           </label>
           <div className="export-checks-row">
             <label className="check"><input type="checkbox" checked={includeSummary} onChange={(e) => change(setIncludeSummary)(e.target.checked)} />Market summary table</label>
+            <label className="check" title={view.summary.chart === 'off' ? 'The chart is turned off in the market summary' : 'The chart shown in the market summary'}>
+              <input type="checkbox" checked={includeChart && view.summary.chart !== 'off'} disabled={!includeSummary || view.summary.chart === 'off'} onChange={(e) => change(setIncludeChart)(e.target.checked)} />Chart
+            </label>
             <label className="check"><input type="checkbox" checked={includeLegend} onChange={(e) => change(setIncludeLegend)(e.target.checked)} />Legend</label>
           </div>
         </div>

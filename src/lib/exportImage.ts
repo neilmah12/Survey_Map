@@ -9,6 +9,8 @@ import { pinBadges, type PinBadge } from './utilities';
 import { layoutPins, type PinBox } from './pinLayout';
 import { computeSummary } from './summary';
 import { fmtDiff, fmtValue } from './summaryFormat';
+import { baseDiffers, exportNotes, layoutChart } from './chartLayout';
+import { chartKeys, drawChartKeys, drawChartModel } from './exportChart';
 import {
   filterCaption, legendItems, metricCaption, niceScale, pageRegions, summaryFootnotes, wrapText, type Box, type LegendItem, type PageKind,
 } from './exportLayout';
@@ -23,6 +25,8 @@ export interface ExportOptions {
   extent: 'view' | 'all';
   viewBounds?: [LngLat, LngLat] | null;
   includeSummary: boolean;
+  /** The chart inside the summary, when the view has one turned on. */
+  includeChart?: boolean;
   includeLegend: boolean;
   sourceNote: string;
   logoUrl: string;
@@ -395,6 +399,29 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
     y += 6;
 
     const sj = result.hasSubject;
+    const rows = result.rows;
+    const mode = o.view.summary.chart;
+    const wantChart = o.includeChart !== false && mode !== 'off' && rows.length > 0 && (mode !== 'diff' || sj);
+    const foot = [...summaryFootnotes(result, o.view.summary.perBuilding, result.subjectBuildings), ...(wantChart ? exportNotes(result) : [])];
+    const reserve = foot.length * 13 + 10 + legendH + 8;
+
+    if (wantChart) {
+      const tableNeed = 30 + rows.length * 21; // the table keeps every row: the chart takes only what is left
+      const avail = box.y + box.h - reserve - y - tableNeed - 22;
+      const opts = { metric: o.view.metric, W: box.w, dots: o.view.summary.dots };
+      let model = layoutChart(result, mode, opts);
+      if (model.height > avail) model = layoutChart(result, mode, { ...opts, H: avail });
+      if (model.height <= avail && model.height >= 140) {
+        const anyBase = o.view.metric === 'net' && rows.some((r) => baseDiffers(r.marketBase, r.market.value) || baseDiffers(r.subjectBase, r.subject.value));
+        const keys = chartKeys(mode, { stat: o.view.summary.stat, hasSubject: sj, dots: o.view.summary.dots, baseTick: anyBase, metric: o.view.metric });
+        y += drawChartKeys(ctx, keys, box.x, y + 8, box.w, FONT) + 6;
+        drawChartModel(ctx, model, box.x, y, FONT);
+        y += model.height + 10;
+      } else {
+        foot.push('The chart is left out: this page has no room for it with the table. Use a larger page or turn off the legend.');
+      }
+    }
+
     const colM = 58, colS = sj ? 58 : 0, colD = sj ? 104 : 0;
     const labelW = box.w - colM - colS - colD - 4;
     const xM = box.x + labelW + colM;
@@ -410,9 +437,6 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
     ctx.fillStyle = LINE;
     ctx.fillRect(box.x, y, box.w, 1);
     y += 5;
-    const rows = result.rows;
-    const foot = summaryFootnotes(result, o.view.summary.perBuilding, result.subjectBuildings);
-    const reserve = foot.length * 13 + 10 + legendH + 8;
     let shown = 0;
     for (const r of rows) {
       const font = `400 11px ${FONT}`;

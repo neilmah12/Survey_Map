@@ -10,11 +10,23 @@ export interface Party {
   n: number;
 }
 
+/** One comparable building's own figure for a row (the dot on the chart). */
+export interface CompValue {
+  id: string;
+  name: string;
+  value: number;
+}
+
 export interface SummaryRow {
   key: string;
   label: string;
   market: Party;
   subject: Party;
+  /** Each comparable building's own average for this row. */
+  comps: CompValue[];
+  /** Net rent view only: the same market and subject before parking, utilities, incentives and misc. */
+  marketBase: number | null;
+  subjectBase: number | null;
   /** Subject minus market, and as a share of the market figure. */
   diff: number | null;
   diffPct: number | null;
@@ -59,11 +71,24 @@ function party(b: Bucket, how: Stat, perBuilding: boolean): Party {
   return { value: stat(all, how), n: all.length };
 }
 
-function row(key: string, label: string, market: Bucket, subject: Bucket, o: SummaryOptions): SummaryRow {
+interface Extras {
+  baseMarket?: Bucket;
+  baseSubject?: Bucket;
+  names: Map<string, string>;
+}
+
+function row(key: string, label: string, market: Bucket, subject: Bucket, o: SummaryOptions, x: Extras): SummaryRow {
   const m = party(market, o.settings.stat, o.settings.perBuilding);
   const s = party(subject, o.settings.stat, o.settings.perBuilding);
   const diff = m.value != null && s.value != null ? s.value - m.value : null;
-  return { key, label, market: m, subject: s, diff, diffPct: diff != null && m.value ? diff / m.value : null };
+  const base = (b?: Bucket) => (b && b.size ? party(b, o.settings.stat, o.settings.perBuilding).value : null);
+  return {
+    key, label, market: m, subject: s,
+    comps: [...market].map(([id, vals]) => ({ id, name: x.names.get(id) ?? '', value: mean(vals) })),
+    marketBase: base(x.baseMarket),
+    subjectBase: base(x.baseSubject),
+    diff, diffPct: diff != null && m.value ? diff / m.value : null,
+  };
 }
 
 /**
@@ -80,6 +105,10 @@ export function computeSummary(survey: Survey, o: SummaryOptions): SummaryResult
   const market = new Map<string, Bucket>();
   const subject = new Map<string, Bucket>();
   const sortKeys = new Map<string, string>();
+  // For net rent, the same units' base rent, so the chart can show what the extras and incentives did.
+  const baseMarket = new Map<string, Bucket>();
+  const baseSubject = new Map<string, Bucket>();
+  const names = new Map(survey.buildings.map((b) => [b.id, b.name] as const));
   let excludedUnits = 0;
   const excludedBuildings = new Set<string>();
   const marketIds = new Set<string>();
@@ -102,6 +131,11 @@ export function computeSummary(survey: Survey, o: SummaryOptions): SummaryResult
       const side = asSubject ? subject : market;
       if (!side.has(key)) side.set(key, new Map());
       push(side.get(key)!, b.id, v);
+      if (o.metric === 'net' && u.rate != null) {
+        const baseSide = asSubject ? baseSubject : baseMarket;
+        if (!baseSide.has(key)) baseSide.set(key, new Map());
+        push(baseSide.get(key)!, b.id, u.rate);
+      }
       (asSubject ? subjectIds : marketIds).add(b.id);
     }
   }
@@ -109,7 +143,7 @@ export function computeSummary(survey: Survey, o: SummaryOptions): SummaryResult
   const keys = [...sortKeys.keys()].sort((a, b) => (sortKeys.get(a)! < sortKeys.get(b)! ? -1 : sortKeys.get(a)! > sortKeys.get(b)! ? 1 : a.localeCompare(b)));
   const empty: Bucket = new Map();
   return {
-    rows: keys.map((k) => row(k, k, market.get(k) ?? empty, subject.get(k) ?? empty, o)),
+    rows: keys.map((k) => row(k, k, market.get(k) ?? empty, subject.get(k) ?? empty, o, { baseMarket: baseMarket.get(k), baseSubject: baseSubject.get(k), names })),
     hasSubject: survey.buildings.some((b) => b.isSubject),
     marketBuildings: marketIds.size,
     subjectBuildings: subjectIds.size,

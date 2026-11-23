@@ -49,6 +49,9 @@ const TERM = new RegExp(
   'i',
 );
 
+// "3 months free internet": a free service, not free rent. It is not guessed at, so the check flags it for a typed amount.
+const FREE_PERK = /\bfree\s+(?:internet|wi-?fi|cable|tv|parking|heat|utilities|water|power|electricity|storage|laundry|gym|phone)\b/i;
+
 /** How an incentive's monthly discount was worked out, so the editor can show the sum. */
 export interface IncentiveCalc {
   /** Monthly discount, positive. */
@@ -77,13 +80,14 @@ export const ONE_TIME_MONTHS = 12;
 export function explainIncentive(text: string, rate: number | null, termMonths: number): IncentiveCalc | null {
   const t = text.trim();
   if (!t || /^[-+]?0+(\.0+)?$/.test(t)) return { amount: 0 };
+  if (FREE_PERK.test(t)) return null;
   const free = t.match(FREE_AFTER) ?? t.match(FREE_BEFORE);
   if (free) {
     let rest = t.replace(free[0], ' ');
     const termMatch = rest.match(TERM);
     let term = termMonths;
     let termFromText = false;
-    if (termMatch && /lease|term|over|amorti/i.test(termMatch[0])) {
+    if (termMatch && /lease|term|over|amorti|\b(?:on|with)\b/i.test(termMatch[0])) {
       const n = num(termMatch[1]);
       term = /^y/i.test(termMatch[2]) ? n * 12 : n;
       termFromText = true;

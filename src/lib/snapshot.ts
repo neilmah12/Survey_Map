@@ -80,6 +80,8 @@ function cleanSummary(s: Partial<SummarySettings> | undefined): SummarySettings 
     stat: (s?.stat === 'median' ? 'median' : 'avg') satisfies Stat,
     split: { kind: Boolean(split?.kind), baths: Boolean(split?.baths), reno: Boolean(split?.reno) },
     perBuilding: s?.perBuilding ?? DEFAULT_SUMMARY.perBuilding,
+    chart: s?.chart === 'off' || s?.chart === 'diff' || s?.chart === 'compare' ? s.chart : DEFAULT_SUMMARY.chart,
+    dots: s?.dots ?? DEFAULT_SUMMARY.dots,
   };
 }
 

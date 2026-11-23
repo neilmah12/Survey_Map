@@ -5,6 +5,7 @@ import { filterOptions } from '../lib/groups';
 import { computeSummary } from '../lib/summary';
 import { fmtDiff, fmtValue } from '../lib/summaryFormat';
 import { netDefinition, netOf } from '../lib/net';
+import SummaryChart from './SummaryChart';
 
 interface Props {
   /** Only buildings that are on the map: the client file leaves out the rest, so the numbers must too. */
@@ -67,6 +68,20 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
           <input type="checkbox" checked={s.perBuilding} onChange={(e) => set({ perBuilding: e.target.checked })} />
           Each building counts once
         </label>
+        <div className="chart-controls">
+          <span className="control-label">Chart</span>
+          <div className="seg" role="group" aria-label="Chart view">
+            <button className={s.chart === 'compare' ? 'on' : ''} onClick={() => set({ chart: 'compare' })}>Compare</button>
+            <button className={s.chart === 'diff' ? 'on' : ''} onClick={() => set({ chart: 'diff' })}>Difference %</button>
+            <button className={s.chart === 'off' ? 'on' : ''} onClick={() => set({ chart: 'off' })}>Off</button>
+          </div>
+          {s.chart === 'compare' && (
+            <label className="check" title="A dot for each comparable building, so a spread is not hidden behind the average">
+              <input type="checkbox" checked={s.dots} onChange={(e) => set({ dots: e.target.checked })} />
+              Show each comp
+            </label>
+          )}
+        </div>
         {splits.length > 0 && (
           <div className="splits">
             <span className="control-label">Split by</span>
@@ -81,6 +96,8 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
       </div>
 
       {!result.hasSubject && <p className="summary-note">Mark a subject property to compare it with the market.</p>}
+
+      {s.chart !== 'off' && result.rows.length > 0 && <SummaryChart result={result} metric={view.metric} mode={s.chart} dots={s.dots} stat={s.stat} />}
 
       {result.rows.length === 0 ? (
         <p className="summary-note">Nothing to compare with the current filters.</p>

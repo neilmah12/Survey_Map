@@ -60,6 +60,10 @@ describe('net rent', () => {
     expect(parseIncentive('$1,000 move-in bonus', 1800, 15)).toBe(83); // not the lease term: always 12
     expect(explainIncentive('$500 gift card', 1800, 12)).toEqual({ amount: 42, oneTime: 500 });
     expect(parseIncentive('Ask about specials', 1800, 12)).toBeNull();
+    expect(parseIncentive('3 months free internet', 1800, 12)).toBeNull(); // a free service, not free rent: flagged, never guessed
+    expect(parseIncentive('2 months free parking', 1800, 12)).toBeNull();
+    expect(parseIncentive('1 month free rent', 1800, 12)).toBe(150); // still free rent
+    expect(parseIncentive('2 months free on 15 months', 1200, 12)).toBe(160); // the term without the word "lease"
     expect(parseIncentive('1 month free rent, 500 move in bonus', 1800, 12)).toBeNull(); // two offers: not guessed
   });
 
