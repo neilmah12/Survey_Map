@@ -150,17 +150,25 @@ const C = CHART_COLORS;
 const txt = (x: number, y: number, s: string, size: number, color: string, anchor: 'start' | 'middle' | 'end', bold = false, rotate?: number): Shape =>
   ({ k: 'text', x, y, s, size, color, anchor, bold, rotate });
 
+/**
+ * Type and bars grow with the width the chart has, so a wide drawer gets figures that are easy to read.
+ * Everything is placed from the same scale, so growing never makes labels collide or bars mislead.
+ */
+export function typeScale(W: number): number {
+  return W >= 600 ? 1.3 : W >= 480 ? 1.15 : 1;
+}
+
 /** A row's name with how many comps are behind it, stacked and vertically centered in its band. */
-function labelBlock(shapes: Shape[], r: SummaryRow, x: number, top: number, band: number, maxPx: number, anchor: 'start' | 'end') {
-  const lines = wrapLabel(r.label, maxPx, 11.5, 2);
+function labelBlock(shapes: Shape[], r: SummaryRow, x: number, top: number, band: number, maxPx: number, anchor: 'start' | 'end', z = 1) {
+  const lines = wrapLabel(r.label, maxPx, 11.5 * z, 2);
   const n = r.comps.length;
   const total = lines.length + 1;
-  let y = top + (band - total * 13) / 2 + 10;
+  let y = top + (band - total * 13 * z) / 2 + 10 * z;
   for (const l of lines) {
-    shapes.push(txt(x, y, l, 11.5, C.ink, anchor, true));
-    y += 13;
+    shapes.push(txt(x, y, l, 11.5 * z, C.ink, anchor, true));
+    y += 13 * z;
   }
-  shapes.push(txt(x, y, compsLabel(n), 10.5, n === 1 ? C.ink : C.muted, anchor, n === 1));
+  shapes.push(txt(x, y, compsLabel(n), 10.5 * z, n === 1 ? C.ink : C.muted, anchor, n === 1));
 }
 
 // ---- compare: market and subject side by side ------------------------------------------------------------
@@ -173,8 +181,9 @@ export function layoutCompare(rows: SummaryRow[], o: LayoutOptions): ChartModel 
 
 function compareColumns(rows: SummaryRow[], o: LayoutOptions): ChartModel {
   const { W, metric } = o;
-  const mL = 52, mR = 8, mT = 22, mB = 60;
-  const H = o.H ?? (W >= 560 ? 340 : 300);
+  const z = typeScale(W);
+  const mL = Math.round(52 * z), mR = 8, mT = Math.round(22 * z), mB = Math.round(60 * z);
+  const H = o.H ?? Math.round((W >= 560 ? 340 : 300) * (z > 1 ? 1.12 : 1));
   const ph = Math.max(60, H - mT - mB);
   const base = mT + ph;
   const sc = compareScale(rows, metric);
@@ -183,11 +192,12 @@ function compareColumns(rows: SummaryRow[], o: LayoutOptions): ChartModel {
   const hits: Hit[] = [];
   for (const t of sc.ticks) {
     shapes.push({ k: 'line', x1: mL, x2: W - mR, y1: y(t), y2: y(t), stroke: t === 0 ? C.zero : C.grid, w: 1 });
-    shapes.push(txt(mL - 8, y(t) + 4, tickText(t, metric), 10.5, C.muted, 'end'));
+    shapes.push(txt(mL - 8, y(t) + 4 * z, tickText(t, metric), 10.5 * z, C.muted, 'end'));
   }
   const gw = (W - mL - mR) / rows.length;
-  const bw = Math.min(24, gw * 0.3);
-  const rotated = gw < 84;
+  const bw = Math.min(24 * z, gw * 0.3);
+  const rotated = gw < 84 * z;
+  const fits = (word: string) => approxW(word, 10.5 * z) <= gw / 2 - 6; // beside its own bar, not over the next group
   rows.forEach((r, i) => {
     const c = mL + i * gw + gw / 2;
     const mx = o.hasSubject ? c - 1 - bw : c - bw / 2;
@@ -198,16 +208,16 @@ function compareColumns(rows: SummaryRow[], o: LayoutOptions): ChartModel {
       shapes.push({ k: 'path', d: roundTop(mx, y(v), bw, base - y(v), 4), fill: C.market });
       const dots = o.dots ? r.comps.map((k) => k.value) : [];
       const top = Math.max(v, ...dots, showBase ? r.marketBase! : 0);
-      const ly = y(top) - (dots.length || showBase ? 11 : 6);
+      const ly = y(top) - (dots.length || showBase ? 11 : 6) * z;
       if (showBase) shapes.push({ k: 'line', x1: mx - 2, x2: mx + bw + 2, y1: y(r.marketBase!), y2: y(r.marketBase!), stroke: C.ink, w: 2 });
-      if (rotated) shapes.push(txt(mx + bw / 2 + 4, ly + 2, formatMetric(v, metric), 10.5, C.ink, 'start', false, -90));
-      else shapes.push(txt(o.hasSubject ? c - 3 : c, ly, formatMetric(v, metric), 11, C.ink, o.hasSubject ? 'end' : 'middle'));
+      if (rotated) shapes.push(txt(mx + bw / 2 + 4, ly + 2, formatMetric(v, metric), 10.5 * z, C.ink, 'start', false, -90));
+      else shapes.push(txt(o.hasSubject ? c - 3 : c, ly, formatMetric(v, metric), 11 * z, C.ink, o.hasSubject ? 'end' : 'middle'));
       if (o.dots) {
         const step = r.comps.length > 1 ? Math.min(7, bw / (r.comps.length - 1)) : 0;
-        r.comps.forEach((k, j) => shapes.push({ k: 'dot', x: mx + bw / 2 + (j - (r.comps.length - 1) / 2) * step, y: y(k.value), r: 3.5, fill: C.ink, ring: C.surface }));
+        r.comps.forEach((k, j) => shapes.push({ k: 'dot', x: mx + bw / 2 + (j - (r.comps.length - 1) / 2) * step, y: y(k.value), r: 3.5 * Math.min(z, 1.2), fill: C.ink, ring: C.surface }));
       }
     } else {
-      shapes.push(txt(o.hasSubject ? c - 3 : c, base - 8, rotated ? 'none' : 'no comps', 10.5, C.muted, o.hasSubject ? 'end' : 'middle'));
+      shapes.push(txt(o.hasSubject ? c - 3 : c, base - 8, rotated || !fits('no comps') ? 'none' : 'no comps', 10.5 * z, C.muted, o.hasSubject ? 'end' : 'middle'));
     }
     if (o.hasSubject) {
       if (r.subject.value != null) {
@@ -218,16 +228,16 @@ function compareColumns(rows: SummaryRow[], o: LayoutOptions): ChartModel {
           shapes.push({ k: 'line', x1: sx - 2, x2: sx + bw + 2, y1: y(r.subjectBase), y2: y(r.subjectBase), stroke: C.ink, w: 2 });
           top = r.subjectBase;
         }
-        if (rotated) shapes.push(txt(sx + bw / 2 + 4, y(top) - 4, formatMetric(v, metric), 10.5, C.ink, 'start', false, -90));
-        else shapes.push(txt(c + 3, y(top) - 6, formatMetric(v, metric), 11, C.ink, 'start'));
+        if (rotated) shapes.push(txt(sx + bw / 2 + 4, y(top) - 4, formatMetric(v, metric), 10.5 * z, C.ink, 'start', false, -90));
+        else shapes.push(txt(c + 3, y(top) - 6 * z, formatMetric(v, metric), 11 * z, C.ink, 'start'));
       } else {
-        shapes.push(txt(c + 3, base - 8, rotated ? 'none' : 'no subject', 10.5, C.muted, 'start'));
+        shapes.push(txt(c + 3, base - 8, rotated || !fits('no subject') ? 'none' : 'no subject', 10.5 * z, C.muted, 'start'));
       }
     }
-    const lines = wrapLabel(r.label, gw - 6, 12, 2);
-    lines.forEach((l, li) => shapes.push(txt(c, base + 16 + li * 14, l, 12, C.ink, 'middle', true)));
+    const lines = wrapLabel(r.label, gw - 6, 12 * z, 2);
+    lines.forEach((l, li) => shapes.push(txt(c, base + 16 * z + li * 14 * z, l, 12 * z, C.ink, 'middle', true)));
     const n = r.comps.length;
-    shapes.push(txt(c, base + 16 + lines.length * 14, compsLabel(n, rotated), 10.5, n === 1 ? C.ink : C.muted, 'middle', n === 1));
+    shapes.push(txt(c, base + 16 * z + lines.length * 14 * z, compsLabel(n, rotated), 10.5 * z, n === 1 ? C.ink : C.muted, 'middle', n === 1));
     hits.push({ row: i, x: c - gw / 2, y: mT, w: gw, h: ph + mB - 4 });
   });
   return { width: W, height: mT + ph + mB, shapes, hits, layout: 'columns' };
@@ -235,11 +245,12 @@ function compareColumns(rows: SummaryRow[], o: LayoutOptions): ChartModel {
 
 function compareRows(rows: SummaryRow[], o: LayoutOptions): ChartModel {
   const { W, metric } = o;
-  const labelW = Math.min(150, Math.round(W * 0.36));
-  const mR = 56, mT = 22;
+  const z = typeScale(W);
+  const labelW = Math.min(150 * z, Math.round(W * 0.36));
+  const mR = Math.round(56 * z), mT = Math.round(22 * z);
   const n = rows.length;
-  const rowH = o.H != null ? Math.max(24, Math.min(40, (o.H - mT - 6) / n)) : 40;
-  const barH = rowH >= 34 ? 12 : 9;
+  const rowH = o.H != null ? Math.max(24, Math.min(40 * z, (o.H - mT - 6) / n)) : 40 * z;
+  const barH = rowH >= 34 ? Math.round(12 * z) : 9;
   const pw = W - labelW - mR;
   const sc = compareScale(rows, metric);
   const x = (v: number) => labelW + (v / sc.max) * pw;
@@ -248,14 +259,14 @@ function compareRows(rows: SummaryRow[], o: LayoutOptions): ChartModel {
   const hits: Hit[] = [];
   for (const t of sc.ticks) {
     shapes.push({ k: 'line', x1: x(t), x2: x(t), y1: mT - 6, y2: H - 4, stroke: t === 0 ? C.zero : C.grid, w: 1 });
-    shapes.push(txt(x(t), mT - 10, tickText(t, metric), 10.5, C.muted, 'middle'));
+    shapes.push(txt(x(t), mT - 10, tickText(t, metric), 10.5 * z, C.muted, 'middle'));
   }
   rows.forEach((r, i) => {
     const top = mT + i * rowH;
     const my = top + (rowH - (2 * barH + 2)) / 2;
     const sy = my + barH + 2;
-    labelBlock(shapes, r, 0, top, rowH, labelW - 10, 'start');
-    const none = (yy: number, s: string) => shapes.push(txt(labelW + 6, yy + barH - 1, s, 10.5, C.muted, 'start'));
+    labelBlock(shapes, r, 0, top, rowH, labelW - 10, 'start', z);
+    const none = (yy: number, s: string) => shapes.push(txt(labelW + 6, yy + barH / 2 + 4 * z, s, 10.5 * z, C.muted, 'start'));
     if (r.market.value != null) {
       const v = r.market.value;
       shapes.push({ k: 'path', d: roundRight(labelW, my, Math.max(1, x(v) - labelW), barH, 3), fill: C.market });
@@ -266,11 +277,11 @@ function compareRows(rows: SummaryRow[], o: LayoutOptions): ChartModel {
       }
       if (o.dots) {
         for (const k of r.comps) {
-          shapes.push({ k: 'dot', x: x(k.value), y: my + barH / 2, r: barH >= 12 ? 3.5 : 3, fill: C.ink, ring: C.surface });
+          shapes.push({ k: 'dot', x: x(k.value), y: my + barH / 2, r: barH >= 12 ? 3.5 * Math.min(z, 1.2) : 3, fill: C.ink, ring: C.surface });
           edge = Math.max(edge, x(k.value) + 4);
         }
       }
-      shapes.push(txt(edge + 6, my + barH - 1.5, formatMetric(v, metric), 10.5, C.ink, 'start'));
+      shapes.push(txt(edge + 6, my + barH / 2 + 4 * z, formatMetric(v, metric), 11 * z, C.ink, 'start'));
     } else none(my, 'no comps');
     if (o.hasSubject) {
       if (r.subject.value != null) {
@@ -281,7 +292,7 @@ function compareRows(rows: SummaryRow[], o: LayoutOptions): ChartModel {
           shapes.push({ k: 'line', x1: x(r.subjectBase), x2: x(r.subjectBase), y1: sy - 2, y2: sy + barH + 2, stroke: C.ink, w: 2 });
           edge = Math.max(edge, x(r.subjectBase));
         }
-        shapes.push(txt(edge + 6, sy + barH - 1.5, formatMetric(v, metric), 10.5, C.ink, 'start'));
+        shapes.push(txt(edge + 6, sy + barH / 2 + 4 * z, formatMetric(v, metric), 11 * z, C.ink, 'start'));
       } else none(sy, 'no subject');
     }
     hits.push({ row: i, x: 0, y: top, w: W, h: rowH });
@@ -294,10 +305,11 @@ function compareRows(rows: SummaryRow[], o: LayoutOptions): ChartModel {
 export function layoutDiff(rows: SummaryRow[], o: Pick<LayoutOptions, 'W' | 'H'>): ChartModel {
   if (rows.length === 0) return EMPTY(o.W);
   const { W } = o;
-  const labelW = Math.min(130, Math.round(W * 0.32));
-  const mR = 58, mT = 24; // the right column holds every row's percentage, so no value runs into a label
-  const rowH = o.H != null ? Math.max(28, Math.min(46, (o.H - mT - 6) / rows.length)) : rows.length > 8 ? 36 : 46;
-  const barH = rowH >= 40 ? 18 : 14;
+  const z = typeScale(W);
+  const labelW = Math.min(130 * z, Math.round(W * 0.32));
+  const mR = Math.round(58 * z), mT = Math.round(24 * z); // the right column holds every row's percentage, so no value runs into a label
+  const rowH = o.H != null ? Math.max(28, Math.min(46 * z, (o.H - mT - 6) / rows.length)) : (rows.length > 8 ? 36 : 46) * z;
+  const barH = rowH >= 40 ? Math.round(18 * z) : 14;
   const H = mT + rows.length * rowH + 6;
   const sc = diffScale(rows);
   const pw = W - labelW - mR;
@@ -306,22 +318,21 @@ export function layoutDiff(rows: SummaryRow[], o: Pick<LayoutOptions, 'W' | 'H'>
   const shapes: Shape[] = [];
   const hits: Hit[] = [];
   const zeroAt = sc.ticks.findIndex((t) => Math.abs(t) < 1e-9);
-  const sparse = pw / Math.max(1, sc.ticks.length - 1) < 36; // label every other tick when they would touch
+  const sparse = pw / Math.max(1, sc.ticks.length - 1) < 36 * z; // label every other tick when they would touch
   sc.ticks.forEach((t, i) => {
     shapes.push({ k: 'line', x1: x(t), x2: x(t), y1: mT - 6, y2: H - 4, stroke: t === 0 ? C.zero : C.grid, w: 1 });
-    if (!sparse || (i - zeroAt) % 2 === 0) shapes.push(txt(x(t), mT - 10, t === 0 ? '0%' : pctText(t).replace('.0%', '%'), 10.5, C.muted, 'middle'));
+    if (!sparse || (i - zeroAt) % 2 === 0) shapes.push(txt(x(t), mT - 10, t === 0 ? '0%' : pctText(t).replace('.0%', '%'), 10.5 * z, C.muted, 'middle'));
   });
-  shapes.push(txt(W - 2, mT - 10, 'Difference', 10.5, C.muted, 'end'));
   rows.forEach((r, i) => {
     const top = mT + i * rowH;
     const cy = top + rowH / 2;
-    labelBlock(shapes, r, labelW - 10, top, rowH, labelW - 14, 'end');
+    labelBlock(shapes, r, labelW - 10, top, rowH, labelW - 14, 'end', z);
     if (r.diffPct == null) {
-      shapes.push(txt(labelW + 8, cy + 4, r.market.value == null ? 'No market comps to compare' : 'No subject units of this type', 11, C.muted, 'start'));
+      shapes.push(txt(labelW + 8, cy + 4 * z, r.market.value == null ? 'No market comps to compare' : 'No subject units of this type', 11 * z, C.muted, 'start'));
     } else {
       const w = Math.max(2, Math.abs(x(r.diffPct) - zx));
       shapes.push(r.diffPct >= 0 ? { k: 'path', d: roundRight(zx, cy - barH / 2, w, barH, 4), fill: C.above } : { k: 'path', d: roundLeft(zx, cy - barH / 2, w, barH, 4), fill: C.below });
-      shapes.push(txt(W - 2, cy + 4, pctText(r.diffPct), 11.5, C.ink, 'end', true));
+      shapes.push(txt(W - 2, cy + 4 * z, pctText(r.diffPct), 12 * z, C.ink, 'end', true));
     }
     hits.push({ row: i, x: 0, y: top, w: W, h: rowH });
   });
