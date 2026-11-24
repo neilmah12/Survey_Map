@@ -112,11 +112,13 @@ Client file (Phase B):
 
 - "Export client file" saves a single HTML file that opens in any browser with no login. It holds a
   snapshot built from an allow-list of fields (see `src/lib/snapshot.ts`): building and unit details a
-  client should see, pins, photos, listing links and the starting view. Notes, contact details,
+  client should see, pins, photos and the starting view. Listing links, notes, contact details,
   unrecognised columns, the uploaded workbook and editor flags are never copied. Buildings without a
   pin are left out and listed in the export dialog. Stacked / non-stacked shows for townhomes only.
 - The file contains the client viewer only (`src/client/main.tsx`), not the editor. `npm run build:single`
-  builds the viewer first and fails if it contains editor, Excel or storage code
+  builds the viewer first and fails if it contains editor, Excel or storage code. The listing link stays
+  in the editor (and the Excel round trip) as the team's own source reference, but it is not in the client
+  data, so the client page and the client file cannot show or reveal it, whatever an older published link held
   (`scripts/check-client-bundle.mjs`), then embeds it as the editor's export template.
 - "Preview client view" renders the same snapshot through the same viewer, so it matches the file.
 - Firebase publishing hosts this same viewer and loads the same snapshot by id (see "Firebase").

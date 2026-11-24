@@ -40,8 +40,6 @@ export interface ClientBuilding {
   excluded?: boolean;
   propertyType?: 'Townhome' | 'Apartment';
   lngLat: LngLat;
-  /** Public listing page. */
-  url: string;
   imageUrl: string;
   units: ClientUnit[];
 }
@@ -113,7 +111,6 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
       ...(b.excluded ? { excluded: true } : {}),
       ...(b.propertyType ? { propertyType: b.propertyType } : {}),
       lngLat: [b.lngLat[0], b.lngLat[1]],
-      url: safeUrl(b.url),
       imageUrl: safeUrl(b.imageUrl, true),
       units: b.units.map((u) => ({
         id: u.id,
@@ -184,7 +181,7 @@ export function snapshotToSurvey(s: ClientSnapshot): Survey {
       lngLat: b.lngLat,
       propertyNotes: '',
       contact: '',
-      url: b.url,
+      url: '', // the listing link is internal: it is never published, so a client file cannot reveal it
       imageUrl: b.imageUrl,
       units: b.units.map((u) => ({ ...u, beds: null, netRate: null, notes: '', extras: {} })),
     })),

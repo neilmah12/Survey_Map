@@ -46,7 +46,7 @@ describe('client snapshot never contains internal data', () => {
       [
         'address', 'asOf', 'baths', 'beds', 'kind', 'utils', 'buildings', 'clientCanChange', 'configuration', 'enabled', 'filters', 'id', 'imageUrl', 'incentive',
         'incentiveAmt', 'incentives', 'isSubject', 'lngLat', 'location', 'metric', 'misc', 'miscAmt', 'name', 'net', 'open', 'parking', 'parkingAmt', 'termMonths', 'utilitiesAmt', 'perBuilding', 'chart', 'dots', 'publishedAt', 'rate', 'reno', 'rings', 'ringsKm',
-        'sf', 'split', 'stat', 'summary', 'title', 'type', 'units', 'url', 'utilities', 'version', 'view', 'yearBuilt', 'yearRenovated',
+        'sf', 'split', 'stat', 'summary', 'title', 'type', 'units', 'utilities', 'version', 'view', 'yearBuilt', 'yearRenovated',
       ].sort(),
     );
   });
@@ -105,12 +105,21 @@ describe('client snapshot never contains internal data', () => {
 
   it('only passes http(s) links and embedded images', async () => {
     const s = await load('clareview-townhomes.xlsx');
-    s.buildings[0].url = 'javascript:alert(1)';
     s.buildings[0].imageUrl = 'data:text/html;base64,AAAA';
     s.buildings[1].imageUrl = 'data:image/jpeg;base64,AAAA';
-    s.buildings[2].url = 'https://example.com/ok';
+    s.buildings[2].imageUrl = 'https://example.com/photo.jpg';
     const b = toClientSnapshot(s, VIEW).snapshot.buildings;
-    expect([b[0].url, b[0].imageUrl, b[1].imageUrl, b[2].url]).toEqual(['', '', 'data:image/jpeg;base64,AAAA', 'https://example.com/ok']);
+    expect([b[0].imageUrl, b[1].imageUrl, b[2].imageUrl]).toEqual(['', 'data:image/jpeg;base64,AAAA', 'https://example.com/photo.jpg']);
+  });
+
+  it('never carries the listing link: not in the client data, and not back into the survey', async () => {
+    const s = await load('clareview-townhomes.xlsx');
+    s.buildings[0].url = 'https://example.com/the-listing';
+    s.buildings[1].url = 'javascript:alert(1)';
+    const { snapshot } = toClientSnapshot(s, VIEW);
+    expect(JSON.stringify(snapshot)).not.toContain('the-listing');
+    expect(snapshot.buildings.every((b) => !('url' in b))).toBe(true);
+    expect(snapshotToSurvey(snapshot).buildings.every((b) => b.url === '')).toBe(true);
   });
 });
 
