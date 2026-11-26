@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import type { NetSettings, Survey, ViewSettings } from '../types';
 import Header from './Header';
-import Controls from './Controls';
 import MapView from './MapView';
 import SummaryPanel from './SummaryPanel';
 
@@ -35,7 +34,6 @@ export default function ClientViewer({ survey: initialSurvey, initialView, banne
       <Header survey={survey} />
       <div className="body">
         <div className="stage">
-          <Controls survey={survey} view={view} onChange={setView} editable={false} onNet={(net: NetSettings) => setSurvey((s) => ({ ...s, net }))} />
           <div className="stage-main">
             <MapView
               survey={survey}
@@ -48,7 +46,7 @@ export default function ClientViewer({ survey: initialSurvey, initialView, banne
               onPlace={noop}
               fitKey={0}
             />
-            <SummaryPanel survey={survey} view={view} onView={setView} canToggle={canToggle} onToggleBuilding={toggleBuilding} onToggleUnit={toggleUnit} />
+            <SummaryPanel survey={survey} view={view} onView={setView} canToggle={canToggle} onToggleBuilding={toggleBuilding} onToggleUnit={toggleUnit} onNet={(net: NetSettings) => setSurvey((s) => ({ ...s, net }))} />
           </div>
         </div>
       </div>

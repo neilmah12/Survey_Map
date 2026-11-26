@@ -12,8 +12,9 @@ Phase 1 (local prototype) is in place:
   (dark-filled row) are all handled. See `src/lib/parse.ts` for header aliases.
 - Place pins by clicking the map, pasting `lat, lng`, or adding `Latitude` / `Longitude`
   columns to the sheet. Drag pins to adjust. Edit building and unit values in the sidebar.
-- Metric toggle (base rent, rent PSF, net rent), unit type filter, incentive badge, as-of date,
-  AY header.
+- Rent type (base rent, rent PSF, net rent), unit filters, incentive badge, as-of date, AY header. The rent
+  type and the filters live in the summary drawer's "Choose what to compare" card (below), not in a strip
+  across the top.
 - Distance rings from the subject are off by default; toggle them on and set custom distances
   (default 0.5 / 1 / 2 km, add or remove rings in edit mode).
 - Property photo in the pin popup: add an `Image URL` column to the sheet (also `Image`, `Photo`),
@@ -148,9 +149,24 @@ Adding buildings in the app:
   blank rows to insert in Excel; then use Update from Excel and export again.
 - A building added in the app is kept when the sheet is re-uploaded until the sheet contains it.
 
+Choose what to compare (`src/components/ChoosePanel.tsx`, logic in `src/lib/choose.ts`):
+
+- The first thing in the summary drawer, on the client page and in the editor, so the editor previews exactly what
+  a client uses. It holds the rent type, the unit filters, and the distance-rings switch. If a visitor hides the
+  drawer, a "Choose what to compare" button on the map brings it back.
+- Every button that can be pressed has a visible border, a tint when pointed at, and a filled look when chosen.
+  Each filter button shows how many comparable buildings are behind it, given the other choices already made.
+- One sentence always says what is on screen ("Showing net rent for 2 Beds in 5 of 6 buildings"), with a Reset
+  link that returns to base rent, every unit type and no rings. How the figures are worked out (average or
+  median, each building once, split rows) is under "More options" and is not part of Reset.
+- On a phone the small drawer shows that sentence, a "Choose what to compare (2)" button (the number is how many
+  choices are active) and the chart. The button opens the full-height sheet with every option.
+- The editor keeps its own strip for what only the editor sets: what counts toward net rent and the distance of
+  each ring. A client sets what counts toward net rent in the card, when the editor allows it.
+
 Unit filters and subjects:
 
-- Filters are independent multi-select chips that combine: Property type (Apartment, Townhome), Bedrooms
+- Filters (in "Choose what to compare") are independent multi-select chips that combine: Property type (Apartment, Townhome), Bedrooms
   (Studio, 1 Bed, 1 + Den, 2 Beds, 2 + Den, 3 Beds, 3 + Den, 4+), Bathrooms (1, 1.5, 2, 2.5, 3+) and Renovation
   (from a trailing "- Partial Reno" in the unit type) and Utilities (Included, Extra charge, Not included). Choices within a
   detail are OR, details combine with AND, and empty means any. So "2 Beds" with bathrooms 1, 2 and

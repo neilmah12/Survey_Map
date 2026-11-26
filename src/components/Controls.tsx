@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Survey, ViewSettings, Metric, NetSettings } from '../types';
-import { METRIC_LABEL } from '../lib/format';
-import { NET_PARTS, netAvailable, netDefinition, netOf, partsWithData } from '../lib/net';
-import { NO_FILTERS, filterOptions, isFiltering, kindContext, visibleUnits } from '../lib/groups';
-import type { UnitFilters } from '../lib/groups';
+import type { Survey, ViewSettings, NetSettings } from '../types';
+import { NET_PARTS, netOf, partsWithData } from '../lib/net';
 
 export const DEFAULT_RINGS = [0.5, 1, 2];
 
@@ -56,80 +53,44 @@ interface Props {
   onNet?: (n: NetSettings) => void;
 }
 
+/**
+ * The editor's own strip: what counts toward net rent, and the distance of each ring. Everything a visitor can
+ * choose (the rent type, the filters, the rings on or off) is in the summary panel's "Choose what to compare",
+ * the same place the client sees it, so the editor previews exactly what a client will use.
+ */
 export default function Controls({ survey, view, onChange, editable, onNet }: Props) {
-  const options = useMemo(() => filterOptions(survey), [survey]);
   const net = netOf(survey);
-  // Only offer a measure the data can show: no net rent without parking, utilities, incentive or misc amounts, no PSF without SF.
-  const available = useMemo(() => {
-    const units = survey.buildings.flatMap((b) => b.units);
-    return { rate: true, psf: units.some((u) => u.rate != null && u.sf), net: netAvailable(survey) } as Record<Metric, boolean>;
-  }, [survey]);
   const withData = useMemo(() => partsWithData(survey), [survey]);
   const setNet = (patch: Partial<NetSettings>) => onNet?.({ ...net, ...patch });
-  // The client only sees tick boxes for what the survey has data for, and only if the editor allowed it.
-  const netParts = NET_PARTS.filter((p) => editable || withData.has(p.k));
-  const showNetBox = editable ? true : net.enabled && net.clientCanChange && view.metric === 'net' && netParts.length > 0 && Boolean(onNet);
-  useEffect(() => {
-    if (!available[view.metric]) onChange({ ...view, metric: 'rate' });
-  }, [available, view.metric]); // eslint-disable-line react-hooks/exhaustive-deps
   const hasSubject = survey.buildings.some((b) => b.isSubject);
-  const toggle = (k: keyof UnitFilters, v: string) => {
-    const cur = view.filters[k];
-    onChange({ ...view, filters: { ...view.filters, [k]: cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v] } });
-  };
-  const sections: { k: keyof UnitFilters; label: string }[] = [
-    { k: 'kind', label: 'Property type' },
-    { k: 'beds', label: 'Bedrooms' },
-    { k: 'baths', label: 'Bathrooms' },
-    { k: 'reno', label: 'Renovation' },
-    { k: 'utils', label: 'Utilities' },
-  ];
-  const active = isFiltering(view.filters);
-  const ctx = useMemo(() => kindContext(survey), [survey]);
-  const shown = useMemo(
-    () => survey.buildings.filter((b) => visibleUnits(b, { filters: view.filters, ctx }).length > 0).length,
-    [survey, view.filters, ctx],
-  );
+  const showRings = editable && view.rings && hasSubject;
+  if (!editable && !showRings) return null;
 
   return (
     <div className="controls">
-      <div className="control-group">
-        <div className="control-label">Show</div>
-        <div className="seg">
-          {(Object.keys(METRIC_LABEL) as Metric[]).filter((m) => available[m]).map((m) => (
-            <button key={m} className={view.metric === m ? 'on' : ''} onClick={() => onChange({ ...view, metric: m })}>
-              {METRIC_LABEL[m]}
-            </button>
-          ))}
-        </div>
-        {view.metric === 'net' && <div className="net-def">{netDefinition(net)}</div>}
-      </div>
-
-      {showNetBox && (
+      {editable && (
         <div className="control-group net-group">
           <div className="control-label">Net rent</div>
-          {editable && (
-            <label className="check" title="Off hides net rent everywhere">
-              <input type="checkbox" checked={net.enabled} onChange={(e) => setNet({ enabled: e.target.checked })} />
-              Show net rent
-            </label>
-          )}
+          <label className="check" title="Off hides net rent everywhere">
+            <input type="checkbox" checked={net.enabled} onChange={(e) => setNet({ enabled: e.target.checked })} />
+            Show net rent
+          </label>
           {net.enabled && (
             <>
               <div className="chips" role="group" aria-label="What counts toward net rent">
-                {netParts.map((p) => (
+                {NET_PARTS.map((p) => (
                   <button
                     key={p.k}
-                    className={net[p.k] ? 'chip on' : 'chip'}
+                    className="chip"
                     aria-pressed={net[p.k]}
-                    title={editable && !withData.has(p.k) ? 'No suite has an amount for this yet' : undefined}
+                    title={!withData.has(p.k) ? 'No suite has an amount for this yet' : undefined}
                     onClick={() => setNet({ [p.k]: !net[p.k] } as Partial<NetSettings>)}
                   >
                     {p.label}
                   </button>
                 ))}
               </div>
-              {editable && net.incentives && (
+              {net.incentives && (
                 <label className="check term-field" title="Free rent is spread over the lease term. Used when the incentive text does not say the term.">
                   Free rent spread over
                   <input
@@ -145,78 +106,34 @@ export default function Controls({ survey, view, onChange, editable, onNet }: Pr
                   months unless the text says
                 </label>
               )}
-              {editable && (
-                <label className="check" title="Clients can tick the same boxes to see their own version of net rent. Their choices are not saved.">
-                  <input type="checkbox" checked={net.clientCanChange} onChange={(e) => setNet({ clientCanChange: e.target.checked })} />
-                  Clients can change these
-                </label>
-              )}
+              <label className="check" title="Clients can tick the same boxes to see their own version of net rent. Their choices are not saved.">
+                <input type="checkbox" checked={net.clientCanChange} onChange={(e) => setNet({ clientCanChange: e.target.checked })} />
+                Clients can change these
+              </label>
             </>
           )}
         </div>
       )}
 
-      <div className="control-group">
-        <div className="control-label">Compare</div>
-        <button
-          className={view.summary.open ? 'chip on' : 'chip'}
-          aria-pressed={view.summary.open}
-          onClick={() => onChange({ ...view, summary: { ...view.summary, open: !view.summary.open } })}
-        >
-          Market summary
-        </button>
-      </div>
-
-      {sections.map(({ k, label }) =>
-        options[k].length > 0 ? (
-          <div className="control-group" key={k}>
-            <div className="control-label">{label}</div>
-            <div className="chips">
-              {options[k].map((v) => (
-                <button key={v} className={view.filters[k].includes(v) ? 'chip on' : 'chip'} aria-pressed={view.filters[k].includes(v)} onClick={() => toggle(k, v)}>
-                  {v}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null,
-      )}
-
-      {active && (
-        <div className="control-group">
-          <div className="control-label">
-            Showing {shown} of {survey.buildings.length}
-          </div>
-          <button className="link-btn" onClick={() => onChange({ ...view, filters: NO_FILTERS })}>
-            Clear filters
-          </button>
-        </div>
-      )}
-
-      {hasSubject && (
+      {showRings && (
         <div className="control-group rings">
-          <label className="check">
-            <input type="checkbox" checked={view.rings} onChange={(e) => onChange({ ...view, rings: e.target.checked })} />
-            Distance rings from subject
-          </label>
-          {editable && view.rings && (
-            <div className="ring-list">
-              {view.ringsKm.map((km, i) => (
-                <RingInput
-                  key={i}
-                  km={km}
-                  onCommit={(v) => onChange({ ...view, ringsKm: view.ringsKm.map((x, j) => (j === i ? v : x)) })}
-                  onRemove={() => onChange({ ...view, ringsKm: view.ringsKm.filter((_, j) => j !== i) })}
-                />
-              ))}
-              <button className="link-btn" onClick={() => onChange({ ...view, ringsKm: [...view.ringsKm, nextRing(view.ringsKm)] })}>
-                + Add ring
-              </button>
-              <button className="link-btn" onClick={() => onChange({ ...view, ringsKm: DEFAULT_RINGS })}>
-                Reset
-              </button>
-            </div>
-          )}
+          <div className="control-label">Distance rings (km)</div>
+          <div className="ring-list">
+            {view.ringsKm.map((km, i) => (
+              <RingInput
+                key={i}
+                km={km}
+                onCommit={(v) => onChange({ ...view, ringsKm: view.ringsKm.map((x, j) => (j === i ? v : x)) })}
+                onRemove={() => onChange({ ...view, ringsKm: view.ringsKm.filter((_, j) => j !== i) })}
+              />
+            ))}
+            <button className="link-btn" onClick={() => onChange({ ...view, ringsKm: [...view.ringsKm, nextRing(view.ringsKm)] })}>
+              + Add ring
+            </button>
+            <button className="link-btn" onClick={() => onChange({ ...view, ringsKm: DEFAULT_RINGS })}>
+              Reset
+            </button>
+          </div>
         </div>
       )}
     </div>

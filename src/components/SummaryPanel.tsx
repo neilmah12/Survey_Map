@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Survey, ViewSettings } from '../types';
+import type { NetSettings, Survey, ViewSettings } from '../types';
 import { METRIC_LABEL, formatMetric } from '../lib/format';
 import { filterOptions } from '../lib/groups';
 import { computeSummary } from '../lib/summary';
 import { fmtDiff, fmtValue } from '../lib/summaryFormat';
 import { netDefinition, netOf } from '../lib/net';
 import SummaryChart from './SummaryChart';
+import ChoosePanel from './ChoosePanel';
+import { availableMetrics } from '../lib/choose';
 import { pinNumbers } from '../lib/pinNumbers';
 
 interface Props {
@@ -19,6 +21,10 @@ interface Props {
   onToggleUnit?: (buildingId: string, unitId: string) => void;
   /** Editor only: buildings left out because they have no pin yet. */
   unplaced?: number;
+  /** The editor sets what counts toward net rent in its own strip, so the panel leaves that to it. */
+  editable?: boolean;
+  /** A client who is allowed to change what counts toward net rent does it in the panel. */
+  onNet?: (n: NetSettings) => void;
 }
 
 const PHONE = '(max-width: 900px)';
@@ -35,7 +41,7 @@ function usePhone(): boolean {
   return phone;
 }
 
-export default function SummaryPanel({ survey, view, onView, canToggle, onToggleBuilding, onToggleUnit, unplaced = 0 }: Props) {
+export default function SummaryPanel({ survey, view, onView, canToggle, onToggleBuilding, onToggleUnit, unplaced = 0, editable = false, onNet }: Props) {
   const s = view.summary;
   // Not saved anywhere: the client file may not touch browser storage, so it opens collapsed each visit.
   const [expanded, setExpanded] = useState(false);
@@ -61,7 +67,19 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
   const unit = s.perBuilding ? 'buildings' : 'units';
   const offCount = result.excludedUnits;
 
-  if (!s.open) return null;
+  // A measure the data cannot show (no square feet, nothing changing a rent) cannot stay chosen.
+  const available = useMemo(() => availableMetrics(survey), [survey]);
+  useEffect(() => {
+    if (!available[view.metric]) onView({ ...view, metric: 'rate' });
+  }, [available, view.metric]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Hidden: a button on the map brings it back, so the options are never lost.
+  if (!s.open)
+    return (
+      <button className="reopen" onClick={() => set({ open: true })}>
+        Choose what to compare
+      </button>
+    );
   return (
     <div className={`summary-wrap${expanded ? ' expanded' : ''}`}>
     {phone ? <GrabBar expanded={expanded} onToggle={setExpanded} /> : <EdgeTab expanded={expanded} onToggle={() => setExpanded(!expanded)} />}
@@ -80,39 +98,46 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
         </button>
       </div>
 
-      <div className="summary-controls">
-        <div className="seg">
-          <button className={s.stat === 'avg' ? 'on' : ''} onClick={() => set({ stat: 'avg' })}>Average</button>
-          <button className={s.stat === 'median' ? 'on' : ''} onClick={() => set({ stat: 'median' })}>Median</button>
-        </div>
-        <label className="check" title="Off: every unit counts, so a building with three suites weighs three times">
-          <input type="checkbox" checked={s.perBuilding} onChange={(e) => set({ perBuilding: e.target.checked })} />
-          Each building counts once
-        </label>
-        <div className="chart-controls">
-          <span className="control-label">Chart</span>
-          <div className="seg" role="group" aria-label="Chart view">
-            <button className={s.chart === 'compare' ? 'on' : ''} onClick={() => set({ chart: 'compare' })}>Compare</button>
-            <button className={s.chart === 'diff' ? 'on' : ''} onClick={() => set({ chart: 'diff' })}>Difference %</button>
-            <button className={s.chart === 'off' ? 'on' : ''} onClick={() => set({ chart: 'off' })}>Off</button>
-          </div>
-        </div>
-        {splits.length > 0 && (
-          <div className="splits">
-            <span className="control-label">Split by</span>
-            {splits.map((o) => (
-              <label key={o.k} className="check">
-                <input type="checkbox" checked={Boolean(s.split[o.k])} onChange={(e) => set({ split: { ...s.split, [o.k]: e.target.checked } })} />
-                {o.label}
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+      <ChoosePanel survey={survey} view={view} onView={onView} editable={editable} onNet={onNet} phone={phone} expanded={expanded} onExpand={() => setExpanded(true)} />
 
       {!result.hasSubject && <p className="summary-note">Mark a subject property to compare it with the market.</p>}
 
-      {s.chart !== 'off' && result.rows.length > 0 && <SummaryChart result={result} metric={view.metric} mode={s.chart} stat={s.stat} numbers={numbers} compact={phone && !expanded} />}
+      <div className="chart-block">
+        <div className="chart-controls">
+          <span className="control-label">Chart</span>
+          <div className="seg" role="group" aria-label="Chart view">
+            <button aria-pressed={s.chart === 'compare'} onClick={() => set({ chart: 'compare' })}>Compare</button>
+            <button aria-pressed={s.chart === 'diff'} onClick={() => set({ chart: 'diff' })}>Difference %</button>
+            <button aria-pressed={s.chart === 'off'} onClick={() => set({ chart: 'off' })}>Off</button>
+          </div>
+        </div>
+        {s.chart !== 'off' && result.rows.length > 0 && <SummaryChart result={result} metric={view.metric} mode={s.chart} stat={s.stat} numbers={numbers} compact={phone && !expanded} />}
+      </div>
+
+      <details className="more-options">
+        <summary>More options</summary>
+        <div className="more-body">
+          <div className="seg">
+            <button aria-pressed={s.stat === 'avg'} onClick={() => set({ stat: 'avg' })}>Average</button>
+            <button aria-pressed={s.stat === 'median'} onClick={() => set({ stat: 'median' })}>Median</button>
+          </div>
+          <label className="check" title="Off: every unit counts, so a building with three suites weighs three times">
+            <input type="checkbox" checked={s.perBuilding} onChange={(e) => set({ perBuilding: e.target.checked })} />
+            Each building counts once
+          </label>
+          {splits.length > 0 && (
+            <div className="splits">
+              <span className="control-label">Split rows by</span>
+              {splits.map((o) => (
+                <label key={o.k} className="check">
+                  <input type="checkbox" checked={Boolean(s.split[o.k])} onChange={(e) => set({ split: { ...s.split, [o.k]: e.target.checked } })} />
+                  {o.label}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      </details>
 
       {result.rows.length === 0 ? (
         <p className="summary-note">Nothing to compare with the current filters.</p>

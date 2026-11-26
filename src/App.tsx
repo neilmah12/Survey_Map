@@ -640,6 +640,7 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
               view={view}
               onView={setView}
               canToggle
+              editable
               unplaced={survey.buildings.length - placedSurvey!.buildings.length}
               onToggleBuilding={(id) =>
                 setSurvey((s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === id ? { ...b, excluded: !b.excluded } : b)) }, { commit: true })

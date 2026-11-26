@@ -65,15 +65,18 @@ button, input { font: inherit; }
 
 .controls { order: -1; z-index: 5; background: #fff; border-bottom: 1px solid var(--line); padding: 8px 14px; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 22px; }
 .control-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-.seg button { border: 0; background: #fff; padding: 5px 10px; cursor: pointer; border-right: 1px solid var(--line); }
+/* Every button that can be pressed looks pressable: a visible border, a tint when pointed at, filled when chosen */
+.seg { display: inline-flex; border: 1.5px solid #98a2b3; border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: #fff; padding: 7px 12px; cursor: pointer; border-right: 1.5px solid #98a2b3; font-weight: 550; white-space: nowrap; }
 .seg button:last-child { border-right: 0; }
-.seg button.on { background: var(--navy); color: #fff; }
-.summary-controls .seg { display: flex; width: 100%; }
-.summary-controls .seg button { flex: 1 1 0; }
+.seg button.on, .seg button[aria-pressed="true"] { background: var(--navy); color: #fff; font-weight: 650; }
+.seg button:focus-visible, .chip:focus-visible, .btn-change:focus-visible, .reopen:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.chip { border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 3px 11px; cursor: pointer; }
-.chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+.chip { border: 1.5px solid #98a2b3; background: #fff; border-radius: 99px; padding: 5px 12px; cursor: pointer; font-weight: 550; }
+.chip.on, .chip[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+.chip small { margin-left: 4px; font-size: 11.5px; font-weight: 500; color: #667085; }
+.chip small::before { content: '\00b7\00a0'; }
+.chip[aria-pressed="true"] small, .chip.on small { color: inherit; opacity: .85; }
 .net-def { margin-top: 4px; font-size: 11px; color: var(--muted); max-width: 260px; }
 .net-group .check { margin-top: 4px; font-size: 12px; }
 .updated { font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -205,7 +208,29 @@ button, input { font: inherit; }
 .summary-title { font-weight: 700; color: var(--navy); font-size: 15px; }
 .summary-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .summary-controls { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
-.chart-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+
+/* Choose what to compare */
+.choose { border: 1px solid var(--line); border-radius: 12px; background: #f6f8fb; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; margin: 10px 0; }
+.choose-head { display: flex; justify-content: space-between; align-items: baseline; }
+.choose h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--navy); }
+.choose-group { display: flex; flex-direction: column; gap: 5px; }
+.choose-label { font-size: 12px; font-weight: 650; color: #475467; }
+.choose .seg { display: flex; width: 100%; }
+.choose .seg button { flex: 1 1 0; }
+.choose-sentence { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; font-size: 13px; padding-top: 9px; border-top: 1px solid var(--line); }
+.choose-sentence b { font-weight: 650; }
+.choose.strip { margin: 6px 0; gap: 8px; }
+.choose.strip .choose-sentence { border-top: 0; padding-top: 0; }
+.btn-change { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--navy); background: var(--navy); color: #fff; font-size: 14px; font-weight: 650; cursor: pointer; }
+.more-options { margin: 8px 0 4px; font-size: 13px; }
+.more-options > summary { cursor: pointer; font-weight: 600; color: var(--navy); }
+.more-body { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.more-body .seg { display: flex; width: 100%; }
+.more-body .seg button { flex: 1 1 0; }
+.chart-block { margin: 6px 0 4px; }
+/* Hidden: a button on the map brings the summary back */
+.reopen { position: absolute; left: 12px; top: 12px; z-index: 8; padding: 9px 15px; border-radius: 999px; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); font-size: 13.5px; font-weight: 650; cursor: pointer; box-shadow: 0 2px 8px rgba(16,24,40,.25); }
+.chart-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 8px; }
 .chart-controls .seg { flex: 1 1 auto; min-width: 0; }
 .chart-controls .seg button { flex: 1 1 0; }
 .summary-chart { margin: 4px 0 10px; }
@@ -255,7 +280,7 @@ button, input { font: inherit; }
 @media (max-width: 900px) {
   /* The summary sits under the map instead of covering it */
   .stage-main { flex-direction: column; }
-  .summary-wrap { flex-direction: column; width: auto; max-height: 52%; background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -4px 14px rgba(16,24,40,.12); }
+  .summary-wrap { flex-direction: column; width: auto; max-height: 56%; background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -4px 14px rgba(16,24,40,.12); }
   /* Phone: a bar across the top of the drawer, with an arrow, in the usual bottom-sheet style */
   .panel-grab { display: flex; flex: none; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 30px; padding: 0; border: 0; background: #fff; color: var(--navy); cursor: pointer; touch-action: none; }
   .grab-pill { width: 40px; height: 4px; border-radius: 2px; background: #c3cad6; }
@@ -263,8 +288,15 @@ button, input { font: inherit; }
   /* The chart comes first on a small screen: the controls sit under it, not above it */
   .summary-panel > * { order: 3; flex: none; }
   .summary-panel > .summary-head { order: 0; }
-  .summary-panel > .summary-chart { order: 1; }
-  .summary-panel > .summary-controls { order: 2; }
+  .summary-panel > .choose { order: 0; }
+  /* The small drawer keeps the chart in view: no grey subtitles, no chart-view buttons (the full sheet has them), a slimmer card */
+  .summary-wrap:not(.expanded) .summary-sub, .summary-wrap:not(.expanded) .chart-controls { display: none; }
+  .choose.strip { margin: 6px 0 6px; gap: 6px; padding: 8px 10px; }
+  .choose.strip .choose-sentence { flex-wrap: nowrap; font-size: 12.5px; align-items: flex-start; }
+  .choose.strip .choose-sentence .link-btn { flex: none; }
+  .choose.strip .btn-change { padding: 8px 12px; font-size: 13.5px; }
+  .summary-panel > .chart-block { order: 1; }
+  .summary-panel > .more-options { order: 2; }
   /* Expanded on a phone: the summary fills the space the map had */
   .summary-wrap.expanded { position: absolute; inset: 0; max-height: none; z-index: 20; border-top: 0; box-shadow: none; }
   .summary-wrap.expanded .summary-panel { width: auto; }
@@ -331,6 +363,10 @@ button, input { font: inherit; }
 /* Hover only where there is a mouse: on touch, :hover sticks after a tap and looks selected. */
 @media (hover: hover) {
   .btn:hover:not(:disabled):not(.on) { border-color: var(--navy); }
+  .seg button:hover:not(.on):not([aria-pressed="true"]) { background: #e8edf8; color: var(--navy); }
+  .chip:hover:not(.on):not([aria-pressed="true"]) { background: #e8edf8; border-color: var(--navy); color: var(--navy); }
+  .reopen:hover { background: #e8edf8; }
+  .btn-change:hover { background: var(--navy-2); }
   .brow:hover:not(.on) { background: var(--bg); }
   .ring-item button:hover { color: #b42318; }
   .pin:hover { z-index: 9; }

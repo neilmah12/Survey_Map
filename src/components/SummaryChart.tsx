@@ -16,7 +16,7 @@ interface Props {
   compact?: boolean;
 }
 
-const COMPACT_H = 168;
+const COMPACT_H = 156;
 
 function draw(s: Shape, i: number) {
   switch (s.k) {
