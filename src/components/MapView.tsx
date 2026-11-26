@@ -29,6 +29,8 @@ interface Props {
   onSelect: (id: string | null) => void;
   onMove: (id: string, lngLat: LngLat) => void;
   /** Editor: pins cannot be dragged (hold Shift to move one). Placing and typing coordinates are unaffected. */
+  /** Lets a visitor count a building in or out of the figures from its popup. */
+  onToggleBuilding?: (id: string) => void;
   pinsLocked?: boolean;
   /** Called when someone tries to drag a locked pin, so the editor can say how to unlock it. */
   onLockedDrag?: () => void;
@@ -80,6 +82,8 @@ interface PopupCtx {
   market: SummaryResult;
   /** The number on the building's pin (nearest the subject is 1). */
   num?: number;
+  /** Switches the building on or off in the comparison (shown only where the visitor may do that). */
+  toggle?: () => void;
 }
 
 /** "+4.6%" for a suite against the market figure for its unit type, or '-' when there is nothing to compare. */
@@ -186,6 +190,18 @@ function popupContent(b: Building, filter: UnitFilter, pc: PopupCtx): HTMLElemen
     a.textContent = 'View listing';
     row.append(a);
     root.append(row);
+  }
+  // Counting a building in or out of the figures, for a visitor who is allowed to. Not for the subject, and not for
+  // a building beyond the chosen distance (the distance already leaves it out).
+  if (pc.toggle && !b.isSubject && b.out !== 'far') {
+    const label = document.createElement('label');
+    label.className = 'popup-toggle';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = !b.excluded;
+    box.addEventListener('change', () => pc.toggle?.());
+    label.append(box, document.createTextNode(b.excluded ? ' Not counted. Tick to count this building' : ' Counted in the comparison'));
+    root.append(label);
   }
   return root;
 }
@@ -370,7 +386,7 @@ export default function MapView(p: Props) {
       // A popup reopened because the data changed must not take the keyboard focus, or typing in the sidebar
       // stops after one character (MapLibre focuses a popup when it opens).
       const popup = new maplibregl.Popup({ anchor: 'bottom', offset: popupOffset(element), maxWidth: window.innerWidth < 520 ? '88vw' : '380px', closeButton: true, focusAfterOpen: !wasOpen }).setDOMContent(
-        popupContent(b, filter, { net, showNet, metric: p.view.metric, split: p.view.summary.split, market, num: numbers.get(b.id) }),
+        popupContent(b, filter, { net, showNet, metric: p.view.metric, split: p.view.summary.split, market, num: numbers.get(b.id), toggle: live.current.onToggleBuilding ? () => live.current.onToggleBuilding?.(b.id) : undefined }),
       );
       popup.on('open', () => {
         popup.setOffset(popupOffset(element));

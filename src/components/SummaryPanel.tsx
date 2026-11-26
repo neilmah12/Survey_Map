@@ -68,6 +68,7 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
   // Nearest first (the same order as the numbers on the pins).
   const listed = [...comps].sort((a, b) => (numbers.get(a.id) ?? 9999) - (numbers.get(b.id) ?? 9999));
   const pills = appliedPills(view);
+  const switchedOff = comps.filter((b) => b.excluded && b.out !== 'far');
   const counts = matching(survey, view.filters);
   const unit = s.perBuilding ? 'buildings' : 'units';
   const offCount = result.excludedUnits;
@@ -101,6 +102,14 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
             <b>Based on:</b>
             {pills.length === 0 ? <span className="none">every unit type, any distance</span> : pills.map((x) => <span className="pill" key={x}>{x}</span>)}
             <span className="none">({result.marketBuildings} of {counts.total} comparable building{counts.total === 1 ? '' : 's'})</span>
+            {canToggle && switchedOff.length > 0 && (
+              <span className="none">
+                {switchedOff.length} switched off{' '}
+                <button className="link-btn" onClick={() => switchedOff.forEach((b) => onToggleBuilding?.(b.id))}>
+                  Switch back on
+                </button>
+              </span>
+            )}
           </div>
         </div>
         <button className="link-btn" onClick={() => set({ open: false })} aria-label="Hide the market summary">
@@ -109,6 +118,56 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
       </div>
 
       <ChoosePanel survey={survey} view={view} onView={onView} editable={editable} onNet={onNet} phone={phone} expanded={expanded} onExpand={() => setExpanded(true)} />
+
+      {comps.length > 0 && (
+        <details className="summary-props near-list" open={canToggle || undefined}>
+          <summary>{canToggle ? 'Buildings in the comparison' : 'Buildings and distances'}</summary>
+          <p className="hint">
+            {canToggle ? 'Untick a property, or a single suite, to take it out of the figures. It stays on the map, greyed. ' : ''}
+            {subjects.length ? 'Distances are measured from the subject. ' : ''}
+            Buildings beyond the chosen distance are greyed and not counted.
+          </p>
+          <ul>
+            {listed.map((b) => {
+              const far = b.out === 'far';
+              const label = (
+                <>
+                  {numbers.has(b.id) && <span className="num-badge">{numbers.get(b.id)}</span>}
+                  <span className={b.excluded || far ? 'off' : ''}>{b.name}</span>
+                  {b.distKm != null && <span className="dist">{fmtKm(b.distKm)}</span>}
+                </>
+              );
+              return (
+                <li key={b.id}>
+                  {canToggle ? (
+                    <label className="check row">
+                      <input type="checkbox" checked={!b.excluded && !far} disabled={far} onChange={() => onToggleBuilding?.(b.id)} />
+                      {label}
+                    </label>
+                  ) : (
+                    <div className="row">{label}</div>
+                  )}
+                  {canToggle && b.units.length > 1 && !far && (
+                    <ul className="units-off">
+                      {b.units.map((u) => (
+                        <li key={u.id}>
+                          <label className="check">
+                            <input type="checkbox" checked={!b.excluded && !u.excluded} disabled={b.excluded} onChange={() => onToggleUnit?.(b.id, u.id)} />
+                            <span className={b.excluded || u.excluded ? 'off' : ''}>
+                              {u.type || 'Unit'}
+                              {u.rate != null ? ` · ${formatMetric(u.rate, 'rate')}` : ''}
+                            </span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      )}
 
       {!result.hasSubject && <p className="summary-note">Mark a subject property to compare it with the market.</p>}
 
@@ -183,55 +242,6 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
         {unplaced > 0 ? `${unplaced} building${unplaced === 1 ? ' has' : 's have'} no pin yet and ${unplaced === 1 ? 'is' : 'are'} not counted.` : ''}
       </p>
 
-      {comps.length > 0 && (
-        <details className="summary-props near-list">
-          <summary>{canToggle ? 'Properties in the comparison' : 'Buildings and distances'}</summary>
-          <p className="hint">
-            {canToggle ? 'Untick a property, or a single suite, to take it out of the figures. It stays on the map, greyed. ' : ''}
-            {subjects.length ? 'Distances are measured from the subject. ' : ''}
-            Buildings beyond the chosen distance are greyed and not counted.
-          </p>
-          <ul>
-            {listed.map((b) => {
-              const far = b.out === 'far';
-              const label = (
-                <>
-                  {numbers.has(b.id) && <span className="num-badge">{numbers.get(b.id)}</span>}
-                  <span className={b.excluded || far ? 'off' : ''}>{b.name}</span>
-                  {b.distKm != null && <span className="dist">{fmtKm(b.distKm)}</span>}
-                </>
-              );
-              return (
-                <li key={b.id}>
-                  {canToggle ? (
-                    <label className="check row">
-                      <input type="checkbox" checked={!b.excluded && !far} disabled={far} onChange={() => onToggleBuilding?.(b.id)} />
-                      {label}
-                    </label>
-                  ) : (
-                    <div className="row">{label}</div>
-                  )}
-                  {canToggle && b.units.length > 1 && !far && (
-                    <ul className="units-off">
-                      {b.units.map((u) => (
-                        <li key={u.id}>
-                          <label className="check">
-                            <input type="checkbox" checked={!b.excluded && !u.excluded} disabled={b.excluded} onChange={() => onToggleUnit?.(b.id, u.id)} />
-                            <span className={b.excluded || u.excluded ? 'off' : ''}>
-                              {u.type || 'Unit'}
-                              {u.rate != null ? ` · ${formatMetric(u.rate, 'rate')}` : ''}
-                            </span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </details>
-      )}
     </aside>
     </div>
   );

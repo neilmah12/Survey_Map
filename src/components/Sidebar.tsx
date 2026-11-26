@@ -414,9 +414,9 @@ export default function Sidebar(p: Props) {
         <div className="editor-title">Survey</div>
         <Field label="Title" value={p.survey.title} onChange={(v) => p.onSurvey({ title: v })} wide />
         <Field label="Source line (shown on exports and the client page)" value={p.survey.sourceNote ?? ''} onChange={(v) => p.onSurvey({ sourceNote: v })} wide />
-        <label className="check" title="Off by default. Clients see your selection and cannot change it.">
+        <label className="check" title="Off by default: clients see your selection and cannot change it. On: they get a tick box per building (in the summary and on each map popup) to drop one from the figures. Their choices are never saved.">
           <input type="checkbox" checked={Boolean(p.survey.clientCanToggle)} onChange={(e) => p.onSurvey({ clientCanToggle: e.target.checked })} />
-          Clients can switch properties on and off in the summary
+          Clients can switch buildings on and off
         </label>
         <div className="row2">
           <Field label="Location" value={p.survey.location} onChange={(v) => p.onSurvey({ location: v })} />

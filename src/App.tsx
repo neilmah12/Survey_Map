@@ -637,6 +637,7 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
               placingId={editable ? placingId : null}
               onSelect={setSelectedId}
               pinsLocked={pinsLocked}
+              onToggleBuilding={(id) => setSurvey((s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === id ? { ...b, excluded: !b.excluded } : b)) }, { commit: true })}
               onLockedDrag={() => {
                 if (Date.now() - lockHint.current < 8000) return; // once in a while, not on every attempt
                 lockHint.current = Date.now();

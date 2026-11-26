@@ -45,6 +45,7 @@ export default function ClientViewer({ survey: initialSurvey, initialView, banne
               selectedId={null}
               placingId={null}
               onSelect={noop}
+              onToggleBuilding={canToggle ? toggleBuilding : undefined}
               onMove={noop}
               onPlace={noop}
               fitKey={0}

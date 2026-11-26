@@ -403,3 +403,11 @@ table, .pin, .chart-plot, .tip-grid { font-variant-numeric: tabular-nums; }
 
 /* Scrolling past the end of a panel or dialog does not scroll the page behind it. */
 .sidebar, .summary-panel, .modal, .export-checks { overscroll-behavior: contain; }
+
+/* Counting a building in or out, from its popup */
+.popup-toggle { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 6px 8px; border: 1px solid var(--hair); border-radius: 8px; background: #f7f9fc; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.popup-toggle input { width: 16px; height: 16px; accent-color: var(--navy); }
+.summary-wrap:not(.expanded) .summary-props { display: none; }
+@media (min-width: 901px) { .summary-wrap:not(.expanded) .summary-props { display: block; } }
+.summary-props.near-list ul { max-height: 230px; overflow-y: auto; }
+.summary-props.near-list > summary { font-size: 13.5px; }
