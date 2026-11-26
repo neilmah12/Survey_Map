@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Survey, ViewSettings, NetSettings } from '../types';
 import { NET_PARTS, netOf, partsWithData } from '../lib/net';
 
-export const DEFAULT_RINGS = [0.5, 1, 2];
+export const DEFAULT_RINGS = [1, 3, 5];
 
 /** Suggests a distance a little beyond the largest ring. */
 const nextRing = (rings: number[]) => (rings.length ? Math.round((Math.max(...rings) + 1) * 10) / 10 : 1);
@@ -63,7 +63,7 @@ export default function Controls({ survey, view, onChange, editable, onNet }: Pr
   const withData = useMemo(() => partsWithData(survey), [survey]);
   const setNet = (patch: Partial<NetSettings>) => onNet?.({ ...net, ...patch });
   const hasSubject = survey.buildings.some((b) => b.isSubject);
-  const showRings = editable && view.rings && hasSubject;
+  const showRings = editable && hasSubject;
   if (!editable && !showRings) return null;
 
   return (
@@ -117,7 +117,7 @@ export default function Controls({ survey, view, onChange, editable, onNet }: Pr
 
       {showRings && (
         <div className="control-group rings">
-          <div className="control-label">Distance rings (km)</div>
+          <div className="control-label" title="Clients are offered these distances, starting from the one chosen in the summary. They can also type their own.">Distances offered (km)</div>
           <div className="ring-list">
             {view.ringsKm.map((km, i) => (
               <RingInput

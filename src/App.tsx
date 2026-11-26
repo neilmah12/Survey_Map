@@ -20,6 +20,7 @@ import { getClientTemplate } from './lib/clientTemplate';
 import ConfirmDialog from './components/ConfirmDialog';
 import Header from './components/Header';
 import Controls, { DEFAULT_RINGS } from './components/Controls';
+import { scopeSurvey } from './lib/scope';
 import Sidebar from './components/Sidebar';
 import MapView from './components/MapView';
 import SurveysDialog from './components/SurveysDialog';
@@ -304,9 +305,11 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
   };
 
   // The summary counts only buildings that are on the map, so it matches the client file exactly.
+  // Marked with who is compared and how far away, so the map, the summary and the exports agree.
+  const scopedSurvey = useMemo(() => (survey ? scopeSurvey(survey, view) : null), [survey, view.within, view.subjectId]); // eslint-disable-line react-hooks/exhaustive-deps
   const placedSurvey = useMemo(
-    () => (survey ? { ...survey, buildings: survey.buildings.filter((b) => b.lngLat) } : null),
-    [survey],
+    () => (scopedSurvey ? { ...scopedSurvey, buildings: scopedSurvey.buildings.filter((b) => b.lngLat) } : null),
+    [scopedSurvey],
   );
 
   const exportClientFile = () => {
@@ -616,7 +619,7 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
           <Controls survey={survey} view={view} onChange={setView} editable={editable} onNet={(net) => setSurvey((s) => s && { ...s, net }, { commit: true })} />
           <div className="stage-main">
             <MapView
-              survey={survey}
+              survey={scopedSurvey!}
               view={view}
               editable={editable}
               selectedId={selectedId}

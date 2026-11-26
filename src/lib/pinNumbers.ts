@@ -7,12 +7,12 @@ import { haversineKm } from './geo';
  * or when a building is switched off: building 3 is building 3 on the map, in the popup, in the chart tooltip
  * and in the exported legend.
  *
- * With several subjects a comparable is ranked by its distance to the nearest one. With no subject there is
+ * With several subjects the one being compared (the others are marked out) is measured from. With no subject there is
  * nothing to measure from, so the numbers follow the order of the sheet. Buildings without a pin get no number.
  */
-export function pinNumbers(buildings: Pick<Building, 'id' | 'isSubject' | 'lngLat'>[]): Map<string, number> {
+export function pinNumbers(buildings: Pick<Building, 'id' | 'isSubject' | 'lngLat' | 'out'>[]): Map<string, number> {
   const placed = buildings.filter((b) => b.lngLat);
-  const subjects = placed.filter((b) => b.isSubject);
+  const subjects = placed.filter((b) => b.isSubject && !b.out); // a subject set aside is not measured from
   const away = (b: (typeof placed)[number]) => (subjects.length ? Math.min(...subjects.map((s) => haversineKm(s.lngLat!, b.lngLat!))) : 0);
   const ranked = placed
     .filter((b) => !b.isSubject)

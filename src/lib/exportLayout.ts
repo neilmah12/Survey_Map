@@ -3,6 +3,7 @@ import { isFiltering, visibleUnits, kindContext, type UnitFilters } from './grou
 import { pinBadges, utilStatus } from './utilities';
 import { METRIC_LABEL } from './format';
 import { netDefinition } from './net';
+import { ringRadii } from './scope';
 import type { SummaryResult } from './summary';
 
 /** All page geometry is in CSS pixels (96 per inch); the renderer scales to the chosen resolution. */
@@ -76,12 +77,13 @@ export function legendItems(survey: Survey, view: ViewSettings): LegendItem[] {
     .map((b) => ({ b, units: visibleUnits(b, { filters: view.filters, ctx }) }))
     .filter((x) => x.units.length > 0);
   const items: LegendItem[] = [];
-  if (shown.some((x) => x.b.isSubject)) items.push({ kind: 'subject', label: 'Subject property' });
+  if (shown.some((x) => x.b.isSubject && !x.b.out)) items.push({ kind: 'subject', label: 'Subject property' });
   if (shown.some((x) => !x.b.isSubject)) items.push({ kind: 'comp', label: 'Comparable property, numbered nearest the subject first' });
-  if (shown.some((x) => x.b.excluded || x.units.every((u) => u.excluded))) items.push({ kind: 'excluded', label: 'Not counted in the averages' });
+  if (shown.some((x) => x.b.excluded || x.b.out || x.units.every((u) => u.excluded))) items.push({ kind: 'excluded', label: 'Not counted in the averages (switched off, or beyond the chosen distance)' });
   if (shown.some((x) => pinBadges(x.units).some((p) => p.kind === 'incentive'))) items.push({ kind: 'incentive', label: 'Incentive offered' });
   if (shown.some((x) => x.units.some((u) => utilStatus(u) === 'included'))) items.push({ kind: 'utils', label: 'Utilities included in rent (tag names which)' });
-  if (view.rings && shown.some((x) => x.b.isSubject)) items.push({ kind: 'rings', label: `Distance from subject (${view.ringsKm.join(', ')} km)` });
+  const radii = ringRadii(view);
+  if (radii.length && shown.some((x) => x.b.isSubject && !x.b.out)) items.push({ kind: 'rings', label: `Distance from subject (${radii.join(', ')} km)` });
   return items;
 }
 

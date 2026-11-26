@@ -7,7 +7,8 @@ import { fmtDiff, fmtValue } from '../lib/summaryFormat';
 import { netDefinition, netOf } from '../lib/net';
 import SummaryChart from './SummaryChart';
 import ChoosePanel from './ChoosePanel';
-import { availableMetrics } from '../lib/choose';
+import { appliedPills, availableMetrics, matching } from '../lib/choose';
+import { fmtKm } from '../lib/scope';
 import { pinNumbers } from '../lib/pinNumbers';
 
 interface Props {
@@ -62,8 +63,12 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
   const splits = allSplits.filter(({ k }) => options[k].length > 0 || s.split[k]);
 
   const numbers = useMemo(() => pinNumbers(survey.buildings), [survey.buildings]);
-  const subjects = survey.buildings.filter((b) => b.isSubject);
+  const subjects = survey.buildings.filter((b) => b.isSubject && !b.out);
   const comps = survey.buildings.filter((b) => !b.isSubject);
+  // Nearest first (the same order as the numbers on the pins).
+  const listed = [...comps].sort((a, b) => (numbers.get(a.id) ?? 9999) - (numbers.get(b.id) ?? 9999));
+  const pills = appliedPills(view);
+  const counts = matching(survey, view.filters);
   const unit = s.perBuilding ? 'buildings' : 'units';
   const offCount = result.excludedUnits;
 
@@ -92,6 +97,11 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
             {subjects.length ? `, subject excluded` : ''}
           </div>
           {view.metric === 'net' && <div className="summary-sub">{netDefinition(netOf(survey))}</div>}
+          <div className="applied" aria-label="Choices applied to these figures">
+            <b>Based on:</b>
+            {pills.length === 0 ? <span className="none">every unit type, any distance</span> : pills.map((x) => <span className="pill" key={x}>{x}</span>)}
+            <span className="none">({result.marketBuildings} of {counts.total} comparable building{counts.total === 1 ? '' : 's'})</span>
+          </div>
         </div>
         <button className="link-btn" onClick={() => set({ open: false })} aria-label="Hide the market summary">
           Hide
@@ -173,36 +183,52 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
         {unplaced > 0 ? `${unplaced} building${unplaced === 1 ? ' has' : 's have'} no pin yet and ${unplaced === 1 ? 'is' : 'are'} not counted.` : ''}
       </p>
 
-      {canToggle && comps.length > 0 && (
-        <details className="summary-props">
-          <summary>Properties in the comparison</summary>
-          <p className="hint">Untick a property, or a single suite, to take it out of the figures. It stays on the map, greyed.</p>
+      {comps.length > 0 && (
+        <details className="summary-props near-list">
+          <summary>{canToggle ? 'Properties in the comparison' : 'Buildings and distances'}</summary>
+          <p className="hint">
+            {canToggle ? 'Untick a property, or a single suite, to take it out of the figures. It stays on the map, greyed. ' : ''}
+            {subjects.length ? 'Distances are measured from the subject. ' : ''}
+            Buildings beyond the chosen distance are greyed and not counted.
+          </p>
           <ul>
-            {comps.map((b) => (
-              <li key={b.id}>
-                <label className="check">
-                  <input type="checkbox" checked={!b.excluded} onChange={() => onToggleBuilding?.(b.id)} />
+            {listed.map((b) => {
+              const far = b.out === 'far';
+              const label = (
+                <>
                   {numbers.has(b.id) && <span className="num-badge">{numbers.get(b.id)}</span>}
-                  <span className={b.excluded ? 'off' : ''}>{b.name}</span>
-                </label>
-                {b.units.length > 1 && (
-                  <ul className="units-off">
-                    {b.units.map((u) => (
-                      <li key={u.id}>
-                        <label className="check">
-                          <input type="checkbox" checked={!b.excluded && !u.excluded} disabled={b.excluded} onChange={() => onToggleUnit?.(b.id, u.id)} />
-                          <span className={b.excluded || u.excluded ? 'off' : ''}>
-                            {u.type || 'Unit'}
-                            {u.rate != null ? ` · ${formatMetric(u.rate, 'rate')}` : ''}
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {b.units.length === 1 && null}
-              </li>
-            ))}
+                  <span className={b.excluded || far ? 'off' : ''}>{b.name}</span>
+                  {b.distKm != null && <span className="dist">{fmtKm(b.distKm)}</span>}
+                </>
+              );
+              return (
+                <li key={b.id}>
+                  {canToggle ? (
+                    <label className="check row">
+                      <input type="checkbox" checked={!b.excluded && !far} disabled={far} onChange={() => onToggleBuilding?.(b.id)} />
+                      {label}
+                    </label>
+                  ) : (
+                    <div className="row">{label}</div>
+                  )}
+                  {canToggle && b.units.length > 1 && !far && (
+                    <ul className="units-off">
+                      {b.units.map((u) => (
+                        <li key={u.id}>
+                          <label className="check">
+                            <input type="checkbox" checked={!b.excluded && !u.excluded} disabled={b.excluded} onChange={() => onToggleUnit?.(b.id, u.id)} />
+                            <span className={b.excluded || u.excluded ? 'off' : ''}>
+                              {u.type || 'Unit'}
+                              {u.rate != null ? ` · ${formatMetric(u.rate, 'rate')}` : ''}
+                            </span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </details>
       )}

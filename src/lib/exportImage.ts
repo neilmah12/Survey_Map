@@ -9,6 +9,7 @@ import { pinBadges, type PinBadge } from './utilities';
 import { layoutPins, type Point, type Size } from './pinLayout';
 import { pinNumbers } from './pinNumbers';
 import { computeSummary } from './summary';
+import { fmtKm, maxRingKm, ringRadii, scopeSurvey } from './scope';
 import { fmtDiff, fmtValue } from './summaryFormat';
 import { CHART_COLORS, exportNotes, layoutChart } from './chartLayout';
 import { chartKeys, drawChartKeys, drawChartModel } from './exportChart';
@@ -56,9 +57,9 @@ function boundsFor(o: ExportOptions): [LngLat, LngLat] {
   if (pts.length === 0) return [[-113.7, 53.4], [-113.3, 53.7]];
   let [w, s, e, n] = [Infinity, Infinity, -Infinity, -Infinity];
   for (const [lng, lat] of pts) [w, s, e, n] = [Math.min(w, lng), Math.min(s, lat), Math.max(e, lng), Math.max(n, lat)];
-  if (o.view.rings) {
-    const km = Math.max(...o.view.ringsKm, 0);
-    for (const b of shown.filter((x) => x.isSubject)) {
+  const km = maxRingKm(o.view);
+  if (km > 0) {
+    for (const b of shown.filter((x) => x.isSubject && !x.out)) {
       const [lng, lat] = b.lngLat!;
       const dLat = km / 111.32;
       const dLng = km / (111.32 * Math.cos((lat * Math.PI) / 180));
@@ -215,7 +216,7 @@ function drawPins(ctx: CanvasRenderingContext2D, mapBox: Box, map: maplibregl.Ma
     const lead = PILL.pad + PILL.num + PILL.gap;
     const full = { w: lead + Math.max(nameW, rateW + tagsW) + PILL.right + PILL.border, h: PILL.fullH };
     const compact = { w: lead + rateW + badges.length * 14 + PILL.right + PILL.border, h: PILL.compactH };
-    pins.push({ b, num: numbers.get(b.id), label, badges, excluded: Boolean(b.excluded) || units.every((u) => u.excluded), p, name, sizes: [full, compact] });
+    pins.push({ b, num: numbers.get(b.id), label, badges, excluded: Boolean(b.excluded) || Boolean(b.out) || units.every((u) => u.excluded), p, name, sizes: [full, compact] });
   }
   // A page keeps the price on every pill, so there is no number-only size here: it falls back to the compact pill.
   const plan = new Map(
@@ -330,15 +331,16 @@ function drawPins(ctx: CanvasRenderingContext2D, mapBox: Box, map: maplibregl.Ma
 }
 
 function drawRings(ctx: CanvasRenderingContext2D, mapBox: Box, map: maplibregl.Map, o: ExportOptions) {
-  const subjects = o.survey.buildings.filter((b) => b.isSubject && b.lngLat);
-  if (!o.view.rings || subjects.length === 0) return;
+  const subjects = o.survey.buildings.filter((b) => b.isSubject && !b.out && b.lngLat);
+  const radii = ringRadii(o.view);
+  if (radii.length === 0 || subjects.length === 0) return;
   ctx.save();
   ctx.strokeStyle = NAVY;
   ctx.globalAlpha = 0.7;
   ctx.lineWidth = 1.5;
   ctx.setLineDash([5, 4]);
   for (const s of subjects)
-    for (const km of o.view.ringsKm) {
+    for (const km of radii) {
       ctx.beginPath();
       circleCoords(s.lngLat!, km, 144).forEach((c, i) => {
         const pt = map.project(c);
@@ -351,10 +353,10 @@ function drawRings(ctx: CanvasRenderingContext2D, mapBox: Box, map: maplibregl.M
   // Label each ring once, at the top of the first subject's rings, when it is big enough to read
   const c = subjects[0].lngLat!;
   const centre = map.project(c);
-  for (const km of o.view.ringsKm) {
+  for (const km of radii) {
     const top = map.project(ringTop(c, km));
     if (Math.abs(centre.y - top.y) < 50) continue;
-    const label = `${km} km`;
+    const label = fmtKm(km);
     ctx.font = `600 10.5px ${FONT}`;
     const w = ctx.measureText(label).width + 8;
     const x = mapBox.x + top.x;
@@ -455,7 +457,7 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
   if (o.includeSummary) {
     text(ctx, 'Market summary', box.x, y + 2, `700 15px ${FONT}`, NAVY);
     y += 18;
-    const sub = `${METRIC_LABEL[o.view.metric]}, ${o.view.summary.stat === 'avg' ? 'average' : 'median'} of ${result.marketBuildings} comparable building${result.marketBuildings === 1 ? '' : 's'}${result.hasSubject ? ', subject excluded' : ''}`;
+    const sub = `${METRIC_LABEL[o.view.metric]}, ${o.view.summary.stat === 'avg' ? 'average' : 'median'} of ${result.marketBuildings} comparable building${result.marketBuildings === 1 ? '' : 's'}${result.hasSubject ? ', subject excluded' : ''}${o.view.within != null && o.view.within > 0 ? `, within ${fmtKm(o.view.within)} of the subject` : ''}`;
     ctx.font = `400 10.5px ${FONT}`;
     const subFull = o.view.metric === 'net' ? `${sub}. ${netDefinition(netOf(o.survey))}` : sub;
     for (const line of wrapText(subFull, box.w, (s) => ctx.measureText(s).width)) {
@@ -559,7 +561,9 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
 }
 
 /** Draws the finished page: header, map with pins, rings, scale bar and credit, summary, legend and source line. */
-export async function renderExport(o: ExportOptions): Promise<ExportResult> {
+export async function renderExport(options: ExportOptions): Promise<ExportResult> {
+  // The same scope as the screen: who is compared with whom, and how far away.
+  const o: ExportOptions = { ...options, survey: scopeSurvey(options.survey, options.view) };
   const regions = pageRegions(o.page, o.includeSummary || o.includeLegend);
   const scale = o.dpi / 96;
   const canvas = document.createElement('canvas');

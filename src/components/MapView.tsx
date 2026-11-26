@@ -11,6 +11,7 @@ import { loadPhoto } from '../lib/photoSource';
 import { DRAG_TYPE } from '../lib/dnd';
 import { normalizeUnitType } from '../lib/unitText';
 import { circleCoords, ringTop } from '../lib/geo';
+import { fmtKm, ringRadii } from '../lib/scope';
 import { METRIC_LABEL, money, metricValue, pinLabel, psf, unitPsf } from '../lib/format';
 import { groupLabel, kindContext, unitKind, visibleUnits, type UnitFilter } from '../lib/groups';
 import { pinBadges, type PinBadge } from '../lib/utilities';
@@ -114,8 +115,9 @@ function popupContent(b: Building, filter: UnitFilter, pc: PopupCtx): HTMLElemen
   if (pc.num != null && !b.isSubject) title.append(el('span', 'popup-num', String(pc.num)));
   title.append(document.createTextNode(b.name));
   root.append(title);
-  if (b.isSubject) root.append(el('div', 'popup-tag', 'Subject property'));
+  if (b.isSubject) root.append(el('div', 'popup-tag', b.out === 'subject' ? 'Subject property (not the one being compared)' : 'Subject property'));
   root.append(el('div', 'popup-sub', b.address));
+  if (b.distKm != null && !b.isSubject) root.append(el('div', 'popup-sub', `${fmtKm(b.distKm)} from the subject${b.out === 'far' ? ', beyond the chosen distance and not counted' : ''}`));
   // Stacked / non-stacked only matters for townhomes.
   const townhome = b.units.some((u) => unitKind(u, b, filter.ctx) === 'Townhome');
   const facts = [
@@ -352,7 +354,7 @@ export default function MapView(p: Props) {
       seen.add(b.id);
       const label = pinLabel(b, filter, p.view.metric, net);
       const shown = visibleUnits(b, filter);
-      const element = pinElement(b, label, pinBadges(shown), b.id === live.current.selectedId, Boolean(b.excluded) || shown.every((u) => u.excluded), numbers.get(b.id));
+      const element = pinElement(b, label, pinBadges(shown), b.id === live.current.selectedId, Boolean(b.excluded) || Boolean(b.out) || shown.every((u) => u.excluded), numbers.get(b.id));
       const before = placements.current.get(b.id);
       if (before) applyPlacement(element, before); // start where it was; the layout below only moves it if it must
       // Rebuilding a marker closes its popup, so remember and restore it.
@@ -406,17 +408,18 @@ export default function MapView(p: Props) {
     if (!map || !ready) return;
     ringMarkers.current.forEach((m) => m.remove());
     ringMarkers.current = [];
-    const subjects = p.survey.buildings.filter((b) => b.isSubject && b.lngLat);
+    const subjects = p.survey.buildings.filter((b) => b.isSubject && !b.out && b.lngLat); // the one being compared
+    const radii = ringRadii(p.view);
     const src = map.getSource('rings') as maplibregl.GeoJSONSource;
-    if (subjects.length === 0 || !p.view.rings) {
+    if (subjects.length === 0 || radii.length === 0) {
       src.setData({ type: 'FeatureCollection', features: [] });
       return;
     }
-    // Rings go around every subject (a portfolio has several); only the first is labelled.
+    // Rings go around the subject being compared (with several, the chosen one).
     src.setData({
       type: 'FeatureCollection',
       features: subjects.flatMap((s) =>
-        p.view.ringsKm.map((km) => ({
+        radii.map((km) => ({
           type: 'Feature' as const,
           properties: { km },
           geometry: { type: 'LineString' as const, coordinates: circleCoords(s.lngLat!, km) },
@@ -424,7 +427,7 @@ export default function MapView(p: Props) {
       ),
     });
     const c = subjects[0].lngLat!;
-    const labels = p.view.ringsKm.map((km) => ({
+    const labels = radii.map((km) => ({
       km,
       marker: new maplibregl.Marker({ element: el('div', 'ring-label', `${km} km`), anchor: 'bottom' })
         .setLngLat(ringTop(c, km))
@@ -444,7 +447,7 @@ export default function MapView(p: Props) {
     return () => {
       map.off('zoom', syncLabels);
     };
-  }, [p.survey.buildings, p.view.rings, p.view.ringsKm, ready, styleVersion]);
+  }, [p.survey.buildings, p.view.rings, p.view.ringsKm, p.view.within, ready, styleVersion]);
 
   // Fit to all placed buildings (and the outermost ring) when asked.
   useEffect(() => {

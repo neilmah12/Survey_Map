@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { NetSettings, Survey, ViewSettings } from '../types';
 import Header from './Header';
 import MapView from './MapView';
 import SummaryPanel from './SummaryPanel';
+import { scopeSurvey } from '../lib/scope';
 
 const noop = () => {};
 
@@ -21,6 +22,8 @@ export default function ClientViewer({ survey: initialSurvey, initialView, banne
   // A local copy, so a client who is allowed to switch properties off changes only what they see.
   const [survey, setSurvey] = useState(initialSurvey);
   const canToggle = Boolean(survey.clientCanToggle);
+  // Who is compared with whom, and how far away: marks the buildings the figures leave out.
+  const scoped = useMemo(() => scopeSurvey(survey, view), [survey, view.within, view.subjectId]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleBuilding = (id: string) =>
     setSurvey((s) => ({ ...s, buildings: s.buildings.map((b) => (b.id === id ? { ...b, excluded: !b.excluded } : b)) }));
   const toggleUnit = (bid: string, uid: string) =>
@@ -36,7 +39,7 @@ export default function ClientViewer({ survey: initialSurvey, initialView, banne
         <div className="stage">
           <div className="stage-main">
             <MapView
-              survey={survey}
+              survey={scoped}
               view={view}
               editable={false}
               selectedId={null}
@@ -46,7 +49,7 @@ export default function ClientViewer({ survey: initialSurvey, initialView, banne
               onPlace={noop}
               fitKey={0}
             />
-            <SummaryPanel survey={survey} view={view} onView={setView} canToggle={canToggle} onToggleBuilding={toggleBuilding} onToggleUnit={toggleUnit} onNet={(net: NetSettings) => setSurvey((s) => ({ ...s, net }))} />
+            <SummaryPanel survey={scoped} view={view} onView={setView} canToggle={canToggle} onToggleBuilding={toggleBuilding} onToggleUnit={toggleUnit} onNet={(net: NetSettings) => setSurvey((s) => ({ ...s, net }))} />
           </div>
         </div>
       </div>

@@ -55,17 +55,18 @@ describe('choose what to compare', () => {
   });
 
   it('says what is on screen in one sentence, in plain words', async () => {
-    expect(viewSentence(view(), 5, 5)).toEqual({ rent: 'base rent', what: 'all unit types', where: '5 of 5 buildings' });
+    expect(viewSentence(view(), 5, 5)).toEqual({ rent: 'base rent', what: 'all unit types', near: '', where: '5 of 5 buildings' });
     const v = view({ metric: 'net' }, { ...NO_FILTERS, beds: ['2 Beds', '3 Beds'], baths: ['1.5'], kind: ['Townhome'] });
-    expect(viewSentence(v, 3, 5)).toEqual({ rent: 'net rent', what: '2 Beds or 3 Beds, 1.5 bath, Townhome', where: '3 of 5 buildings' });
+    expect(viewSentence(v, 3, 5)).toEqual({ rent: 'net rent', what: '2 Beds or 3 Beds, 1.5 bath, Townhome', near: '', where: '3 of 5 buildings' });
     expect(viewSentence(view({ metric: 'psf' }), 1, 1).where).toBe('1 of 1 building');
   });
 
   it('counts the buildings that still show', async () => {
     const s = await load('clareview-townhomes.xlsx');
-    expect(matching(s, NO_FILTERS)).toEqual({ shown: s.buildings.length, total: s.buildings.length });
+    const comps = s.buildings.filter((b) => !b.isSubject).length; // the subject is not part of the market
+    expect(matching(s, NO_FILTERS)).toEqual({ shown: comps, total: comps });
     const none = matching(s, { ...NO_FILTERS, beds: ['4+'] });
-    expect(none.total).toBe(s.buildings.length);
+    expect(none.total).toBe(comps);
     expect(none.shown).toBeLessThan(none.total);
   });
 

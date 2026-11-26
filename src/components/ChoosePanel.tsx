@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Metric, NetSettings, Survey, ViewSettings } from '../types';
 import { METRIC_LABEL } from '../lib/format';
 import { NET_PARTS, netOf, partsWithData } from '../lib/net';
 import { filterOptions, type UnitFilters } from '../lib/groups';
-import { FILTER_SECTIONS, activeChoices, availableMetrics, isDefaultChoice, matching, optionCount, resetChoice, viewSentence } from '../lib/choose';
+import { FILTER_SECTIONS, activeChoices, availableMetrics, isDefaultChoice, matching, optionCount, resetChoice, viewSentence, withinCount } from '../lib/choose';
+import { activeSubject, fmtKm } from '../lib/scope';
 
 interface Props {
   /** Only buildings that are on the map. */
@@ -24,6 +25,38 @@ interface Props {
  * can be pressed looks pressable (a visible border, a tint when pointed at, filled when chosen), each filter says
  * how many buildings are behind each button, and one sentence always says what is on screen.
  */
+/** A distance of the visitor's own. Keeps its text so a half-typed "1." is allowed; commits a valid number. */
+function OtherDistance({ within, offered, onPick }: { within: number | null; offered: number[]; onPick: (km: number) => void }) {
+  const custom = within != null && !offered.includes(within);
+  const [text, setText] = useState(custom ? String(within) : '');
+  useEffect(() => {
+    if (!custom) setText('');
+  }, [custom]);
+  const commit = (raw: string) => {
+    const v = Number(raw);
+    if (Number.isFinite(v) && v > 0 && v <= 100) onPick(Math.round(v * 10) / 10);
+  };
+  return (
+    <label className={`chip other-km${custom ? ' on' : ''}`} aria-pressed={custom}>
+      Other
+      <input
+        type="number"
+        inputMode="decimal"
+        min={0.1}
+        max={100}
+        step={0.5}
+        placeholder="km"
+        aria-label="Another distance in km"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          commit(e.target.value);
+        }}
+      />
+    </label>
+  );
+}
+
 export default function ChoosePanel({ survey, view, onView, editable, onNet, phone, expanded, onExpand }: Props) {
   const [open, setOpen] = useState(true);
   const options = useMemo(() => filterOptions(survey), [survey]);
@@ -31,7 +64,10 @@ export default function ChoosePanel({ survey, view, onView, editable, onNet, pho
   const withData = useMemo(() => partsWithData(survey), [survey]);
   const { shown, total } = useMemo(() => matching(survey, view.filters), [survey, view.filters]);
   const net = netOf(survey);
-  const hasSubject = survey.buildings.some((b) => b.isSubject);
+  const subjects = survey.buildings.filter((b) => b.isSubject && b.lngLat);
+  const hasSubject = subjects.length > 0;
+  const active = activeSubject(survey.buildings, view.subjectId);
+  const offered = useMemo(() => [...new Set(view.ringsKm.filter((n) => n > 0))].sort((a, b) => a - b), [view.ringsKm]);
   const said = viewSentence(view, shown, total);
   const changed = !isDefaultChoice(view);
 
@@ -44,7 +80,7 @@ export default function ChoosePanel({ survey, view, onView, editable, onNet, pho
   const sentence = (
     <div className="choose-sentence">
       <span>
-        Showing <b>{said.rent}</b> for <b>{said.what}</b> in <b>{said.where}</b>.
+        Showing <b>{said.rent}</b> for <b>{said.what}</b>{said.near ? <b>{said.near}</b> : null}, in <b>{said.where}</b>.
       </span>
       {changed && (
         <button className="link-btn" onClick={() => onView(resetChoice(view))}>
@@ -134,14 +170,51 @@ export default function ChoosePanel({ survey, view, onView, editable, onNet, pho
             </div>
           ))}
 
+          {subjects.length > 1 && (
+            <div className="choose-group">
+              <span className="choose-label">Subject property</span>
+              <div className="chips" role="group" aria-label="Subject property">
+                {subjects.map((b) => (
+                  <button key={b.id} className="chip" aria-pressed={active?.id === b.id} onClick={() => onView({ ...view, subjectId: b.id })}>
+                    {b.name}
+                  </button>
+                ))}
+              </div>
+              <span className="choose-hint">The ring, the distances and the numbers on the pins are measured from this one. The others stay on the map, greyed, and are not counted.</span>
+            </div>
+          )}
+
           {hasSubject && (
             <div className="choose-group">
               <span className="choose-label">Distance from the subject</span>
-              <div className="chips">
-                <button className="chip" aria-pressed={view.rings} onClick={() => onView({ ...view, rings: !view.rings })}>
-                  {view.rings ? 'Distance rings shown' : 'Show distance rings on the map'}
+              <div className="chips" role="group" aria-label="Distance from the subject">
+                <button className="chip" aria-pressed={view.within == null} onClick={() => onView({ ...view, within: null })}>
+                  Any distance
                 </button>
+                {offered.map((km) => {
+                  const n = withinCount(survey, view.filters, km);
+                  return (
+                    <button
+                      key={km}
+                      className="chip"
+                      aria-pressed={view.within === km}
+                      title={`${n} comparable building${n === 1 ? '' : 's'} within ${fmtKm(km)}`}
+                      onClick={() => onView({ ...view, within: km })}
+                    >
+                      Within {fmtKm(km)}
+                      <small>{n}</small>
+                    </button>
+                  );
+                })}
+                <OtherDistance within={view.within ?? null} offered={offered} onPick={(km) => onView({ ...view, within: km })} />
               </div>
+              {view.within == null && (
+                <div className="chips">
+                  <button className="chip" aria-pressed={view.rings} onClick={() => onView({ ...view, rings: !view.rings })}>
+                    {view.rings ? 'Distance rings shown' : 'Show distance rings on the map'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>

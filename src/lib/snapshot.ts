@@ -48,6 +48,9 @@ export interface ClientView {
   metric: Metric;
   rings: boolean;
   ringsKm: number[];
+  /** Absent in links published before the distance choice. */
+  within?: number;
+  subjectId?: string;
   filters: ViewSettings['filters'];
   summary: SummarySettings;
 }
@@ -144,6 +147,8 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
         metric: view.metric,
         rings: Boolean(view.rings),
         ringsKm: view.ringsKm.filter((n) => Number.isFinite(n) && n > 0),
+        ...(view.within != null && Number.isFinite(view.within) && view.within > 0 ? { within: view.within } : {}),
+        ...(typeof view.subjectId === 'string' && view.subjectId ? { subjectId: view.subjectId } : {}),
         filters: {
           kind: strings(view.filters.kind),
           beds: strings(view.filters.beds),
@@ -190,7 +195,8 @@ export function snapshotToSurvey(s: ClientSnapshot): Survey {
 export function snapshotToView(s: ClientSnapshot): ViewSettings {
   // Snapshots published before the property type and utilities filters have no kind or utils list.
   const f = s.view.filters;
-  return { ...s.view, filters: { ...f, kind: strings(f?.kind), utils: strings(f?.utils) }, summary: cleanSummary(s.view.summary) };
+  const within = typeof s.view.within === 'number' && Number.isFinite(s.view.within) && s.view.within > 0 ? s.view.within : null;
+  return { ...s.view, within, subjectId: str(s.view.subjectId) || null, filters: { ...f, kind: strings(f?.kind), utils: strings(f?.utils) }, summary: cleanSummary(s.view.summary) };
 }
 
 /** Looks like a snapshot this version of the viewer can show. */

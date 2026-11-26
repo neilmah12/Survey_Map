@@ -54,6 +54,14 @@ export interface Building {
   /** Photo shown in the popup: an http(s) image address or an embedded data URL. */
   imageUrl?: string;
   units: Unit[];
+  /**
+   * Set by the scope step (lib/scope.ts), never saved or published. 'far' is outside the chosen distance;
+   * 'subject' is a subject property that is not the one being compared right now. Either way the building stays
+   * on the map, greyed, and is left out of the figures.
+   */
+  out?: 'far' | 'subject';
+  /** Set by the scope step: kilometres from the subject being compared. */
+  distKm?: number;
 }
 
 /** What counts toward net rent. Saved with the survey; a client can change it only when clientCanChange is on. */
@@ -117,5 +125,10 @@ export interface ViewSettings {
   /** Unit filters: property type, bedrooms, bathrooms, renovation, utilities. Empty means any. */
   filters: { kind: string[]; beds: string[]; baths: string[]; reno: string[]; utils: string[] };
   rings: boolean;
+  /** The distances offered (and drawn as rings): set in the editor, the client starts from them and may pick another. */
   ringsKm: number[];
+  /** Only buildings within this many km of the subject count. Empty means any distance. */
+  within?: number | null;
+  /** Which subject property is being compared, when there are several. Empty means the first one placed. */
+  subjectId?: string | null;
 }

@@ -119,6 +119,7 @@ export function computeSummary(survey: Survey, o: SummaryOptions): SummaryResult
   const push = (b: Bucket, id: string, v: number) => b.set(id, [...(b.get(id) ?? []), v]);
 
   for (const b of survey.buildings) {
+    if (b.out) continue; // set aside by distance or by the choice of subject: not counted, and not "switched off" either
     const asSubject = b.isSubject && !o.subjectInMarket;
     for (const u of visibleUnits(b, filter)) {
       if (b.excluded || u.excluded) {
@@ -146,7 +147,7 @@ export function computeSummary(survey: Survey, o: SummaryOptions): SummaryResult
   const empty: Bucket = new Map();
   return {
     rows: keys.map((k) => row(k, k, market.get(k) ?? empty, subject.get(k) ?? empty, o, { baseMarket: baseMarket.get(k), baseSubject: baseSubject.get(k), names })),
-    hasSubject: survey.buildings.some((b) => b.isSubject),
+    hasSubject: survey.buildings.some((b) => b.isSubject && !b.out),
     marketBuildings: marketIds.size,
     subjectBuildings: subjectIds.size,
     excludedUnits,

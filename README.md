@@ -15,8 +15,11 @@ Phase 1 (local prototype) is in place:
 - Rent type (base rent, rent PSF, net rent), unit filters, incentive badge, as-of date, AY header. The rent
   type and the filters live in the summary drawer's "Choose what to compare" card (below), not in a strip
   across the top.
-- Distance rings from the subject are off by default; toggle them on and set custom distances
-  (default 0.5 / 1 / 2 km, add or remove rings in edit mode).
+- Distance from the subject: the editor sets the distances offered (default 1 / 3 / 5 km; add, change or remove them
+  in the strip above the map). Choosing "Within 3 km" in the summary panel draws that ring and counts only the
+  comparables inside it in the summary, the chart and the pin numbers; buildings beyond it stay on the map, greyed.
+  Whatever is chosen when a link is published is where the client starts, and the client can pick another offered
+  distance or type their own (not saved). "Any distance" with the rings switch shows every offered ring instead.
 - Property photo in the pin popup: add an `Image URL` column to the sheet (also `Image`, `Photo`),
   paste an image address in the editor, or upload a photo (shrunk to 800 px and stored with the
   survey). The listing `URL` column becomes a "View listing" link and the photo's click target.
@@ -152,12 +155,12 @@ Adding buildings in the app:
 Choose what to compare (`src/components/ChoosePanel.tsx`, logic in `src/lib/choose.ts`):
 
 - The first thing in the summary drawer, on the client page and in the editor, so the editor previews exactly what
-  a client uses. It holds the rent type, the unit filters, and the distance-rings switch. If a visitor hides the
+  a client uses. It holds the rent type, the unit filters, the subject (when there are several) and the distance. If a visitor hides the
   drawer, a "Choose what to compare" button on the map brings it back.
 - Every button that can be pressed has a visible border, a tint when pointed at, and a filled look when chosen.
   Each filter button shows how many comparable buildings are behind it, given the other choices already made.
 - One sentence always says what is on screen ("Showing net rent for 2 Beds in 5 of 6 buildings"), with a Reset
-  link that returns to base rent, every unit type and no rings. How the figures are worked out (average or
+  link that returns to base rent, every unit type, any distance and no rings. How the figures are worked out (average or
   median, each building once, split rows) is under "More options" and is not part of Reset.
 - On a phone the small drawer shows that sentence, a "Choose what to compare (2)" button (the number is how many
   choices are active) and the chart. The button opens the full-height sheet with every option.
@@ -334,3 +337,11 @@ Done once, in this order (each step needs the one before it):
 7. Push to `main`. The workflow tests, then deploys the Firestore rules and both sites.
 
 To add a teammate later: Firestore, `allowedUsers`, new document whose ID is their lowercase Gmail address.
+
+### Who is compared with whom (`lib/scope.ts`)
+
+One subject drives the ring, the distances and the pin numbers. With several subjects the chosen one is "active"; the
+others stay on the map, greyed, and never count as comparables. The scope step works on a copy and marks buildings
+(`out`, `distKm`); the marks are never saved or published. The map, the summary, the building list and the exports all
+read the same marked copy, so they cannot disagree. Links published before the distance choice have no `within` or
+`subjectId` and open as "any distance" (covered by a test).
