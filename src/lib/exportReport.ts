@@ -1,4 +1,4 @@
-import type { Metric } from '../types';
+import type { Contact, Metric } from '../types';
 import { formatMetric, METRIC_LABEL } from './format';
 import { netDefinition, netOf } from './net';
 import { appliedPills } from './choose';
@@ -19,8 +19,9 @@ export interface ReportOptions extends ExportOptions {
   includeTakeaways: boolean;
   /** The building-by-building pages. */
   includeBuildings: boolean;
-  /** Who to talk to: free text, one line per row (names, emails, a web address). Empty leaves the box out. */
-  contact: string;
+  /** Who to talk to, and the team's web page. No people leaves the box out. */
+  contacts: Contact[];
+  contactUrl: string;
 }
 
 const BELOW = '#c0322f';
@@ -52,11 +53,20 @@ function lines(ctx: CanvasRenderingContext2D, s: string, w: number, font: string
   return s.split('\n').flatMap((part) => (part.trim() ? wrapText(part.trim(), w, (t) => ctx.measureText(t).width) : []));
 }
 
-function contactBox(ctx: CanvasRenderingContext2D, box: Box, contact: string) {
-  const body = lines(ctx, contact, box.w - 28, `400 11.5px ${FONT}`);
-  if (body.length === 0) return;
-  const h = 34 + body.length * 15;
-  const y = box.y + box.h - h;
+const CONTACT_COLS = 3;
+const CONTACT_CELL_H = 42;
+
+/** Height the contact box takes, so the table above it knows how much room is left. */
+function contactHeight(contacts: Contact[]): number {
+  if (contacts.length === 0) return 0;
+  return 30 + Math.ceil(contacts.length / CONTACT_COLS) * CONTACT_CELL_H + 10;
+}
+
+/** The team in a compact grid, three across, under one short heading with the web address on the right. */
+function contactBox(ctx: CanvasRenderingContext2D, box: Box, contacts: Contact[], url: string) {
+  if (contacts.length === 0) return;
+  const h = contactHeight(contacts) - 10;
+  const y = box.y + box.h - h - 10;
   ctx.fillStyle = '#eef3fb';
   ctx.beginPath();
   ctx.roundRect(box.x, y, box.w, h, 8);
@@ -65,13 +75,22 @@ function contactBox(ctx: CanvasRenderingContext2D, box: Box, contact: string) {
   ctx.lineWidth = 1;
   ctx.stroke();
   text(ctx, 'Questions, or a different comparison? Talk to our team.', box.x + 14, y + 21, `700 12px ${FONT}`, NAVY);
-  body.forEach((l, i) => text(ctx, l, box.x + 14, y + 40 + i * 15, `400 11.5px ${FONT}`, INK));
-}
-
-/** Height the contact box takes, so the table above it knows how much room is left. */
-function contactHeight(ctx: CanvasRenderingContext2D, w: number, contact: string): number {
-  const n = lines(ctx, contact, w - 28, `400 11.5px ${FONT}`).length;
-  return n === 0 ? 0 : 34 + n * 15 + 10;
+  if (url) {
+    ctx.font = `400 10px ${FONT}`;
+    const shown = ellipsize(ctx, url.replace(/^https?:\/\//, ''), box.w * 0.42);
+    text(ctx, shown, box.x + box.w - 14, y + 21, `400 10px ${FONT}`, MUTED, 'right');
+  }
+  const colW = (box.w - 28) / CONTACT_COLS;
+  contacts.forEach((c, i) => {
+    const cx = box.x + 14 + (i % CONTACT_COLS) * colW;
+    const cy = y + 42 + Math.floor(i / CONTACT_COLS) * CONTACT_CELL_H;
+    ctx.font = `700 11.5px ${FONT}`;
+    text(ctx, ellipsize(ctx, c.name, colW - 12), cx, cy, `700 11.5px ${FONT}`, INK);
+    ctx.font = `400 10px ${FONT}`;
+    text(ctx, ellipsize(ctx, c.title, colW - 12), cx, cy + 12, `400 10px ${FONT}`, MUTED);
+    ctx.font = `400 10.5px ${FONT}`;
+    text(ctx, ellipsize(ctx, c.email, colW - 12), cx, cy + 24, `400 10.5px ${FONT}`, NAVY);
+  });
 }
 
 function drawSummaryPage(o: ReportOptions, scale: number, logo: HTMLImageElement | null): HTMLCanvasElement {
@@ -101,7 +120,7 @@ function drawSummaryPage(o: ReportOptions, scale: number, logo: HTMLImageElement
   const colX = (g: number, k: number) => left + labelW + compsW + g * groupW + (k + 1) * subW; // right edge of a sub-column
 
   const rowH = 27;
-  const reserved = contactHeight(ctx, width, o.contact);
+  const reserved = contactHeight(o.contacts);
   const bottom = regions.footer.y - 10 - reserved;
   const noteLines = o.includeTakeaways ? report.takeaways.length : 0;
   const takeawayH = noteLines ? 30 + noteLines * 17 : 0;
@@ -177,7 +196,7 @@ function drawSummaryPage(o: ReportOptions, scale: number, logo: HTMLImageElement
     y += 8;
   }
   footnoteLines.forEach((l, i) => text(ctx, l, left, bottom - footnoteH + 12 + i * 13, `400 10px ${FONT}`, MUTED));
-  contactBox(ctx, { x: left, y: bottom, w: width, h: reserved }, o.contact);
+  contactBox(ctx, { x: left, y: bottom, w: width, h: reserved }, o.contacts, o.contactUrl);
   drawFooter(ctx, regions.footer, o.sourceNote);
   return canvas;
 }

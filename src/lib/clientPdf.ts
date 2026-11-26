@@ -3,7 +3,6 @@ import type { Survey, ViewSettings } from '../types';
 import { canvasToBlob, renderExport } from './exportImage';
 import { renderReportPages } from './exportReport';
 import { pdfFromJpegs } from './pdf';
-import { contactLines } from './team';
 import { PAGES } from './exportLayout';
 
 /**
@@ -26,7 +25,7 @@ export async function clientPdf(survey: Survey, view: ViewSettings): Promise<{ b
     logoUrl,
   };
   const map = await renderExport(base);
-  const extra = await renderReportPages({ ...base, includeTakeaways: true, includeBuildings: false, contact: contactLines(survey.contacts ?? [], survey.contactUrl ?? '') });
+  const extra = await renderReportPages({ ...base, includeTakeaways: true, includeBuildings: false, contacts: survey.contacts ?? [], contactUrl: survey.contactUrl ?? '' });
   const pages = [];
   for (const c of [map.canvas, ...extra]) {
     pages.push({ jpeg: new Uint8Array(await (await canvasToBlob(c, 'image/jpeg', 0.92)).arrayBuffer()), w: c.width, h: c.height });

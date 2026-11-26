@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { Contact, LngLat, Survey, ViewSettings } from '../types';
-import { contactLines } from '../lib/team';
 import logoUrl from '../assets/avison-young-logo.png';
 import { PAGES, type PageKind } from '../lib/exportLayout';
 import { canvasToBlob, renderExport, type ExportResult } from '../lib/exportImage';
@@ -40,7 +39,6 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
   const [includeTakeaways, setIncludeTakeaways] = useState(true);
   const [includeBuildings, setIncludeBuildings] = useState(false);
   const [includeContact, setIncludeContact] = useState(true);
-  const contact = includeContact ? contactLines(contacts, contactUrl) : '';
   const [reportPages, setReportPages] = useState<HTMLCanvasElement[]>([]);
   const [reportPreviews, setReportPreviews] = useState<string[]>([]);
   const [status, setStatus] = useState<'idle' | 'rendering' | 'ready' | 'error'>('idle');
@@ -70,7 +68,7 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
       const extra = includeReport
         ? await renderReportPages({
             survey, view, page, dpi, extent, viewBounds: getBounds(), includeSummary, includeChart, includeLegend, sourceNote: source, logoUrl,
-            includeTakeaways, includeBuildings, contact,
+            includeTakeaways, includeBuildings, contacts: includeContact ? contacts : [], contactUrl,
           })
         : [];
       setReportPages(extra);
