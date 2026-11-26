@@ -1,0 +1,317 @@
+{
+ "version": 1,
+ "title": "Clareview Townhomes",
+ "location": "Edmonton, AB",
+ "asOf": "2026-11-26",
+ "publishedAt": "2026-10-30T16:00:00.000Z",
+ "net": {
+  "enabled": true,
+  "parking": false,
+  "utilities": false,
+  "incentives": false,
+  "misc": false,
+  "termMonths": 12,
+  "clientCanChange": false
+ },
+ "view": {
+  "metric": "rate",
+  "rings": false,
+  "ringsKm": [
+   1,
+   3
+  ],
+  "filters": {
+   "beds": [],
+   "baths": [],
+   "reno": []
+  },
+  "summary": {
+   "open": true,
+   "stat": "avg",
+   "split": {
+    "kind": false,
+    "baths": false,
+    "reno": false
+   },
+   "perBuilding": true,
+   "dots": true
+  }
+ },
+ "buildings": [
+  {
+   "id": "b1",
+   "name": "Pilot Townhomes",
+   "address": "5108 Pilot Ln NW",
+   "yearBuilt": "2026",
+   "yearRenovated": "",
+   "configuration": "",
+   "isSubject": true,
+   "lngLat": [
+    -113.5,
+    53.5
+   ],
+   "imageUrl": "",
+   "units": [
+    {
+     "id": "u1",
+     "type": "3 Bed/2.5 Bath",
+     "sf": 1510,
+     "rate": 2275,
+     "parking": "$125 garage",
+     "utilities": "$350 includes all utilities",
+     "incentive": "",
+     "parkingAmt": 125,
+     "utilitiesAmt": 350,
+     "incentiveAmt": 0,
+     "miscAmt": 0
+    }
+   ],
+   "url": ""
+  },
+  {
+   "id": "b2",
+   "name": "Prince Charles Townhomes",
+   "address": "12006 125 Street NW",
+   "yearBuilt": "2026",
+   "yearRenovated": "",
+   "configuration": "Stacked",
+   "isSubject": false,
+   "lngLat": [
+    -113.49,
+    53.506
+   ],
+   "imageUrl": "",
+   "units": [
+    {
+     "id": "u2",
+     "type": "3 Bed/2.5 Bath -Main Floor Rear",
+     "sf": null,
+     "rate": 1665,
+     "parking": "Surface Parking, Included",
+     "utilities": "$375 includes all utilities",
+     "incentive": "$500 gift card",
+     "parkingAmt": 0,
+     "utilitiesAmt": 375,
+     "incentiveAmt": 42,
+     "miscAmt": 0
+    },
+    {
+     "id": "u3",
+     "type": "3 Bed/2.5 Bath - Main Floor Front",
+     "sf": null,
+     "rate": 1995,
+     "parking": "Surface Parking, Included",
+     "utilities": "$375 includes all utilities",
+     "incentive": "$500 gift card",
+     "parkingAmt": 0,
+     "utilitiesAmt": 375,
+     "incentiveAmt": 42,
+     "miscAmt": 0
+    },
+    {
+     "id": "u4",
+     "type": "3 Bed/2.5 Bath - Second Floor",
+     "sf": null,
+     "rate": 2195,
+     "parking": "Surface Parking, Included",
+     "utilities": "$375 includes all utilities",
+     "incentive": "$500 gift card",
+     "parkingAmt": 0,
+     "utilitiesAmt": 375,
+     "incentiveAmt": 42,
+     "miscAmt": 0
+    }
+   ],
+   "url": "https://example.com/listing-1"
+  },
+  {
+   "id": "b3",
+   "name": "Albany Townhomes",
+   "address": "13039 186 Ave NW",
+   "yearBuilt": "2026",
+   "yearRenovated": "",
+   "configuration": "Stacked",
+   "isSubject": false,
+   "lngLat": [
+    -113.48,
+    53.512
+   ],
+   "imageUrl": "",
+   "units": [
+    {
+     "id": "u5",
+     "type": "3 Bed/2.5 Bath",
+     "sf": null,
+     "rate": 2000,
+     "parking": "$125 Double Car Garage",
+     "utilities": "Not included",
+     "incentive": "",
+     "parkingAmt": 125,
+     "utilitiesAmt": 0,
+     "incentiveAmt": 0,
+     "miscAmt": 0
+    }
+   ],
+   "url": ""
+  },
+  {
+   "id": "b4",
+   "name": "Idylwylde Townhomes",
+   "address": "8312-7604 83 Avenue NW",
+   "yearBuilt": "2025",
+   "yearRenovated": "",
+   "configuration": "Stacked",
+   "isSubject": false,
+   "lngLat": [
+    -113.47,
+    53.518
+   ],
+   "imageUrl": "",
+   "units": [
+    {
+     "id": "u6",
+     "type": "3 Bed/2.5 Bath",
+     "sf": 1510,
+     "rate": 2250,
+     "parking": "Single Garage, Included",
+     "utilities": "$300 includes all utilities",
+     "incentive": "",
+     "parkingAmt": 0,
+     "utilitiesAmt": 300,
+     "incentiveAmt": 0,
+     "miscAmt": 0
+    }
+   ],
+   "url": ""
+  },
+  {
+   "id": "b5",
+   "name": "Strathern 8-Plex Townhomes",
+   "address": "9652 86 Street NW",
+   "yearBuilt": "2025",
+   "yearRenovated": "",
+   "configuration": "Stacked",
+   "isSubject": false,
+   "lngLat": [
+    -113.46,
+    53.524
+   ],
+   "imageUrl": "",
+   "units": [
+    {
+     "id": "u7",
+     "type": "3 Bed/2.5 Bath",
+     "sf": 1250,
+     "rate": 2300,
+     "parking": "TBC",
+     "utilities": "Not Included",
+     "incentive": "",
+     "parkingAmt": 0,
+     "utilitiesAmt": 0,
+     "incentiveAmt": 0,
+     "miscAmt": 0
+    }
+   ],
+   "url": ""
+  },
+  {
+   "id": "b6",
+   "name": "Eastwood Townhomes",
+   "address": "12206 85 Street NW",
+   "yearBuilt": "2026",
+   "yearRenovated": "",
+   "configuration": "Stacked",
+   "isSubject": false,
+   "lngLat": [
+    -113.45,
+    53.53
+   ],
+   "imageUrl": "",
+   "units": [
+    {
+     "id": "u8",
+     "type": "3 Bed/2.5 Bath",
+     "sf": 1550,
+     "rate": 1995,
+     "parking": "Single Garage, Included",
+     "utilities": "Not Included",
+     "incentive": "",
+     "parkingAmt": 0,
+     "utilitiesAmt": 0,
+     "incentiveAmt": 0,
+     "miscAmt": 0
+    }
+   ],
+   "url": ""
+  },
+  {
+   "id": "b7",
+   "name": "Clareview Townhomes",
+   "address": "13832 36 Street NW",
+   "yearBuilt": "2026",
+   "yearRenovated": "",
+   "configuration": "Stacked",
+   "isSubject": true,
+   "lngLat": [
+    -113.44,
+    53.536
+   ],
+   "imageUrl": "",
+   "units": [
+    {
+     "id": "u9",
+     "type": "3 Bed/2.5 Bath Lower - Interior",
+     "sf": 1259,
+     "rate": 1696,
+     "parking": "100",
+     "utilities": "Not included",
+     "incentive": "",
+     "parkingAmt": 100,
+     "utilitiesAmt": 0,
+     "incentiveAmt": 0,
+     "miscAmt": 0
+    },
+    {
+     "id": "u10",
+     "type": "3 Bed/2.5 Bath Lower - Corner",
+     "sf": 1259,
+     "rate": 1900,
+     "parking": "100",
+     "utilities": "Not included",
+     "incentive": "",
+     "parkingAmt": 100,
+     "utilitiesAmt": 0,
+     "incentiveAmt": 0,
+     "miscAmt": 0
+    },
+    {
+     "id": "u11",
+     "type": "3 Bed/2.5 Bath Upper - Interior",
+     "sf": 1259,
+     "rate": 1950,
+     "parking": "100",
+     "utilities": "Not included",
+     "incentive": "",
+     "parkingAmt": 100,
+     "utilitiesAmt": 0,
+     "incentiveAmt": 0,
+     "miscAmt": 0
+    },
+    {
+     "id": "u12",
+     "type": "3 Bed/2.5 Bath Upper - Corner",
+     "sf": 1259,
+     "rate": 2000,
+     "parking": "100",
+     "utilities": "Not included",
+     "incentive": "",
+     "parkingAmt": 100,
+     "utilitiesAmt": 0,
+     "incentiveAmt": 0,
+     "miscAmt": 0
+    }
+   ],
+   "url": ""
+  }
+ ]
+}
