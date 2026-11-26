@@ -119,9 +119,23 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
 
       <ChoosePanel survey={survey} view={view} onView={onView} editable={editable} onNet={onNet} phone={phone} expanded={expanded} onExpand={() => setExpanded(true)} />
 
+      {!result.hasSubject && <p className="summary-note">Mark a subject property to compare it with the market.</p>}
+
+      <div className="chart-block">
+        <div className="chart-controls">
+          <span className="control-label">Chart</span>
+          <div className="seg" role="group" aria-label="Chart view">
+            <button aria-pressed={s.chart === 'compare'} onClick={() => set({ chart: 'compare' })}>Compare</button>
+            <button aria-pressed={s.chart === 'diff'} onClick={() => set({ chart: 'diff' })}>Difference %</button>
+            <button aria-pressed={s.chart === 'off'} onClick={() => set({ chart: 'off' })}>Off</button>
+          </div>
+        </div>
+        {s.chart !== 'off' && result.rows.length > 0 && <SummaryChart result={result} metric={view.metric} mode={s.chart} stat={s.stat} numbers={numbers} compact={phone && !expanded} />}
+      </div>
+
       {comps.length > 0 && (
-        <details className="summary-props near-list" open={canToggle || undefined}>
-          <summary>{canToggle ? 'Buildings in the comparison' : 'Buildings and distances'}</summary>
+        <details className="summary-props near-list">
+          <summary>{canToggle ? 'Buildings in the comparison' : 'Buildings and distances'} ({comps.length})</summary>
           <p className="hint">
             {canToggle ? 'Untick a property, or a single suite, to take it out of the figures. It stays on the map, greyed. ' : ''}
             {subjects.length ? 'Distances are measured from the subject. ' : ''}
@@ -168,20 +182,6 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
           </ul>
         </details>
       )}
-
-      {!result.hasSubject && <p className="summary-note">Mark a subject property to compare it with the market.</p>}
-
-      <div className="chart-block">
-        <div className="chart-controls">
-          <span className="control-label">Chart</span>
-          <div className="seg" role="group" aria-label="Chart view">
-            <button aria-pressed={s.chart === 'compare'} onClick={() => set({ chart: 'compare' })}>Compare</button>
-            <button aria-pressed={s.chart === 'diff'} onClick={() => set({ chart: 'diff' })}>Difference %</button>
-            <button aria-pressed={s.chart === 'off'} onClick={() => set({ chart: 'off' })}>Off</button>
-          </div>
-        </div>
-        {s.chart !== 'off' && result.rows.length > 0 && <SummaryChart result={result} metric={view.metric} mode={s.chart} stat={s.stat} numbers={numbers} compact={phone && !expanded} />}
-      </div>
 
       <details className="more-options">
         <summary>More options</summary>
