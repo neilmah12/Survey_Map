@@ -119,8 +119,8 @@ table, .pin, .chart-plot, .tip-grid { font-variant-numeric: tabular-nums; }
 .net-line { font-size: 12px; margin-top: 6px; padding: 6px 8px; background: #eef2f8; border-radius: 6px; }
 .net-line .muted { color: var(--muted); }
 .term-field input { width: 48px; margin: 0 4px; }
-.vs-up { color: #8a3b12; }
-.vs-down { color: #1c6b43; }
+.vs-up { color: #1f64c0; } /* above market: the chart's blue, a shade darker so it reads as text */
+.vs-down { color: #c0322f; } /* below market: the chart's red, a shade darker so it reads as text */
 .check { display: flex; gap: 6px; align-items: center; font-size: 13px; cursor: pointer; }
 .rings-input { margin-top: 4px; width: 120px; padding: 3px 6px; }
 
