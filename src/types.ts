@@ -83,6 +83,8 @@ export interface Survey {
   updatedAt?: string;
   /** The line shown under exports and on the client page, for example "Source: Avison Young Research". */
   sourceNote?: string;
+  /** Who a reader should talk to, one line per row (names, emails, a web address). Printed in the PDF report. */
+  contactNote?: string;
   /** Clients may turn properties on and off in the summary (their changes are not saved). */
   clientCanToggle?: boolean;
   title: string;

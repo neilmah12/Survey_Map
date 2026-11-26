@@ -571,6 +571,8 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
           getBounds={() => viewBounds.current}
           initialSource={survey.sourceNote ?? ''}
           onSource={(s) => setSurvey((cur) => cur && { ...cur, sourceNote: s })}
+          initialContact={survey.contactNote ?? ''}
+          onContact={(c) => setSurvey((cur) => cur && { ...cur, contactNote: c })}
           onClose={() => setExportOpen(false)}
         />
       )}

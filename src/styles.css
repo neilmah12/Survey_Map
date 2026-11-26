@@ -447,3 +447,6 @@ table, .pin, .chart-plot, .tip-grid { font-variant-numeric: tabular-nums; }
 .menu-item:disabled { color: #98a2b3; cursor: default; }
 .menu-item.danger { color: #b42318; }
 .menu-rule { height: 1px; margin: 4px 2px; background: var(--hair); }
+
+.report-opts { margin-top: 10px; }
+.field textarea { border: 1px solid #cfd6e2; border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 13.5px; resize: vertical; }

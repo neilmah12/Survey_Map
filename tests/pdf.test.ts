@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pdfFromJpeg, pdfString } from '../src/lib/pdf';
+import { pdfFromJpeg, pdfFromJpegs, pdfString } from '../src/lib/pdf';
 
 // A 1x1 white JPEG (smallest valid baseline JPEG).
 const JPEG = Uint8Array.from(
@@ -48,5 +48,30 @@ describe('pdfFromJpeg', () => {
     expect(pdfString('A (b) \\ c')).toBe('(A \\(b\\) \\\\ c)');
     expect(pdfString('Café – x')).toBe('(Caf? ? x)');
     expect(s).toContain('/Title (Clareview \\(test\\))');
+  });
+});
+
+describe('pdfFromJpegs (several pages)', () => {
+  const pdf = pdfFromJpegs([{ jpeg: JPEG, w: 1, h: 1 }, { jpeg: JPEG, w: 1, h: 1 }, { jpeg: JPEG, w: 1, h: 1 }], 792, 612, 'Report');
+  const s = str(pdf);
+
+  it('lists every page in the page tree', () => {
+    expect(s).toContain('/Count 3');
+    expect(s).toContain('/Kids [3 0 R 6 0 R 9 0 R]');
+    expect((s.match(/\/Type \/Page /g) ?? []).length).toBe(3);
+  });
+
+  it('keeps an exact byte offset for every object', () => {
+    const total = 3 + 3 * 3 + 1; // catalog, tree, three objects per page, info -> highest object is 12
+    const xref = s.indexOf(`xref\n0 ${total - 1 + 1}`);
+    expect(xref).toBeGreaterThan(0);
+    expect(Number(s.match(/startxref\n(\d+)/)![1])).toBe(xref);
+    const entries = s.slice(xref).split('\n').slice(2, 2 + 13);
+    for (let n = 1; n <= 12; n++) {
+      const off = Number(entries[n].slice(0, 10));
+      expect(s.slice(off, off + `${n} 0 obj`.length)).toBe(`${n} 0 obj`);
+    }
+    expect(s).toContain('/Size 13');
+    expect(s).toContain('/Info 12 0 R');
   });
 });

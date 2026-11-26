@@ -3,7 +3,8 @@ import type { LngLat, Survey, ViewSettings } from '../types';
 import logoUrl from '../assets/avison-young-logo.png';
 import { PAGES, type PageKind } from '../lib/exportLayout';
 import { canvasToBlob, renderExport, type ExportResult } from '../lib/exportImage';
-import { pdfFromJpeg } from '../lib/pdf';
+import { renderReportPages } from '../lib/exportReport';
+import { pdfFromJpegs } from '../lib/pdf';
 import { downloadBlob } from '../lib/store';
 
 export const DEFAULT_SOURCE = 'Source: Avison Young Research';
@@ -17,12 +18,15 @@ interface Props {
   initialSource: string;
   /** Called when the source line is changed, so it is remembered for next time and shown on the client page. */
   onSource: (s: string) => void;
+  /** Who to talk to, printed in the report. Remembered with the survey. */
+  initialContact: string;
+  onContact: (s: string) => void;
   onClose: () => void;
 }
 
 const fileBase = (title: string) => title.replace(/[^\w.-]+/g, '_') || 'survey';
 
-export default function ExportDialog({ survey, view, getBounds, initialSource, onSource, onClose }: Props) {
+export default function ExportDialog({ survey, view, getBounds, initialSource, onSource, initialContact, onContact, onClose }: Props) {
   const [page, setPage] = useState<PageKind>('letter-landscape');
   const [dpi, setDpi] = useState(300);
   const [extent, setExtent] = useState<'view' | 'all'>('view');
@@ -30,6 +34,13 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
   const [includeChart, setIncludeChart] = useState(true);
   const [includeLegend, setIncludeLegend] = useState(true);
   const [source, setSource] = useState(initialSource || DEFAULT_SOURCE);
+  // The PDF can carry more than the map page: a page with every rent type side by side, and optionally a building table.
+  const [includeReport, setIncludeReport] = useState(true);
+  const [includeTakeaways, setIncludeTakeaways] = useState(true);
+  const [includeBuildings, setIncludeBuildings] = useState(false);
+  const [contact, setContact] = useState(initialContact);
+  const [reportPages, setReportPages] = useState<HTMLCanvasElement[]>([]);
+  const [reportPreviews, setReportPreviews] = useState<string[]>([]);
   const [status, setStatus] = useState<'idle' | 'rendering' | 'ready' | 'error'>('idle');
   const [stale, setStale] = useState(false);
   const [result, setResult] = useState<ExportResult | null>(null);
@@ -54,6 +65,22 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
       small.height = Math.round((small.width / r.canvas.width) * r.canvas.height);
       small.getContext('2d')!.drawImage(r.canvas, 0, 0, small.width, small.height);
       setPreview(small.toDataURL('image/jpeg', 0.88));
+      const extra = includeReport
+        ? await renderReportPages({
+            survey, view, page, dpi, extent, viewBounds: getBounds(), includeSummary, includeChart, includeLegend, sourceNote: source, logoUrl,
+            includeTakeaways, includeBuildings, contact,
+          })
+        : [];
+      setReportPages(extra);
+      setReportPreviews(
+        extra.map((c) => {
+          const t = document.createElement('canvas');
+          t.width = Math.min(1100, c.width);
+          t.height = Math.round((t.width / c.width) * c.height);
+          t.getContext('2d')!.drawImage(c, 0, 0, t.width, t.height);
+          return t.toDataURL('image/jpeg', 0.88);
+        }),
+      );
       setResult(r);
       setStatus('ready');
     } catch (e) {
@@ -64,6 +91,7 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
 
   const remember = () => {
     if (source.trim() !== (initialSource ?? '').trim()) onSource(source.trim());
+    if (contact.trim() !== (initialContact ?? '').trim()) onContact(contact.trim());
   };
 
   const savePng = async () => {
@@ -75,10 +103,13 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
   const savePdf = async () => {
     if (!result) return;
     remember();
-    const jpeg = new Uint8Array(await (await canvasToBlob(result.canvas, 'image/jpeg', 0.93)).arrayBuffer());
     const { wIn, hIn } = PAGES[page];
-    const pdf = pdfFromJpeg(jpeg, result.canvas.width, result.canvas.height, wIn * 72, hIn * 72, `${survey.title} - Rental Market Survey`);
-    downloadBlob(new Blob([pdf as BlobPart], { type: 'application/pdf' }), `${fileBase(survey.title)}_map.pdf`);
+    const pages = [];
+    for (const c of [result.canvas, ...(includeReport ? reportPages : [])]) {
+      pages.push({ jpeg: new Uint8Array(await (await canvasToBlob(c, 'image/jpeg', 0.93)).arrayBuffer()), w: c.width, h: c.height });
+    }
+    const pdf = pdfFromJpegs(pages, wIn * 72, hIn * 72, `${survey.title} - Rental Market Survey`);
+    downloadBlob(new Blob([pdf as BlobPart], { type: 'application/pdf' }), `${fileBase(survey.title)}${includeReport ? '_report' : '_map'}.pdf`);
   };
 
   return (
@@ -116,6 +147,17 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
             <label className="check"><input type="checkbox" checked={includeLegend} onChange={(e) => change(setIncludeLegend)(e.target.checked)} />Legend</label>
           </div>
         </div>
+        <div className="export-checks-row report-opts">
+          <label className="check" title="Adds a page after the map with base rent, rent per SF and net rent side by side. Saved in the PDF only; the PNG is the map page.">
+            <input type="checkbox" checked={includeReport} onChange={(e) => change(setIncludeReport)(e.target.checked)} />PDF: add a page with every rent type
+          </label>
+          <label className="check"><input type="checkbox" checked={includeTakeaways} disabled={!includeReport} onChange={(e) => change(setIncludeTakeaways)(e.target.checked)} />Short "what this says" lines</label>
+          <label className="check" title="A draft: every building with its suites, nearest first"><input type="checkbox" checked={includeBuildings} disabled={!includeReport} onChange={(e) => change(setIncludeBuildings)(e.target.checked)} />Building table (draft)</label>
+        </div>
+        <label className="field wide">
+          <span>Contact (printed on the report page, one line per row: names, emails, website)</span>
+          <textarea rows={3} value={contact} onChange={(e) => change(setContact)(e.target.value)} placeholder="Name, email" />
+        </label>
         <label className="field wide">
           <span>Source line (printed under the map)</span>
           <input value={source} onChange={(e) => change(setSource)(e.target.value)} />
@@ -135,6 +177,11 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
             {stale && <div className="stale-note">Options changed. Update the preview before saving.</div>}
           </div>
         )}
+        {includeReport && reportPreviews.map((src, i) => (
+          <div key={i} className={stale ? 'export-preview stale' : 'export-preview'}>
+            <img src={src} alt={`Preview of PDF page ${i + 2}`} />
+          </div>
+        ))}
 
         <div className="row-actions">
           <button className="btn" onClick={render} disabled={status === 'rendering'}>

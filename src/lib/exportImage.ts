@@ -42,12 +42,12 @@ export interface ExportResult {
   size: { w: number; h: number };
 }
 
-const NAVY = '#002060';
-const INK = '#1b2330';
-const MUTED = '#667085';
-const LINE = '#d9dee7';
+export const NAVY = '#002060';
+export const INK = '#1b2330';
+export const MUTED = '#667085';
+export const LINE = '#d9dee7';
 const AMBER = '#f0a500';
-const FONT = 'Arial, Helvetica, sans-serif';
+export const FONT = 'Arial, Helvetica, sans-serif';
 
 function boundsFor(o: ExportOptions): [LngLat, LngLat] {
   if (o.extent === 'view' && o.viewBounds) return o.viewBounds;
@@ -107,7 +107,7 @@ async function drawnMap(w: number, h: number, scale: number, bounds: [LngLat, Ln
   return { map, el, basemapLoaded: !fellBack };
 }
 
-const loadImage = (url: string) =>
+export const loadImage = (url: string) =>
   new Promise<HTMLImageElement | null>((resolve) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -126,14 +126,14 @@ function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
   ctx.closePath();
 }
 
-function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxW: number): string {
+export function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxW: number): string {
   if (ctx.measureText(text).width <= maxW) return text;
   let t = text;
   while (t.length > 1 && ctx.measureText(`${t}...`).width > maxW) t = t.slice(0, -1);
   return `${t.trim()}...`;
 }
 
-function text(ctx: CanvasRenderingContext2D, s: string, x: number, y: number, font: string, color: string, align: CanvasTextAlign = 'left') {
+export function text(ctx: CanvasRenderingContext2D, s: string, x: number, y: number, font: string, color: string, align: CanvasTextAlign = 'left') {
   ctx.font = font;
   ctx.fillStyle = color;
   ctx.textAlign = align;
@@ -141,7 +141,7 @@ function text(ctx: CanvasRenderingContext2D, s: string, x: number, y: number, fo
   ctx.fillText(s, x, y);
 }
 
-function drawHeader(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions, logo: HTMLImageElement | null) {
+export function drawHeader(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions, logo: HTMLImageElement | null) {
   if (logo) {
     const h = Math.min(60, box.h - 10);
     const w = (logo.naturalWidth / logo.naturalHeight) * h;
@@ -156,7 +156,7 @@ function drawHeader(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions, l
   ctx.fillRect(box.x, box.y + box.h - 3, box.w, 3);
 }
 
-function drawFooter(ctx: CanvasRenderingContext2D, box: Box, note: string) {
+export function drawFooter(ctx: CanvasRenderingContext2D, box: Box, note: string) {
   ctx.fillStyle = LINE;
   ctx.fillRect(box.x, box.y, box.w, 1);
   ctx.font = `400 11px ${FONT}`;

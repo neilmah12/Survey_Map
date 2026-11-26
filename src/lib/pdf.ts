@@ -1,5 +1,5 @@
 /**
- * Minimal single-page PDF that shows one JPEG image filling the page. Enough for a print-ready map page
+ * Minimal PDF that shows one JPEG image filling each page. Enough for a print-ready map page
  * without a PDF library. Offsets in the cross-reference table are computed from the real byte positions.
  */
 const enc = new TextEncoder();
@@ -10,7 +10,15 @@ export function pdfString(s: string): string {
   return `(${s.replace(/[^\x20-\x7e]/g, '?').replace(/([\\()])/g, '\\$1')})`;
 }
 
-export function pdfFromJpeg(jpeg: Uint8Array, imgW: number, imgH: number, pageWpt: number, pageHpt: number, title = ''): Uint8Array {
+export interface JpegPage {
+  jpeg: Uint8Array;
+  /** Pixel size of the image. */
+  w: number;
+  h: number;
+}
+
+/** A PDF with one full-page JPEG per page, all the same page size. */
+export function pdfFromJpegs(pages: JpegPage[], pageWpt: number, pageHpt: number, title = ''): Uint8Array {
   const chunks: Uint8Array[] = [];
   const offsets: number[] = [];
   let pos = 0;
@@ -26,26 +34,32 @@ export function pdfFromJpeg(jpeg: Uint8Array, imgW: number, imgH: number, pageWp
     text('\nendobj\n');
   };
   const f = (n: number) => String(Math.round(n * 100) / 100);
+  // Objects: 1 catalog, 2 page tree, then a page, its image and its drawing instructions for each page, then the info.
+  const pageObj = (i: number) => 3 + i * 3;
+  const info = 3 + pages.length * 3;
 
   push(latin1('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'));
   obj(1, () => text('<< /Type /Catalog /Pages 2 0 R >>'));
-  obj(2, () => text('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'));
-  obj(3, () =>
-    text(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${f(pageWpt)} ${f(pageHpt)}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`),
-  );
-  obj(4, () => {
-    text(`<< /Type /XObject /Subtype /Image /Width ${imgW} /Height ${imgH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
-    push(jpeg);
-    text('\nendstream');
+  obj(2, () => text(`<< /Type /Pages /Kids [${pages.map((_, i) => `${pageObj(i)} 0 R`).join(' ')}] /Count ${pages.length} >>`));
+  pages.forEach((pg, i) => {
+    const n = pageObj(i);
+    obj(n, () =>
+      text(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${f(pageWpt)} ${f(pageHpt)}] /Resources << /XObject << /Im0 ${n + 1} 0 R >> >> /Contents ${n + 2} 0 R >>`),
+    );
+    obj(n + 1, () => {
+      text(`<< /Type /XObject /Subtype /Image /Width ${pg.w} /Height ${pg.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${pg.jpeg.length} >>\nstream\n`);
+      push(pg.jpeg);
+      text('\nendstream');
+    });
+    const content = `q ${f(pageWpt)} 0 0 ${f(pageHpt)} 0 0 cm /Im0 Do Q`;
+    obj(n + 2, () => text(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`));
   });
-  const content = `q ${f(pageWpt)} 0 0 ${f(pageHpt)} 0 0 cm /Im0 Do Q`;
-  obj(5, () => text(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`));
-  obj(6, () => text(`<< /Title ${pdfString(title)} /Producer ${pdfString('Avison Young Survey Map')} >>`));
+  obj(info, () => text(`<< /Title ${pdfString(title)} /Producer ${pdfString('Avison Young Survey Map')} >>`));
 
   const xrefAt = pos;
-  text(`xref\n0 7\n0000000000 65535 f \n`);
-  for (let n = 1; n <= 6; n++) text(`${String(offsets[n]).padStart(10, '0')} 00000 n \n`);
-  text(`trailer\n<< /Size 7 /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xrefAt}\n%%EOF\n`);
+  text(`xref\n0 ${info + 1}\n0000000000 65535 f \n`);
+  for (let n = 1; n <= info; n++) text(`${String(offsets[n]).padStart(10, '0')} 00000 n \n`);
+  text(`trailer\n<< /Size ${info + 1} /Root 1 0 R /Info ${info} 0 R >>\nstartxref\n${xrefAt}\n%%EOF\n`);
 
   const out = new Uint8Array(pos);
   let at = 0;
@@ -55,3 +69,6 @@ export function pdfFromJpeg(jpeg: Uint8Array, imgW: number, imgH: number, pageWp
   }
   return out;
 }
+
+export const pdfFromJpeg = (jpeg: Uint8Array, imgW: number, imgH: number, pageWpt: number, pageHpt: number, title = ''): Uint8Array =>
+  pdfFromJpegs([{ jpeg, w: imgW, h: imgH }], pageWpt, pageHpt, title);
