@@ -21,6 +21,7 @@ import ConfirmDialog from './components/ConfirmDialog';
 import Header from './components/Header';
 import Controls, { DEFAULT_RINGS } from './components/Controls';
 import { scopeSurvey } from './lib/scope';
+import ToolbarMenu from './components/ToolbarMenu';
 import Sidebar from './components/Sidebar';
 import MapView from './components/MapView';
 import SurveysDialog from './components/SurveysDialog';
@@ -382,15 +383,47 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
               {pinsLocked ? 'Pins locked' : 'Moving pins'}
             </button>
             <button className="btn" onClick={addBuilding} title="Add a building without editing the Excel first">Add building</button>
-            <button className="btn" onClick={() => mergeInput.current?.click()} title="Re-upload a revised sheet; keeps your pins and photos">Update from Excel</button>
-            <button className="btn" onClick={exportExcel} disabled={!survey.source} title={survey.source ? 'Write pin coordinates and photo URLs back into your workbook' : 'Upload the Excel file again to enable export'}>Export Excel</button>
-            <span className="sep" />
-            <button className="btn" onClick={() => excelInput.current?.click()}>New from Excel</button>
-            <button className="btn" onClick={() => setSurveysOpen(true)} title="Surveys saved in the cloud, shared with the team">Saved surveys</button>
-            <button className="btn" onClick={() => jsonInput.current?.click()} title="Open a .survey.json backup file">Open</button>
-            <button className="btn" onClick={() => downloadJson(survey)} title="Download a backup copy to your computer">Save file</button>
-            <button className="btn" onClick={() => setConfirmStartOver(true)} title="Close this survey and clear the autosaved copy">Start over</button>
             <button className="btn" onClick={() => setFitKey((k) => k + 1)}>Fit map</button>
+            <span className="sep" />
+            <ToolbarMenu
+              label="File"
+              items={[
+                { label: 'Saved surveys', title: 'Surveys saved in the cloud, shared with the team', onClick: () => setSurveysOpen(true) },
+                { label: 'Open a backup file', title: 'Open a .survey.json backup file', onClick: () => jsonInput.current?.click() },
+                { label: 'Save a backup file', title: 'Download a backup copy to your computer', onClick: () => downloadJson(survey) },
+                { label: 'New from Excel', onClick: () => excelInput.current?.click(), dividerBefore: true },
+                { label: 'Start over', title: 'Close this survey and clear the autosaved copy', onClick: () => setConfirmStartOver(true), danger: true, dividerBefore: true },
+              ]}
+            />
+            <ToolbarMenu
+              label="Excel"
+              items={[
+                { label: 'Update from Excel', title: 'Re-upload a revised sheet; keeps your pins and photos', onClick: () => mergeInput.current?.click() },
+                {
+                  label: 'Export Excel',
+                  disabled: !survey.source,
+                  title: survey.source ? 'Write pin coordinates and photo URLs back into your workbook' : 'Upload the Excel file again to enable export',
+                  onClick: exportExcel,
+                },
+              ]}
+            />
+            <ToolbarMenu
+              label="Share"
+              items={[
+                {
+                  label: 'Export image / PDF',
+                  disabled: !survey.buildings.some((b) => b.lngLat),
+                  title: 'Save the map as a PNG or PDF for a report',
+                  onClick: () => setExportOpen(true),
+                },
+                {
+                  label: 'Export client file',
+                  disabled: !clientTemplate,
+                  title: clientTemplate ? 'Save a read-only copy of the map to send to a client' : 'Not available in this build. Use the file made by npm run build:single',
+                  onClick: () => setClientExport(toClientSnapshot(survey, view)),
+                },
+              ]}
+            />
             <span className="sep" />
             <button className="btn" onClick={openChecks} title="Look for mistakes before sending a client the map">
               Checks
@@ -399,9 +432,6 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
               </span>
             </button>
             <button className="btn" onClick={() => setPreview(true)}>Preview client view</button>
-            <button className="btn" onClick={() => setExportOpen(true)} disabled={!survey.buildings.some((b) => b.lngLat)} title="Save the map as a PNG or PDF for a report">
-              Export image / PDF
-            </button>
             <button
               className="btn primary"
               onClick={() => setPublishResult(toClientSnapshot(survey, view))}
@@ -409,14 +439,6 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
               title={link.id && !link.dirty ? 'Create or update the private link for your client' : 'Waiting for the survey to save to the cloud'}
             >
               Client link
-            </button>
-            <button
-              className="btn"
-              onClick={() => setClientExport(toClientSnapshot(survey, view))}
-              disabled={!clientTemplate}
-              title={clientTemplate ? 'Save a read-only copy of the map to send to a client' : 'Not available in this build. Use the file made by npm run build:single'}
-            >
-              Export client file
             </button>
           </>
         ) : (
@@ -470,6 +492,7 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
           onClose={() => setPublishResult(null)}
           onDone={(text) => setNotice({ text })}
           onAsOf={(d) => setSurvey((s) => (s && s.asOf !== d ? { ...s, asOf: d } : s), { commit: true })}
+          onClientToggle={(on) => setSurvey((s) => (s && Boolean(s.clientCanToggle) !== on ? { ...s, clientCanToggle: on } : s), { commit: true })}
         />
       )}
       {cloud.status === 'conflict' && conflictOpen && (

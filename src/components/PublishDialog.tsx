@@ -15,12 +15,14 @@ interface Props {
   onDone: (text: string) => void;
   /** The date chosen here becomes the survey's As of date too, so the editor and the link agree. */
   onAsOf: (date: string) => void;
+  /** Same for the choice to let clients switch buildings on and off. */
+  onClientToggle: (on: boolean) => void;
 }
 
 const when = (d: Date | null) => (d ? d.toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' }) : '');
 
 /** Publish, update or unpublish the private client link for the survey that is open. */
-export default function PublishDialog({ surveyId, result, checks, onShow, onClose, onDone, onAsOf }: Props) {
+export default function PublishDialog({ surveyId, result, checks, onShow, onClose, onDone, onAsOf, onClientToggle }: Props) {
   const [state, setState] = useState<PublishState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +33,13 @@ export default function PublishDialog({ surveyId, result, checks, onShow, onClos
   const today = localDate();
   const [asOf, setAsOf] = useState(result.snapshot.asOf);
   const [asOfTouched, setAsOfTouched] = useState(false);
-  const snap = useMemo(() => ({ ...result.snapshot, asOf }), [result, asOf]);
+  const [canToggle, setCanToggle] = useState(Boolean(result.snapshot.clientCanToggle));
+  const snap = useMemo(() => {
+    const next = { ...result.snapshot, asOf };
+    if (canToggle) next.clientCanToggle = true;
+    else delete next.clientCanToggle;
+    return next;
+  }, [result, asOf, canToggle]);
   const sum = summarizeSnapshot(result);
   const counts = countBySeverity(checks);
   const issues = checks.filter((c) => c.severity !== 'info');
@@ -125,6 +133,12 @@ export default function PublishDialog({ surveyId, result, checks, onShow, onClos
                 )}
               </div>
             )}
+            {!confirmOff && (
+              <label className="check" title="Off: clients see your selection and cannot change it. On: they get a tick box per building, in the summary and on each map popup. Their choices are never saved.">
+                <input type="checkbox" checked={canToggle} onChange={(e) => setCanToggle(e.target.checked)} />
+                Clients can switch buildings on and off
+              </label>
+            )}
             {!confirmOff && <p className="hint">Today's date is the usual choice when you have just checked or updated the rents. Choose an earlier date only if the rents were collected then.</p>}
             {error && <p className="error">{error}</p>}
             {confirmOff ? (
@@ -138,7 +152,7 @@ export default function PublishDialog({ surveyId, result, checks, onShow, onClos
                 <button
                   className="btn primary"
                   disabled={busy || !asOf || counts.error > 0 || (state.published && state.upToDate === true)}
-                  onClick={() => run(async () => { await publishSnapshot(surveyId, { ...snap, publishedAt: new Date().toISOString() }); onAsOf(asOf); }, state.published ? 'Client link updated.' : 'Published. Copy the link from the Client link dialog.')}
+                  onClick={() => run(async () => { await publishSnapshot(surveyId, { ...snap, publishedAt: new Date().toISOString() }); onAsOf(asOf); onClientToggle(canToggle); }, state.published ? 'Client link updated.' : 'Published. Copy the link from the Client link dialog.')}
                 >
                   {busy ? 'Working...' : state.published ? 'Update link' : counts.warn ? 'Publish anyway' : 'Publish'}
                 </button>

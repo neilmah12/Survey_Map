@@ -436,3 +436,14 @@ table, .pin, .chart-plot, .tip-grid { font-variant-numeric: tabular-nums; }
 .controls .chip { font-size: 13px; padding: 3px 11px; }
 .controls .control-label { letter-spacing: .06em; }
 .ring-item input { font-size: 13.5px; }
+
+/* Toolbar menus */
+.menu { position: relative; display: inline-block; }
+.menu-trigger { display: inline-flex; align-items: center; gap: 6px; }
+.menu-trigger[aria-expanded="true"] { background: #eef2fb; border-color: #aeb9cc; }
+.menu-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 40; min-width: 230px; padding: 4px; background: #fff; border: 1px solid var(--hair); border-radius: 10px; box-shadow: var(--shadow-md); }
+.menu-item { display: block; width: 100%; text-align: left; padding: 7px 10px; border: 0; border-radius: 6px; background: none; color: var(--ink); font-size: 13px; font-weight: 500; cursor: pointer; }
+.menu-item:hover:not(:disabled), .menu-item:focus-visible { background: #eef2fb; outline: none; }
+.menu-item:disabled { color: #98a2b3; cursor: default; }
+.menu-item.danger { color: #b42318; }
+.menu-rule { height: 1px; margin: 4px 2px; background: var(--hair); }
