@@ -34,7 +34,6 @@ export interface Report {
   rows: ReportRow[];
   hasSubject: boolean;
   marketBuildings: number;
-  takeaways: string[];
 }
 
 export function buildReport(survey: Survey, view: ViewSettings): Report {
@@ -59,23 +58,7 @@ export function buildReport(survey: Survey, view: ViewSettings): Report {
     }
   }
   const list = [...rows.values()];
-  return { metrics, rows: list, hasSubject, marketBuildings, takeaways: takeaways(list, hasSubject, view.summary.perBuilding) };
-}
-
-/** "1 Bed: the subject is 4.3% below the market (3 comps)". Base rent, so it matches the headline table. */
-export function takeaways(rows: ReportRow[], hasSubject: boolean, perBuilding: boolean): string[] {
-  if (!hasSubject) return [];
-  const unit = perBuilding ? 'comp' : 'unit';
-  const out: string[] = [];
-  for (const r of rows) {
-    const c = r.cells.rate;
-    if (!c || c.market == null || c.subject == null || c.diffPct == null) continue;
-    const pct = Math.abs(c.diffPct * 100);
-    const how = pct < 0.5 ? 'in line with the market' : `${pct.toFixed(1)}% ${c.diffPct < 0 ? 'below' : 'above'} the market`;
-    const basis = r.comps === 1 ? `1 ${unit} only` : `${r.comps} ${unit}s`;
-    out.push(`${r.label}: the subject is ${how} (${basis}).`);
-  }
-  return out;
+  return { metrics, rows: list, hasSubject, marketBuildings };
 }
 
 export interface ReportUnit {

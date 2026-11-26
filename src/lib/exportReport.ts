@@ -9,14 +9,11 @@ import { FONT, INK, LINE, MUTED, NAVY, drawFooter, drawHeader, ellipsize, loadIm
 
 /**
  * The report's data pages, drawn the same way as the map page (a canvas at the page size), so they join it in one PDF:
- *  - "Market summary by rent type": base rent, rent PSF and net rent side by side, a plain-language line per unit
- *    type, and a contact box.
+ *  - "Market summary by rent type": base rent, rent PSF and net rent side by side, and a contact strip.
  *  - "Buildings in the comparison" (optional): every building with its suites, nearest first.
  */
 
 export interface ReportOptions extends ExportOptions {
-  /** Short plain-language lines under the table. */
-  includeTakeaways: boolean;
   /** The building-by-building pages. */
   includeBuildings: boolean;
   /** Who to talk to, and the team's web page. No people leaves the box out. */
@@ -54,42 +51,35 @@ function lines(ctx: CanvasRenderingContext2D, s: string, w: number, font: string
 }
 
 const CONTACT_COLS = 3;
-const CONTACT_CELL_H = 42;
+const CONTACT_ROW_H = 15;
 
-/** Height the contact box takes, so the table above it knows how much room is left. */
+/** Height the contact strip takes, so the table above it knows how much room is left. Quiet by design: a few small lines. */
 function contactHeight(contacts: Contact[]): number {
   if (contacts.length === 0) return 0;
-  return 30 + Math.ceil(contacts.length / CONTACT_COLS) * CONTACT_CELL_H + 10;
+  return 8 + 17 + Math.ceil(contacts.length / CONTACT_COLS) * CONTACT_ROW_H + 8;
 }
 
-/** The team in a compact grid, three across, under one short heading with the web address on the right. */
+/** "Questions? Talk to our team." with the team in small type underneath, three across: a footer, not a feature. */
 function contactBox(ctx: CanvasRenderingContext2D, box: Box, contacts: Contact[], url: string) {
   if (contacts.length === 0) return;
-  const h = contactHeight(contacts) - 10;
-  const y = box.y + box.h - h - 10;
-  ctx.fillStyle = '#eef3fb';
-  ctx.beginPath();
-  ctx.roundRect(box.x, y, box.w, h, 8);
-  ctx.fill();
-  ctx.strokeStyle = '#d3def2';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  text(ctx, 'Questions, or a different comparison? Talk to our team.', box.x + 14, y + 21, `700 12px ${FONT}`, NAVY);
+  const h = contactHeight(contacts);
+  const y = box.y + box.h - h;
+  ctx.fillStyle = LINE;
+  ctx.fillRect(box.x, y, box.w, 1);
+  text(ctx, 'Questions? Talk to our team.', box.x, y + 22, `700 11px ${FONT}`, NAVY);
   if (url) {
     ctx.font = `400 10px ${FONT}`;
-    const shown = ellipsize(ctx, url.replace(/^https?:\/\//, ''), box.w * 0.42);
-    text(ctx, shown, box.x + box.w - 14, y + 21, `400 10px ${FONT}`, MUTED, 'right');
+    text(ctx, ellipsize(ctx, url.replace(/^https?:\/\//, ''), box.w * 0.45), box.x + box.w, y + 22, `400 10px ${FONT}`, MUTED, 'right');
   }
-  const colW = (box.w - 28) / CONTACT_COLS;
+  const colW = box.w / CONTACT_COLS;
   contacts.forEach((c, i) => {
-    const cx = box.x + 14 + (i % CONTACT_COLS) * colW;
-    const cy = y + 42 + Math.floor(i / CONTACT_COLS) * CONTACT_CELL_H;
-    ctx.font = `700 11.5px ${FONT}`;
-    text(ctx, ellipsize(ctx, c.name, colW - 12), cx, cy, `700 11.5px ${FONT}`, INK);
-    ctx.font = `400 10px ${FONT}`;
-    text(ctx, ellipsize(ctx, c.title, colW - 12), cx, cy + 12, `400 10px ${FONT}`, MUTED);
+    const cx = box.x + (i % CONTACT_COLS) * colW;
+    const cy = y + 22 + 15 + Math.floor(i / CONTACT_COLS) * CONTACT_ROW_H;
+    ctx.font = `700 10.5px ${FONT}`;
+    const nameW = ctx.measureText(c.name).width;
+    text(ctx, ellipsize(ctx, c.name, colW - 12), cx, cy, `700 10.5px ${FONT}`, INK);
     ctx.font = `400 10.5px ${FONT}`;
-    text(ctx, ellipsize(ctx, c.email, colW - 12), cx, cy + 24, `400 10.5px ${FONT}`, NAVY);
+    text(ctx, ellipsize(ctx, c.email, Math.max(40, colW - 20 - nameW)), cx + nameW + 6, cy, `400 10.5px ${FONT}`, NAVY);
   });
 }
 
@@ -120,16 +110,14 @@ function drawSummaryPage(o: ReportOptions, scale: number, logo: HTMLImageElement
   const colX = (g: number, k: number) => left + labelW + compsW + g * groupW + (k + 1) * subW; // right edge of a sub-column
 
   const rowH = 27;
-  const reserved = contactHeight(o.contacts);
+  const reserved = contactHeight(o.contacts) + (o.contacts.length ? 6 : 0);
   const bottom = regions.footer.y - 10 - reserved;
-  const noteLines = o.includeTakeaways ? report.takeaways.length : 0;
-  const takeawayH = noteLines ? 30 + noteLines * 17 : 0;
   const footnotes: string[] = [];
   if (metrics.includes('net')) footnotes.push(netDefinition(netOf(o.survey)) + '.');
   footnotes.push('Difference: the subject against the market figure for the same unit type, as a share of the market.');
   const footnoteLines = lines(ctx, footnotes.join(' '), width, `400 10px ${FONT}`);
   const footnoteH = footnoteLines.length * 13 + 8;
-  const room = bottom - y - 44 - takeawayH - footnoteH;
+  const room = bottom - y - 44 - footnoteH;
   const maxRows = Math.max(1, Math.floor(room / rowH));
   const rows: ReportRow[] = report.rows.slice(0, maxRows);
 
@@ -182,19 +170,6 @@ function drawSummaryPage(o: ReportOptions, scale: number, logo: HTMLImageElement
     y += 18;
   }
 
-  if (noteLines) {
-    text(ctx, 'What this says', left, y + 12, `700 12.5px ${FONT}`, NAVY);
-    y += 30;
-    report.takeaways.forEach((t) => {
-      ctx.fillStyle = NAVY;
-      ctx.beginPath();
-      ctx.arc(left + 4, y - 4, 2.2, 0, Math.PI * 2);
-      ctx.fill();
-      text(ctx, ellipsize(ctx, t, width - 20), left + 14, y, `400 12px ${FONT}`, INK);
-      y += 17;
-    });
-    y += 8;
-  }
   footnoteLines.forEach((l, i) => text(ctx, l, left, bottom - footnoteH + 12 + i * 13, `400 10px ${FONT}`, MUTED));
   contactBox(ctx, { x: left, y: bottom, w: width, h: reserved }, o.contacts, o.contactUrl);
   drawFooter(ctx, regions.footer, o.sourceNote);

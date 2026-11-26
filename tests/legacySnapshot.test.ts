@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { isSnapshot, snapshotToSurvey, snapshotToView } from '../src/lib/snapshot';
 import { computeSummary } from '../src/lib/summary';
-import { layoutChart, chartNotes } from '../src/lib/chartLayout';
+import { layoutChart } from '../src/lib/chartLayout';
 import { DEFAULT_SUMMARY } from '../src/types';
 
 /**
@@ -50,7 +50,6 @@ describe('a survey published by an earlier version still opens', () => {
           expect(m.height).toBeGreaterThan(0);
           expect(m.shapes.every((x) => (x.k === 'text' ? Number.isFinite(x.x) && Number.isFinite(x.y) : true))).toBe(true);
         }
-        expect(Array.isArray(chartNotes(r, mode))).toBe(true);
       }
     }
   });

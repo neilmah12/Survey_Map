@@ -5,7 +5,7 @@ import { NO_FILTERS } from '../src/lib/groups';
 import { computeSummary, type SummaryResult } from '../src/lib/summary';
 import { DEFAULT_NET } from '../src/lib/net';
 import { DEFAULT_SUMMARY, type Metric, type Survey } from '../src/types';
-import { chartNotes, compareScale, diffScale, exportNotes, layoutChart, layoutCompare, layoutDiff, pctText, wrapLabel, type ChartModel } from '../src/lib/chartLayout';
+import { compareScale, diffScale, layoutChart, layoutCompare, layoutDiff, pctText, wrapLabel, type ChartModel } from '../src/lib/chartLayout';
 
 async function load(name: string): Promise<Survey> {
   const b = readFileSync(new URL(`./fixtures/${name}`, import.meta.url));
@@ -122,8 +122,6 @@ describe('layout', () => {
     const r = run(await load('castle-harbour-apartments.xlsx'));
     const m = layoutChart(r, 'compare', { metric: 'rate', W: 560, });
     expect(texts(m).some((t) => /comps?( only)?$/.test(t))).toBe(true);
-    const one = r.rows.find((x) => x.comps.length === 1);
-    if (one) expect(chartNotes(r, 'compare').some((n) => n.startsWith('One building only') && n.includes(one.label) && n.includes(one.comps[0].name))).toBe(true);
   });
 
   it('fits a fixed height when the page has little room', async () => {
@@ -145,20 +143,7 @@ describe('layout', () => {
   });
 });
 
-describe('notes', () => {
-  it('groups unit types into one line per kind of gap, however many there are', async () => {
-    const r = run(await load('boardwalk-portfolio.xlsx'), 'rate', { baths: true, reno: true });
-    expect(chartNotes(r, 'compare').length).toBeLessThanOrEqual(3);
-  });
-
-  it('names the unit types left out of the comparison', async () => {
-    const r = run(await load('castle-harbour-apartments.xlsx'));
-    const notes = exportNotes(r);
-    expect(notes.some((n) => n.includes('Studio'))).toBe(true);
-    expect(chartNotes(r, 'diff').some((n) => n.includes('Studio') && n.includes('Left out of this view'))).toBe(true);
-    expect(chartNotes(r, 'compare').every((n) => !n.includes('Left out'))).toBe(true);
-  });
-
+describe('labels', () => {
   it('wraps long labels to two lines and ends an overflow with ...', () => {
     const lines = wrapLabel('2 Beds / 1.5 Bath / Renovated Premium Finish Suites', 90, 11.5, 2);
     expect(lines.length).toBeLessThanOrEqual(2);

@@ -37,7 +37,7 @@ function ContactMenu({ survey }: { survey: Survey }) {
       </button>
       {open && (
         <div className="contact-card" role="dialog" aria-label="Contact our team">
-          <div className="contact-title">Questions, or a different comparison?</div>
+          <div className="contact-title">Questions?</div>
           <div className="contact-sub">Talk to our team.</div>
           <ul>
             {contacts.map((c) => (

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseSurvey } from '../src/lib/parse';
 import { NO_FILTERS } from '../src/lib/groups';
-import { buildReport, reportBuildings, takeaways, type ReportRow } from '../src/lib/report';
+import { buildReport, reportBuildings } from '../src/lib/report';
 import { computeSummary } from '../src/lib/summary';
 import { scopeSurvey } from '../src/lib/scope';
 import { DEFAULT_SUMMARY, type Survey, type ViewSettings } from '../src/types';
@@ -53,22 +53,6 @@ describe('the PDF report figures', () => {
     const near = buildReport(s, view({ within: 2.5 }));
     expect(near.marketBuildings).toBeLessThan(all.marketBuildings);
     expect(near.marketBuildings).toBe(2);
-  });
-
-  it('writes one plain line per unit type, with the right words', () => {
-    const rows: ReportRow[] = [
-      { label: '1 Bed', comps: 3, cells: { rate: { market: 1253, subject: 1200, diffPct: -0.0423 } } },
-      { label: '2 Beds', comps: 1, cells: { rate: { market: 2094, subject: 2100, diffPct: 0.0029 } } },
-      { label: '3 Beds', comps: 4, cells: { rate: { market: 2525, subject: 2800, diffPct: 0.1089 } } },
-      { label: '4+', comps: 1, cells: { rate: { market: 2350, subject: null, diffPct: null } } },
-    ];
-    expect(takeaways(rows, true, true)).toEqual([
-      '1 Bed: the subject is 4.2% below the market (3 comps).',
-      '2 Beds: the subject is in line with the market (1 comp only).',
-      '3 Beds: the subject is 10.9% above the market (4 comps).', // a unit type the subject does not have is skipped
-    ]);
-    expect(takeaways(rows, false, true)).toEqual([]); // no subject, nothing to say
-    expect(takeaways(rows.slice(0, 1), true, false)[0]).toContain('(3 units)');
   });
 
   it('lists the subject first, then comparables nearest first, with their suites and distances', async () => {

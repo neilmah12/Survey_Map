@@ -312,20 +312,3 @@ export function layoutChart(result: SummaryResult, mode: Exclude<ChartMode, 'off
   return mode === 'diff' ? layoutDiff(result.rows, o) : layoutCompare(result.rows, { ...o, hasSubject: result.hasSubject });
 }
 
-// ---- notes under the chart -------------------------------------------------------------------------------
-
-/** What the chart cannot show, said once per kind however many unit types are affected. */
-export function chartNotes(result: SummaryResult, mode: Exclude<ChartMode, 'off'>): string[] {
-  const out: string[] = [];
-  const left = mode === 'diff' ? ' Left out of this view.' : '';
-  const noComps = result.rows.filter((r) => r.market.value == null && r.subject.value != null).map((r) => r.label);
-  const noSubject = result.hasSubject ? result.rows.filter((r) => r.subject.value == null && r.market.value != null).map((r) => r.label) : [];
-  const one = result.rows.filter((r) => r.comps.length === 1 && r.market.value != null).map((r) => `${r.label} (${r.comps[0].name})`);
-  if (noComps.length) out.push(`No comparable in the market: ${noComps.join(', ')}.${left}`);
-  if (noSubject.length) out.push(`The subject has none of: ${noSubject.join(', ')}.${left}`);
-  if (one.length) out.push(`One building only, so not an average: ${one.join(', ')}.`);
-  return out;
-}
-
-/** The same notes for the printed page, where every line costs room. */
-export const exportNotes = (result: SummaryResult): string[] => chartNotes(result, 'compare');

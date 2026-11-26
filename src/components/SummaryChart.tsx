@@ -3,7 +3,7 @@ import type { ChartMode, Metric, Stat } from '../types';
 import { formatMetric } from '../lib/format';
 import type { SummaryResult, SummaryRow } from '../lib/summary';
 import { fmtDiff } from '../lib/summaryFormat';
-import { CHART_COLORS as C, baseDiffers, chartNotes, layoutChart, type Shape } from '../lib/chartLayout';
+import { CHART_COLORS as C, baseDiffers, layoutChart, type Shape } from '../lib/chartLayout';
 
 interface Props {
   result: SummaryResult;
@@ -79,7 +79,6 @@ export default function SummaryChart({ result, metric, mode, stat, numbers, comp
   }, [tip]);
 
   const model = useMemo(() => layoutChart(result, mode, { metric, W: w, H: compact ? COMPACT_H : undefined }), [result, mode, metric, w, compact]);
-  const notes = useMemo(() => chartNotes(result, mode), [result, mode]);
   const noSubject = mode === 'diff' && !result.hasSubject;
   const how = stat === 'median' ? 'median' : 'average';
 
@@ -137,11 +136,6 @@ export default function SummaryChart({ result, metric, mode, stat, numbers, comp
         </svg>
         {tip && r && <Tip row={r} metric={metric} stat={stat} hasSubject={result.hasSubject} numbers={numbers} x={tip.x} y={tip.y} box={wrap.current?.clientWidth ?? w} plotH={model.height} />}
       </div>
-      {notes.length > 0 && (
-        <ul className="chart-notes">
-          {notes.map((n) => <li key={n}>{n}</li>)}
-        </ul>
-      )}
     </div>
   );
 }

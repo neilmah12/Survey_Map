@@ -36,7 +36,6 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
   const [source, setSource] = useState(initialSource || DEFAULT_SOURCE);
   // The PDF can carry more than the map page: a page with every rent type side by side, and optionally a building table.
   const [includeReport, setIncludeReport] = useState(true);
-  const [includeTakeaways, setIncludeTakeaways] = useState(true);
   const [includeBuildings, setIncludeBuildings] = useState(false);
   const [includeContact, setIncludeContact] = useState(true);
   const [reportPages, setReportPages] = useState<HTMLCanvasElement[]>([]);
@@ -68,7 +67,7 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
       const extra = includeReport
         ? await renderReportPages({
             survey, view, page, dpi, extent, viewBounds: getBounds(), includeSummary, includeChart, includeLegend, sourceNote: source, logoUrl,
-            includeTakeaways, includeBuildings, contacts: includeContact ? contacts : [], contactUrl,
+            includeBuildings, contacts: includeContact ? contacts : [], contactUrl,
           })
         : [];
       setReportPages(extra);
@@ -150,7 +149,6 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
           <label className="check" title="Adds a page after the map with base rent, rent per SF and net rent side by side. Saved in the PDF only; the PNG is the map page.">
             <input type="checkbox" checked={includeReport} onChange={(e) => change(setIncludeReport)(e.target.checked)} />PDF: add a page with every rent type
           </label>
-          <label className="check"><input type="checkbox" checked={includeTakeaways} disabled={!includeReport} onChange={(e) => change(setIncludeTakeaways)(e.target.checked)} />Short "what this says" lines</label>
           <label className="check" title={contacts.length ? 'Prints the team contacts chosen in the survey settings' : 'No contacts are chosen in the survey settings'}>
             <input type="checkbox" checked={includeContact && contacts.length > 0} disabled={!includeReport || contacts.length === 0} onChange={(e) => change(setIncludeContact)(e.target.checked)} />Contact box
           </label>

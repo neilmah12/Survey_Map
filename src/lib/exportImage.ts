@@ -11,7 +11,7 @@ import { pinNumbers } from './pinNumbers';
 import { computeSummary } from './summary';
 import { fmtKm, maxRingKm, ringRadii, scopeSurvey } from './scope';
 import { fmtDiff, fmtValue } from './summaryFormat';
-import { CHART_COLORS, exportNotes, layoutChart } from './chartLayout';
+import { CHART_COLORS, layoutChart } from './chartLayout';
 import { chartKeys, drawChartKeys, drawChartModel } from './exportChart';
 import {
   filterCaption, legendItems, metricCaption, niceScale, pageRegions, summaryFootnotes, wrapText, type Box, type LegendItem, type PageKind,
@@ -472,7 +472,7 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
     const rows = result.rows;
     const mode = o.view.summary.chart;
     const wantChart = o.includeChart !== false && mode !== 'off' && rows.length > 0 && (mode !== 'diff' || sj);
-    const foot = [...summaryFootnotes(result, o.view.summary.perBuilding, result.subjectBuildings), ...(wantChart ? exportNotes(result) : [])];
+    const foot = summaryFootnotes(result, o.view.summary.perBuilding, result.subjectBuildings);
     const reserve = foot.length * 13 + 10 + legendH + 8;
 
     if (wantChart) {
