@@ -4,6 +4,7 @@ import { canvasToBlob, renderExport } from './exportImage';
 import { renderReportPages } from './exportReport';
 import { pdfFromJpegs } from './pdf';
 import { PAGES } from './exportLayout';
+import { fileName } from './fileName';
 
 /**
  * The PDF a client can download: always the report as published (the survey and view the link was made with), never
@@ -32,7 +33,7 @@ export async function clientPdf(survey: Survey, view: ViewSettings): Promise<{ b
   }
   const { wIn, hIn } = PAGES[page];
   const pdf = pdfFromJpegs(pages, wIn * 72, hIn * 72, `${survey.title} - Rental Market Survey`);
-  const name = (survey.title.replace(/[^\w.-]+/g, '_') || 'survey') + '_report.pdf';
+  const name = fileName(survey.title, 'Rental Market Survey', 'pdf');
   return { blob: new Blob([pdf as BlobPart], { type: 'application/pdf' }), name };
 }
 

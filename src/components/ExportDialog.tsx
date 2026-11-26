@@ -6,6 +6,7 @@ import { canvasToBlob, renderExport, type ExportResult } from '../lib/exportImag
 import { renderReportPages } from '../lib/exportReport';
 import { pdfFromJpegs } from '../lib/pdf';
 import { downloadBlob } from '../lib/store';
+import { fileName } from '../lib/fileName';
 
 export const DEFAULT_SOURCE = 'Source: Avison Young Research';
 
@@ -24,7 +25,6 @@ interface Props {
   onClose: () => void;
 }
 
-const fileBase = (title: string) => title.replace(/[^\w.-]+/g, '_') || 'survey';
 
 export default function ExportDialog({ survey, view, getBounds, initialSource, onSource, contacts, contactUrl, onClose }: Props) {
   const [page, setPage] = useState<PageKind>('letter-landscape');
@@ -95,7 +95,7 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
   const savePng = async () => {
     if (!result) return;
     remember();
-    downloadBlob(await canvasToBlob(result.canvas, 'image/png'), `${fileBase(survey.title)}_map.png`);
+    downloadBlob(await canvasToBlob(result.canvas, 'image/png'), fileName(survey.title, 'Map', 'png'));
   };
 
   const savePdf = async () => {
@@ -107,7 +107,7 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
       pages.push({ jpeg: new Uint8Array(await (await canvasToBlob(c, 'image/jpeg', 0.93)).arrayBuffer()), w: c.width, h: c.height });
     }
     const pdf = pdfFromJpegs(pages, wIn * 72, hIn * 72, `${survey.title} - Rental Market Survey`);
-    downloadBlob(new Blob([pdf as BlobPart], { type: 'application/pdf' }), `${fileBase(survey.title)}${includeReport ? '_report' : '_map'}.pdf`);
+    downloadBlob(new Blob([pdf as BlobPart], { type: 'application/pdf' }), fileName(survey.title, includeReport ? 'Rental Market Survey' : 'Map', 'pdf'));
   };
 
   return (

@@ -455,7 +455,7 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
   const legendH = items.length ? 22 + items.length * 21 : 0;
 
   if (o.includeSummary) {
-    text(ctx, 'Market summary', box.x, y + 2, `700 15px ${FONT}`, NAVY);
+    text(ctx, `Market summary: ${METRIC_LABEL[o.view.metric]}`, box.x, y + 2, `700 15px ${FONT}`, NAVY);
     y += 18;
     const sub = `${METRIC_LABEL[o.view.metric]}, ${o.view.summary.stat === 'avg' ? 'average' : 'median'} of ${result.marketBuildings} comparable building${result.marketBuildings === 1 ? '' : 's'}${result.hasSubject ? ', subject excluded' : ''}${o.view.within != null && o.view.within > 0 ? `, within ${fmtKm(o.view.within)} of the subject` : ''}`;
     ctx.font = `400 10.5px ${FONT}`;
