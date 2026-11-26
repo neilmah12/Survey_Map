@@ -414,3 +414,25 @@ table, .pin, .chart-plot, .tip-grid { font-variant-numeric: tabular-nums; }
 
 .asof-row { display: flex; align-items: flex-end; gap: 12px; margin-top: 10px; }
 .asof-row .field { margin-bottom: 0; }
+
+/* Second visual pass: the editor's toolbar, sidebar and strip. The client page has no toolbar, so only the header rule is shared. */
+.header { border-bottom-width: 2px; }
+.btn { font-size: 13px; font-weight: 550; padding: 5px 11px; border-radius: 8px; border-color: #cfd6e2; transition: background-color .12s, border-color .12s; }
+.btn:hover:not(:disabled) { background: #f1f4f9; border-color: #aeb9cc; }
+.btn.primary:hover:not(:disabled) { background: var(--navy-2); border-color: var(--navy-2); }
+.btn:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.toolbar { gap: 6px; padding: 8px 16px; background: #fafbfd; border-bottom: 1px solid var(--hair); }
+.toolbar .sep { display: inline-block; width: 1px; height: 22px; background: var(--hair); margin: 0 4px; }
+.toolbar.preview { background: #fff4e5; }
+.sidebar { padding: 18px 16px; gap: 20px; border-right: 1px solid var(--hair); box-shadow: 6px 0 18px rgba(16,24,40,.04); font-size: 13.5px; }
+.sidebar .editor-title { font-size: 11px; letter-spacing: .08em; color: #667085; margin: 2px 0 10px; }
+.sidebar .field input, .sidebar .field select, .sidebar .coord input { font-size: 13.5px; padding: 7px 9px; border-radius: 8px; border-color: #cfd6e2; }
+.sidebar .check { margin: 2px 0 12px; line-height: 1.35; }
+.sidebar .updated { margin-top: 0; }
+.brow { padding: 6px 8px; font-size: 13.5px; border-radius: 8px; }
+.brow:hover { background: #f1f4f9; }
+.brow.on { background: #e8eefa; }
+.controls { padding: 10px 16px; border-bottom: 1px solid var(--hair); }
+.controls .chip { font-size: 13px; padding: 3px 11px; }
+.controls .control-label { letter-spacing: .06em; }
+.ring-item input { font-size: 13.5px; }
