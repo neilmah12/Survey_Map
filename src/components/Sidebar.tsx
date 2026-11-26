@@ -318,7 +318,7 @@ function Editor({ b, p }: { b: Building; p: Props }) {
       <CoordInput b={b} onBuilding={p.onBuilding} />
       {b.lngLat && (
         <div className="hint">
-          {b.lngLat[1].toFixed(5)}, {b.lngLat[0].toFixed(5)} (drag the pin to adjust)
+          {b.lngLat[1].toFixed(5)}, {b.lngLat[0].toFixed(5)} (Shift + drag the pin, or paste new coordinates above)
         </div>
       )}
 

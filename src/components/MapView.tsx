@@ -28,6 +28,10 @@ interface Props {
   placingId: string | null;
   onSelect: (id: string | null) => void;
   onMove: (id: string, lngLat: LngLat) => void;
+  /** Editor: pins cannot be dragged (hold Shift to move one). Placing and typing coordinates are unaffected. */
+  pinsLocked?: boolean;
+  /** Called when someone tries to drag a locked pin, so the editor can say how to unlock it. */
+  onLockedDrag?: () => void;
   onPlace: (lngLat: LngLat) => void;
   /** A building dragged from the list was dropped on the map. */
   onDropBuilding?: (id: string, lngLat: LngLat) => void;
@@ -379,6 +383,25 @@ export default function MapView(p: Props) {
         .setPopup(popup)
         .addTo(map);
       element.addEventListener('click', () => live.current.onSelect(b.id));
+      // Locked: swallow the press before MapLibre starts a drag (Shift lets one through). Clicks still select.
+      // The editor is told when the pointer actually moves, so a plain click does not trigger the hint.
+      element.addEventListener(
+        'mousedown',
+        (e) => {
+          if (!live.current.pinsLocked || e.shiftKey) return;
+          e.stopPropagation();
+          const [x0, y0] = [e.clientX, e.clientY];
+          const move = (m: MouseEvent) => {
+            if (Math.hypot(m.clientX - x0, m.clientY - y0) < 6) return;
+            window.removeEventListener('mousemove', move);
+            live.current.onLockedDrag?.();
+          };
+          window.addEventListener('mousemove', move);
+          window.addEventListener('mouseup', () => window.removeEventListener('mousemove', move), { once: true });
+        },
+        true,
+      );
+      element.addEventListener('touchstart', (e) => { if (live.current.pinsLocked) e.stopPropagation(); }, { capture: true, passive: true });
       marker.on('dragend', () => {
         const ll = marker.getLngLat();
         live.current.onMove(b.id, [ll.lng, ll.lat]);

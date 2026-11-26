@@ -345,3 +345,10 @@ others stay on the map, greyed, and never count as comparables. The scope step w
 (`out`, `distKm`); the marks are never saved or published. The map, the summary, the building list and the exports all
 read the same marked copy, so they cannot disagree. Links published before the distance choice have no `within` or
 `subjectId` and open as "any distance" (covered by a test).
+
+### Pin locking (editor)
+
+Pins start locked, so a stray drag cannot move one. Clicking a pin still opens its popup. To move one, hold Shift and
+drag it, or switch on "Moving pins" in the toolbar. Typing coordinates in the sidebar, clicking the map to place a
+building, and dragging a building from the list all work while pins are locked. Each move is one undo step. The lock
+is not saved: the editor opens locked every time.

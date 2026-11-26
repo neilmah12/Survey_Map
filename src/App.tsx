@@ -77,6 +77,9 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
   const [skippedEdits, setSkippedEdits] = useState<{ building: string; field: string; reason: string }[] | null>(null);
   const clientTemplate = useMemo(() => getClientTemplate(), []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Pins start locked so they cannot be knocked by accident. Not saved: it is locked again on every load.
+  const [pinsLocked, setPinsLocked] = useState(true);
+  const lockHint = useRef(0);
   const [placingId, setPlacingId] = useState<string | null>(null);
   const [fitKey, setFitKey] = useState(0);
   const [error, setError] = useState('');
@@ -370,6 +373,14 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
             <button className="btn" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">Undo</button>
             <button className="btn" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">Redo</button>
             <span className="sep" />
+            <button
+              className={pinsLocked ? 'btn' : 'btn on'}
+              aria-pressed={!pinsLocked}
+              onClick={() => setPinsLocked(!pinsLocked)}
+              title={pinsLocked ? 'Pins are locked. Click to be able to drag them, or hold Shift to move one.' : 'Pins can be dragged. Click to lock them again.'}
+            >
+              {pinsLocked ? 'Pins locked' : 'Moving pins'}
+            </button>
             <button className="btn" onClick={addBuilding} title="Add a building without editing the Excel first">Add building</button>
             <button className="btn" onClick={() => mergeInput.current?.click()} title="Re-upload a revised sheet; keeps your pins and photos">Update from Excel</button>
             <button className="btn" onClick={exportExcel} disabled={!survey.source} title={survey.source ? 'Write pin coordinates and photo URLs back into your workbook' : 'Upload the Excel file again to enable export'}>Export Excel</button>
@@ -625,6 +636,12 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
               selectedId={selectedId}
               placingId={editable ? placingId : null}
               onSelect={setSelectedId}
+              pinsLocked={pinsLocked}
+              onLockedDrag={() => {
+                if (Date.now() - lockHint.current < 8000) return; // once in a while, not on every attempt
+                lockHint.current = Date.now();
+                setNotice({ text: 'Pins are locked. Hold Shift to move this one, or switch on "Moving pins" in the toolbar. You can also type the coordinates in the sidebar.' });
+              }}
               // Each move is its own undo step: an accidental drag is one Ctrl+Z, whatever else was edited a moment before.
               onMove={(id, ll: LngLat) => setSurvey((s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === id ? { ...b, lngLat: ll } : b)) }, { commit: true })}
               onPlace={(ll) => {
