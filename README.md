@@ -83,9 +83,9 @@ Market summary (Phase D):
   all-unit-types total, because the subject and the comps rarely share a unit mix and a total would
   compare the mixes, not the rents. It follows the metric (base rent, rent PSF, net rent) and the unit filters.
 - A chart sits above the table (Compare, Difference %, or Off; the choice travels with the client file).
-  Compare draws the market and the subject side by side from zero, with a dot for each comparable
-  building, and on net rent a tick for the base rent before extras and incentives. Difference % shows how
-  far the subject is from the market. A unit type with no comps, or no subject units, is labelled rather
+  Compare draws the market and the subject side by side from zero. Difference % shows how far the
+  subject is from the market. The chart carries no dots or ticks, only bars and values: each comparable
+  building, and the base rent before incentives, are in the tooltip when you tap or hover a group. A unit type with no comps, or no subject units, is labelled rather
   than drawn as zero, and a market made of one building is called out. The chart follows the metric
   selector, so it always agrees with the table. Many rows switch it to horizontal bars. The layout lives
   in `src/lib/chartLayout.ts` and is drawn by `SummaryChart.tsx` on screen and `exportChart.ts` in the

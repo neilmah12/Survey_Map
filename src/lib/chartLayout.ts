@@ -23,7 +23,6 @@ export const CHART_COLORS = {
 export type Shape =
   | { k: 'path'; d: string; fill: string }
   | { k: 'line'; x1: number; y1: number; x2: number; y2: number; stroke: string; w: number }
-  | { k: 'dot'; x: number; y: number; r: number; fill: string; ring: string }
   | { k: 'text'; x: number; y: number; s: string; size: number; bold?: boolean; color: string; anchor: 'start' | 'middle' | 'end'; rotate?: number };
 
 /** A region that reports hovering over one summary row. */
@@ -44,7 +43,6 @@ export interface LayoutOptions {
   W: number;
   /** Height to fit, when the page leaves a fixed amount of room. */
   H?: number;
-  dots: boolean;
   hasSubject: boolean;
 }
 
@@ -61,11 +59,11 @@ export function niceStep(max: number, target: number): number {
 
 export interface CompareScale { max: number; step: number; ticks: number[] }
 
-/** A zero-based axis that reaches the tallest figure drawn: bars, comp dots and, for net rent, the base tick. */
-export function compareScale(rows: SummaryRow[], metric: Metric): CompareScale {
+/** A zero-based axis that reaches the tallest bar. */
+export function compareScale(rows: SummaryRow[]): CompareScale {
   let top = 0;
   for (const r of rows) {
-    for (const v of [r.market.value, r.subject.value, ...r.comps.map((c) => c.value), metric === 'net' ? r.marketBase : null, metric === 'net' ? r.subjectBase : null]) {
+    for (const v of [r.market.value, r.subject.value]) {
       if (v != null && Number.isFinite(v)) top = Math.max(top, v);
     }
   }
@@ -186,7 +184,7 @@ function compareColumns(rows: SummaryRow[], o: LayoutOptions): ChartModel {
   const H = o.H ?? Math.round((W >= 560 ? 340 : 300) * (z > 1 ? 1.12 : 1));
   const ph = Math.max(60, H - mT - mB);
   const base = mT + ph;
-  const sc = compareScale(rows, metric);
+  const sc = compareScale(rows);
   const y = (v: number) => mT + ph - (v / sc.max) * ph;
   const shapes: Shape[] = [];
   const hits: Hit[] = [];
@@ -202,20 +200,12 @@ function compareColumns(rows: SummaryRow[], o: LayoutOptions): ChartModel {
     const c = mL + i * gw + gw / 2;
     const mx = o.hasSubject ? c - 1 - bw : c - bw / 2;
     const sx = c + 1;
-    const showBase = metric === 'net' && baseDiffers(r.marketBase, r.market.value);
     if (r.market.value != null) {
       const v = r.market.value;
       shapes.push({ k: 'path', d: roundTop(mx, y(v), bw, base - y(v), 4), fill: C.market });
-      const dots = o.dots ? r.comps.map((k) => k.value) : [];
-      const top = Math.max(v, ...dots, showBase ? r.marketBase! : 0);
-      const ly = y(top) - (dots.length || showBase ? 11 : 6) * z;
-      if (showBase) shapes.push({ k: 'line', x1: mx - 2, x2: mx + bw + 2, y1: y(r.marketBase!), y2: y(r.marketBase!), stroke: C.ink, w: 2 });
+      const ly = y(v) - 6 * z;
       if (rotated) shapes.push(txt(mx + bw / 2 + 4, ly + 2, formatMetric(v, metric), 10.5 * z, C.ink, 'start', false, -90));
       else shapes.push(txt(o.hasSubject ? c - 3 : c, ly, formatMetric(v, metric), 11 * z, C.ink, o.hasSubject ? 'end' : 'middle'));
-      if (o.dots) {
-        const step = r.comps.length > 1 ? Math.min(7, bw / (r.comps.length - 1)) : 0;
-        r.comps.forEach((k, j) => shapes.push({ k: 'dot', x: mx + bw / 2 + (j - (r.comps.length - 1) / 2) * step, y: y(k.value), r: 3.5 * Math.min(z, 1.2), fill: C.ink, ring: C.surface }));
-      }
     } else {
       shapes.push(txt(o.hasSubject ? c - 3 : c, base - 8, rotated || !fits('no comps') ? 'none' : 'no comps', 10.5 * z, C.muted, o.hasSubject ? 'end' : 'middle'));
     }
@@ -223,13 +213,8 @@ function compareColumns(rows: SummaryRow[], o: LayoutOptions): ChartModel {
       if (r.subject.value != null) {
         const v = r.subject.value;
         shapes.push({ k: 'path', d: roundTop(sx, y(v), bw, base - y(v), 4), fill: C.subject });
-        let top = v;
-        if (metric === 'net' && baseDiffers(r.subjectBase, v)) {
-          shapes.push({ k: 'line', x1: sx - 2, x2: sx + bw + 2, y1: y(r.subjectBase), y2: y(r.subjectBase), stroke: C.ink, w: 2 });
-          top = r.subjectBase;
-        }
-        if (rotated) shapes.push(txt(sx + bw / 2 + 4, y(top) - 4, formatMetric(v, metric), 10.5 * z, C.ink, 'start', false, -90));
-        else shapes.push(txt(c + 3, y(top) - 6 * z, formatMetric(v, metric), 11 * z, C.ink, 'start'));
+        if (rotated) shapes.push(txt(sx + bw / 2 + 4, y(v) - 4, formatMetric(v, metric), 10.5 * z, C.ink, 'start', false, -90));
+        else shapes.push(txt(c + 3, y(v) - 6 * z, formatMetric(v, metric), 11 * z, C.ink, 'start'));
       } else {
         shapes.push(txt(c + 3, base - 8, rotated || !fits('no subject') ? 'none' : 'no subject', 10.5 * z, C.muted, 'start'));
       }
@@ -252,7 +237,7 @@ function compareRows(rows: SummaryRow[], o: LayoutOptions): ChartModel {
   const rowH = o.H != null ? Math.max(24, Math.min(40 * z, (o.H - mT - 6) / n)) : 40 * z;
   const barH = rowH >= 34 ? Math.round(12 * z) : 9;
   const pw = W - labelW - mR;
-  const sc = compareScale(rows, metric);
+  const sc = compareScale(rows);
   const x = (v: number) => labelW + (v / sc.max) * pw;
   const H = mT + n * rowH + 6;
   const shapes: Shape[] = [];
@@ -270,29 +255,13 @@ function compareRows(rows: SummaryRow[], o: LayoutOptions): ChartModel {
     if (r.market.value != null) {
       const v = r.market.value;
       shapes.push({ k: 'path', d: roundRight(labelW, my, Math.max(1, x(v) - labelW), barH, 3), fill: C.market });
-      let edge = x(v);
-      if (metric === 'net' && baseDiffers(r.marketBase, v)) {
-        shapes.push({ k: 'line', x1: x(r.marketBase), x2: x(r.marketBase), y1: my - 2, y2: my + barH + 2, stroke: C.ink, w: 2 });
-        edge = Math.max(edge, x(r.marketBase));
-      }
-      if (o.dots) {
-        for (const k of r.comps) {
-          shapes.push({ k: 'dot', x: x(k.value), y: my + barH / 2, r: barH >= 12 ? 3.5 * Math.min(z, 1.2) : 3, fill: C.ink, ring: C.surface });
-          edge = Math.max(edge, x(k.value) + 4);
-        }
-      }
-      shapes.push(txt(edge + 6, my + barH / 2 + 4 * z, formatMetric(v, metric), 11 * z, C.ink, 'start'));
+      shapes.push(txt(x(v) + 6, my + barH / 2 + 4 * z, formatMetric(v, metric), 11 * z, C.ink, 'start'));
     } else none(my, 'no comps');
     if (o.hasSubject) {
       if (r.subject.value != null) {
         const v = r.subject.value;
         shapes.push({ k: 'path', d: roundRight(labelW, sy, Math.max(1, x(v) - labelW), barH, 3), fill: C.subject });
-        let edge = x(v);
-        if (metric === 'net' && baseDiffers(r.subjectBase, v)) {
-          shapes.push({ k: 'line', x1: x(r.subjectBase), x2: x(r.subjectBase), y1: sy - 2, y2: sy + barH + 2, stroke: C.ink, w: 2 });
-          edge = Math.max(edge, x(r.subjectBase));
-        }
-        shapes.push(txt(edge + 6, sy + barH / 2 + 4 * z, formatMetric(v, metric), 11 * z, C.ink, 'start'));
+        shapes.push(txt(x(v) + 6, sy + barH / 2 + 4 * z, formatMetric(v, metric), 11 * z, C.ink, 'start'));
       } else none(sy, 'no subject');
     }
     hits.push({ row: i, x: 0, y: top, w: W, h: rowH });

@@ -9,7 +9,7 @@ import { pinBadges, type PinBadge } from './utilities';
 import { layoutPins, type PinBox } from './pinLayout';
 import { computeSummary } from './summary';
 import { fmtDiff, fmtValue } from './summaryFormat';
-import { baseDiffers, exportNotes, layoutChart } from './chartLayout';
+import { exportNotes, layoutChart } from './chartLayout';
 import { chartKeys, drawChartKeys, drawChartModel } from './exportChart';
 import {
   filterCaption, legendItems, metricCaption, niceScale, pageRegions, summaryFootnotes, wrapText, type Box, type LegendItem, type PageKind,
@@ -408,12 +408,11 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
     if (wantChart) {
       const tableNeed = 30 + rows.length * 21; // the table keeps every row: the chart takes only what is left
       const avail = box.y + box.h - reserve - y - tableNeed - 22;
-      const opts = { metric: o.view.metric, W: box.w, dots: o.view.summary.dots };
+      const opts = { metric: o.view.metric, W: box.w };
       let model = layoutChart(result, mode, opts);
       if (model.height > avail) model = layoutChart(result, mode, { ...opts, H: avail });
       if (model.height <= avail && model.height >= 140) {
-        const anyBase = o.view.metric === 'net' && rows.some((r) => baseDiffers(r.marketBase, r.market.value) || baseDiffers(r.subjectBase, r.subject.value));
-        const keys = chartKeys(mode, { stat: o.view.summary.stat, hasSubject: sj, dots: o.view.summary.dots, baseTick: anyBase, metric: o.view.metric });
+        const keys = chartKeys(mode, { stat: o.view.summary.stat, hasSubject: sj });
         y += drawChartKeys(ctx, keys, box.x, y + 8, box.w, FONT) + 6;
         drawChartModel(ctx, model, box.x, y, FONT);
         y += model.height + 10;
@@ -444,6 +443,10 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
       const lines = wrapText(r.label, labelW - 4, (s) => ctx.measureText(s).width);
       const rowH = lines.length * 13 + 8;
       if (y + rowH > box.y + box.h - reserve) break;
+      if (shown % 2 === 1) {
+        ctx.fillStyle = '#edf1f8'; // soft banding on every second row, so the rows hold together on a screenshot
+        ctx.fillRect(box.x - 3, y - 2, box.w + 6, rowH);
+      }
       lines.forEach((l, i) => text(ctx, l, box.x, y + 10 + i * 13, font, INK));
       text(ctx, fmtValue(r.market, o.view.metric), xM, y + 10, font, INK, 'right');
       if (sj) {
@@ -451,7 +454,7 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
         text(ctx, fmtDiff(r, o.view.metric), xD, y + 10, font, INK, 'right');
       }
       y += rowH;
-      ctx.fillStyle = '#eef1f6';
+      ctx.fillStyle = '#d3dae6';
       ctx.fillRect(box.x, y - 3, box.w, 1);
       shown++;
     }

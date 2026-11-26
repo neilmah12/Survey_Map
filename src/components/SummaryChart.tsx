@@ -9,7 +9,6 @@ interface Props {
   result: SummaryResult;
   metric: Metric;
   mode: Exclude<ChartMode, 'off'>;
-  dots: boolean;
   stat: Stat;
   /** The small phone drawer: a shorter chart, so the whole of it shows without scrolling. */
   compact?: boolean;
@@ -23,8 +22,6 @@ function draw(s: Shape, i: number) {
       return <path key={i} d={s.d} fill={s.fill} />;
     case 'line':
       return <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={s.stroke} strokeWidth={s.w} />;
-    case 'dot':
-      return <circle key={i} cx={s.x} cy={s.y} r={s.r} fill={s.fill} stroke={s.ring} strokeWidth={2} />;
     case 'text':
       return (
         <text
@@ -43,7 +40,7 @@ function draw(s: Shape, i: number) {
   }
 }
 
-export default function SummaryChart({ result, metric, mode, dots, stat, compact = false }: Props) {
+export default function SummaryChart({ result, metric, mode, stat, compact = false }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(372);
   const [tip, setTip] = useState<{ row: number; x: number; y: number } | null>(null);
@@ -61,7 +58,7 @@ export default function SummaryChart({ result, metric, mode, dots, stat, compact
   }, []);
 
   // A tooltip left open must not outlive what it describes.
-  useEffect(() => setTip(null), [result, mode, metric, dots, stat]);
+  useEffect(() => setTip(null), [result, mode, metric, stat]);
 
   useEffect(() => {
     if (!tip) return;
@@ -79,11 +76,10 @@ export default function SummaryChart({ result, metric, mode, dots, stat, compact
     };
   }, [tip]);
 
-  const model = useMemo(() => layoutChart(result, mode, { metric, W: w, dots, H: compact ? COMPACT_H : undefined }), [result, mode, metric, w, dots, compact]);
+  const model = useMemo(() => layoutChart(result, mode, { metric, W: w, H: compact ? COMPACT_H : undefined }), [result, mode, metric, w, compact]);
   const notes = useMemo(() => chartNotes(result, mode), [result, mode]);
   const noSubject = mode === 'diff' && !result.hasSubject;
   const how = stat === 'median' ? 'median' : 'average';
-  const anyBase = metric === 'net' && result.rows.some((r) => baseDiffers(r.marketBase, r.market.value) || baseDiffers(r.subjectBase, r.subject.value));
 
   if (result.rows.length === 0) return null;
   if (noSubject) return <p className="summary-note">Mark a subject property to see how it compares with the market.</p>;
@@ -102,8 +98,6 @@ export default function SummaryChart({ result, metric, mode, dots, stat, compact
           <>
             <span><i className="sw" style={{ background: C.market }} />Market ({how} of comps)</span>
             {result.hasSubject && <span><i className="sw" style={{ background: C.subject }} />Subject</span>}
-            {dots && <span><i className="dotkey" />Each comp building</span>}
-            {anyBase && <span><i className="tickkey" />Base rent before extras and incentives</span>}
           </>
         ) : (
           <>

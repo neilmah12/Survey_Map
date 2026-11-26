@@ -94,12 +94,6 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
             <button className={s.chart === 'diff' ? 'on' : ''} onClick={() => set({ chart: 'diff' })}>Difference %</button>
             <button className={s.chart === 'off' ? 'on' : ''} onClick={() => set({ chart: 'off' })}>Off</button>
           </div>
-          {s.chart === 'compare' && (
-            <label className="check" title="A dot for each comparable building, so a spread is not hidden behind the average">
-              <input type="checkbox" checked={s.dots} onChange={(e) => set({ dots: e.target.checked })} />
-              Show each comp
-            </label>
-          )}
         </div>
         {splits.length > 0 && (
           <div className="splits">
@@ -116,7 +110,7 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
 
       {!result.hasSubject && <p className="summary-note">Mark a subject property to compare it with the market.</p>}
 
-      {s.chart !== 'off' && result.rows.length > 0 && <SummaryChart result={result} metric={view.metric} mode={s.chart} dots={s.dots} stat={s.stat} compact={phone && !expanded} />}
+      {s.chart !== 'off' && result.rows.length > 0 && <SummaryChart result={result} metric={view.metric} mode={s.chart} stat={s.stat} compact={phone && !expanded} />}
 
       {result.rows.length === 0 ? (
         <p className="summary-note">Nothing to compare with the current filters.</p>

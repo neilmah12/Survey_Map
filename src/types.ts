@@ -99,8 +99,6 @@ export interface SummarySettings {
   perBuilding: boolean;
   /** The chart under the summary controls: subject beside the market, the subject's difference from it, or hidden. */
   chart: ChartMode;
-  /** Draw a dot for each comparable building on its market bar. */
-  dots: boolean;
 }
 
 export type ChartMode = 'off' | 'compare' | 'diff';
@@ -111,7 +109,6 @@ export const DEFAULT_SUMMARY: SummarySettings = {
   split: { kind: false, baths: false, reno: false },
   perBuilding: true,
   chart: 'compare',
-  dots: true,
 };
 
 export interface ViewSettings {

@@ -15,7 +15,7 @@ const run = (s: Survey, metric: Metric = 'rate', split: Partial<typeof DEFAULT_S
   computeSummary(s, { metric, filters: NO_FILTERS, settings: { ...DEFAULT_SUMMARY, split: { ...DEFAULT_SUMMARY.split, ...split } } });
 const texts = (m: ChartModel) => m.shapes.filter((s) => s.k === 'text').map((s) => (s as { s: string }).s);
 const finite = (m: ChartModel) =>
-  m.shapes.every((s) => (s.k === 'line' ? [s.x1, s.y1, s.x2, s.y2] : s.k === 'dot' || s.k === 'text' ? [s.x, s.y] : [0]).every(Number.isFinite));
+  m.shapes.every((s) => (s.k === 'line' ? [s.x1, s.y1, s.x2, s.y2] : s.k === 'text' ? [s.x, s.y] : [0]).every(Number.isFinite));
 
 describe('summary rows carry what the chart needs', () => {
   it('lists each comparable building behind a market figure, never the subject', async () => {
@@ -48,18 +48,37 @@ describe('summary rows carry what the chart needs', () => {
 describe('scales', () => {
   it('starts at zero and reaches the tallest figure drawn, in the metric\'s own units', async () => {
     const s = await load('clareview-townhomes.xlsx');
-    const rent = compareScale(run(s, 'rate').rows, 'rate');
-    const psf = compareScale(run(s, 'psf').rows, 'psf');
+    const rent = compareScale(run(s, 'rate').rows);
+    const psf = compareScale(run(s, 'psf').rows);
     expect(rent.ticks[0]).toBe(0);
     expect(rent.max).toBeGreaterThan(2000);
     expect(psf.max).toBeLessThan(10); // dollars per square foot, not dollars a month
     expect(psf.ticks.at(-1)).toBe(psf.max);
   });
 
-  it('makes room for a comp dot above the bar, and for the base tick on net rent', async () => {
-    const r = run(await load('clareview-townhomes.xlsx'));
-    const top = Math.max(...r.rows.flatMap((x) => x.comps.map((c) => c.value)));
-    expect(compareScale(r.rows, 'rate').max).toBeGreaterThan(top);
+  it('fits the bars, not the spread of the comps behind them or the base rent before incentives', async () => {
+    const s = await load('clareview-townhomes.xlsx');
+    s.buildings[1].units[0].incentiveAmt = 100;
+    s.net = { ...DEFAULT_NET, incentives: true };
+    const r = run(s, 'net');
+    const tallestBar = Math.max(...r.rows.flatMap((x) => [x.market.value ?? 0, x.subject.value ?? 0]));
+    const tallestComp = Math.max(...r.rows.flatMap((x) => x.comps.map((c) => c.value)));
+    expect(tallestComp).toBeGreaterThan(tallestBar); // a comp above its group's average, as usual
+    const sc = compareScale(r.rows);
+    expect(sc.max).toBeGreaterThan(tallestBar);
+    expect(sc.max - tallestBar).toBeLessThan(sc.step * 2); // no headroom kept for marks that are no longer drawn
+  });
+
+  it('draws no dots and no base-rent ticks, only bars, text and gridlines', async () => {
+    const s = await load('clareview-townhomes.xlsx');
+    s.buildings[1].units[0].incentiveAmt = 100;
+    s.net = { ...DEFAULT_NET, incentives: true };
+    for (const W of [372, 700]) {
+      const m = layoutChart(run(s, 'net'), 'compare', { metric: 'net', W });
+      expect(m.shapes.some((x) => (x.k as string) === 'dot')).toBe(false);
+      // the only lines are the horizontal gridlines of the axis
+      expect(m.shapes.filter((x) => x.k === 'line').every((x) => x.k === 'line' && x.y1 === x.y2)).toBe(true);
+    }
   });
 
   it('is symmetric around zero for the difference view', async () => {
@@ -79,7 +98,7 @@ describe('scales', () => {
 describe('layout', () => {
   it('draws a gap as a gap, not as a zero bar (a type only the subject offers)', async () => {
     const r = run(await load('castle-harbour-apartments.xlsx'));
-    const m = layoutCompare(r.rows, { metric: 'rate', W: 372, dots: true, hasSubject: true });
+    const m = layoutCompare(r.rows, { metric: 'rate', W: 372, hasSubject: true });
     expect(texts(m).some((t) => t === 'none' || t === 'no comps')).toBe(true);
     expect(finite(m)).toBe(true);
     const diff = layoutDiff(r.rows, { W: 372 });
@@ -92,8 +111,8 @@ describe('layout', () => {
     const many = run(s, 'rate', { baths: true, reno: true });
     expect(few.rows.length).toBeLessThanOrEqual(6);
     expect(many.rows.length).toBeGreaterThan(6);
-    expect(layoutCompare(few.rows, { metric: 'rate', W: 372, dots: true, hasSubject: false }).layout).toBe('columns');
-    const wide = layoutCompare(many.rows, { metric: 'rate', W: 372, dots: true, hasSubject: false });
+    expect(layoutCompare(few.rows, { metric: 'rate', W: 372, hasSubject: false }).layout).toBe('columns');
+    const wide = layoutCompare(many.rows, { metric: 'rate', W: 372, hasSubject: false });
     expect(wide.layout).toBe('rows');
     expect(wide.hits).toHaveLength(many.rows.length);
     expect(finite(wide)).toBe(true);
@@ -101,7 +120,7 @@ describe('layout', () => {
 
   it('says how many comps are behind each group, and flags a single building', async () => {
     const r = run(await load('castle-harbour-apartments.xlsx'));
-    const m = layoutChart(r, 'compare', { metric: 'rate', W: 560, dots: false });
+    const m = layoutChart(r, 'compare', { metric: 'rate', W: 560, });
     expect(texts(m).some((t) => /comps?( only)?$/.test(t))).toBe(true);
     const one = r.rows.find((x) => x.comps.length === 1);
     if (one) expect(chartNotes(r, 'compare').some((n) => n.startsWith('One building only') && n.includes(one.label) && n.includes(one.comps[0].name))).toBe(true);
@@ -109,16 +128,16 @@ describe('layout', () => {
 
   it('fits a fixed height when the page has little room', async () => {
     const many = run(await load('boardwalk-portfolio.xlsx'), 'rate', { baths: true, reno: true });
-    const m = layoutCompare(many.rows, { metric: 'rate', W: 340, H: 260, dots: true, hasSubject: false });
+    const m = layoutCompare(many.rows, { metric: 'rate', W: 340, H: 260, hasSubject: false });
     expect(m.height).toBeLessThanOrEqual(260); // never taller than the room it was given
-    const tight = layoutCompare(many.rows, { metric: 'rate', W: 340, H: 200, dots: true, hasSubject: false });
+    const tight = layoutCompare(many.rows, { metric: 'rate', W: 340, H: 200, hasSubject: false });
     expect(tight.height).toBeLessThan(m.height);
   });
 
   it('does not run past its width', async () => {
     const r = run(await load('churchill-apartments.xlsx'));
     for (const W of [260, 340, 400, 744]) {
-      const m = layoutChart(r, 'compare', { metric: 'rate', W, dots: true });
+      const m = layoutChart(r, 'compare', { metric: 'rate', W });
       expect(m.width).toBe(W);
       const xs = m.shapes.filter((s) => s.k === 'line').flatMap((s) => [(s as { x1: number }).x1, (s as { x2: number }).x2]);
       expect(Math.max(...xs)).toBeLessThanOrEqual(W);

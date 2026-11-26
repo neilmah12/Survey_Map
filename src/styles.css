@@ -108,8 +108,10 @@ button, input { font: inherit; }
 .popup-tag { display: inline-block; background: var(--navy); color: #fff; font-size: 10px; border-radius: 99px; padding: 1px 8px; margin: 2px 0; }
 .popup-sub { color: var(--muted); }
 .popup-table { width: 100%; border-collapse: collapse; margin: 8px 0 6px; }
-.popup-table th { text-align: left; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--line); padding: 2px 4px; }
-.popup-table td { padding: 3px 4px; border-bottom: 1px solid #eef1f6; vertical-align: top; }
+.popup-table th { text-align: left; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--line); padding: 3px 5px; }
+.popup-table td { padding: 5px 5px; border-bottom: 1px solid #d3dae6; vertical-align: top; }
+/* The popup builds its rows straight under the table, header row first, so the second data row is child 3 */
+.popup-table tr:nth-child(odd) td { background: #edf1f8; }
 .popup-table .num, .popup-table th:nth-child(n+2) { text-align: right; }
 .popup-line { margin-top: 3px; }
 
@@ -186,8 +188,6 @@ button, input { font: inherit; }
 .chart-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--muted); margin-bottom: 2px; }
 .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .chart-legend .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-.chart-legend .dotkey { width: 8px; height: 8px; border-radius: 50%; background: #1b2330; box-shadow: 0 0 0 2px #fff; display: inline-block; }
-.chart-legend .tickkey { width: 12px; height: 2px; background: #1b2330; display: inline-block; }
 .chart-plot { position: relative; }
 .chart-plot svg { display: block; max-width: 100%; height: auto; overflow: visible; font-family: inherit; font-variant-numeric: tabular-nums; }
 .chart-tip { position: absolute; z-index: 5; pointer-events: none; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(16,24,40,.16); width: max-content; max-width: min(520px, 100%); }
@@ -208,8 +208,10 @@ button, input { font: inherit; }
 .summary-note { color: var(--muted); font-size: 12.5px; margin: 8px 0; }
 .summary-foot { color: var(--muted); font-size: 11.5px; margin: 8px 0 4px; line-height: 1.4; }
 .summary-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-.summary-table th { text-align: left; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--line); padding: 4px 4px; font-weight: 600; }
-.summary-table td { padding: 6px 4px; border-bottom: 1px solid #eef1f6; vertical-align: top; }
+.summary-table th { text-align: left; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--line); padding: 5px 6px; font-weight: 600; }
+.summary-table td { padding: 8px 6px; border-bottom: 1px solid #d3dae6; vertical-align: top; }
+/* Soft banding plus clear row lines, so the rows stay readable on a screenshot or a projector */
+.summary-table tbody tr:nth-child(even) td { background: #edf1f8; }
 .summary-table .num { text-align: right; white-space: nowrap; }
 .summary-table .muted { color: var(--muted); }
 .summary-table .diff { font-variant-numeric: tabular-nums; }
