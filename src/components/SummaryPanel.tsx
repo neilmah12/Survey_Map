@@ -6,6 +6,7 @@ import { computeSummary } from '../lib/summary';
 import { fmtDiff, fmtValue } from '../lib/summaryFormat';
 import { netDefinition, netOf } from '../lib/net';
 import SummaryChart from './SummaryChart';
+import { pinNumbers } from '../lib/pinNumbers';
 
 interface Props {
   /** Only buildings that are on the map: the client file leaves out the rest, so the numbers must too. */
@@ -54,6 +55,7 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
   // Offer a split only when the data has at least two values for it (or it is already on).
   const splits = allSplits.filter(({ k }) => options[k].length > 0 || s.split[k]);
 
+  const numbers = useMemo(() => pinNumbers(survey.buildings), [survey.buildings]);
   const subjects = survey.buildings.filter((b) => b.isSubject);
   const comps = survey.buildings.filter((b) => !b.isSubject);
   const unit = s.perBuilding ? 'buildings' : 'units';
@@ -110,7 +112,7 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
 
       {!result.hasSubject && <p className="summary-note">Mark a subject property to compare it with the market.</p>}
 
-      {s.chart !== 'off' && result.rows.length > 0 && <SummaryChart result={result} metric={view.metric} mode={s.chart} stat={s.stat} compact={phone && !expanded} />}
+      {s.chart !== 'off' && result.rows.length > 0 && <SummaryChart result={result} metric={view.metric} mode={s.chart} stat={s.stat} numbers={numbers} compact={phone && !expanded} />}
 
       {result.rows.length === 0 ? (
         <p className="summary-note">Nothing to compare with the current filters.</p>
@@ -155,6 +157,7 @@ export default function SummaryPanel({ survey, view, onView, canToggle, onToggle
               <li key={b.id}>
                 <label className="check">
                   <input type="checkbox" checked={!b.excluded} onChange={() => onToggleBuilding?.(b.id)} />
+                  {numbers.has(b.id) && <span className="num-badge">{numbers.get(b.id)}</span>}
                   <span className={b.excluded ? 'off' : ''}>{b.name}</span>
                 </label>
                 {b.units.length > 1 && (

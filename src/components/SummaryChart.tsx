@@ -10,6 +10,8 @@ interface Props {
   metric: Metric;
   mode: Exclude<ChartMode, 'off'>;
   stat: Stat;
+  /** Each building's number on the map, shown beside its name. */
+  numbers?: Map<string, number>;
   /** The small phone drawer: a shorter chart, so the whole of it shows without scrolling. */
   compact?: boolean;
 }
@@ -40,7 +42,7 @@ function draw(s: Shape, i: number) {
   }
 }
 
-export default function SummaryChart({ result, metric, mode, stat, compact = false }: Props) {
+export default function SummaryChart({ result, metric, mode, stat, numbers, compact = false }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(372);
   const [tip, setTip] = useState<{ row: number; x: number; y: number } | null>(null);
@@ -133,7 +135,7 @@ export default function SummaryChart({ result, metric, mode, stat, compact = fal
             />
           ))}
         </svg>
-        {tip && r && <Tip row={r} metric={metric} stat={stat} hasSubject={result.hasSubject} x={tip.x} y={tip.y} box={wrap.current?.clientWidth ?? w} plotH={model.height} />}
+        {tip && r && <Tip row={r} metric={metric} stat={stat} hasSubject={result.hasSubject} numbers={numbers} x={tip.x} y={tip.y} box={wrap.current?.clientWidth ?? w} plotH={model.height} />}
       </div>
       {notes.length > 0 && (
         <ul className="chart-notes">
@@ -146,7 +148,7 @@ export default function SummaryChart({ result, metric, mode, stat, compact = fal
 
 const suites = (n: number) => `${n} suite${n === 1 ? '' : 's'}`;
 
-function Tip({ row, metric, stat, hasSubject, x, y, box, plotH }: { row: SummaryRow; metric: Metric; stat: Stat; hasSubject: boolean; x: number; y: number; box: number; plotH: number }) {
+function Tip({ row, metric, stat, hasSubject, numbers, x, y, box, plotH }: { row: SummaryRow; metric: Metric; stat: Stat; hasSubject: boolean; numbers?: Map<string, number>; x: number; y: number; box: number; plotH: number }) {
   const net = metric === 'net';
   const el = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: x + 14, top: y + 14 });
@@ -184,6 +186,7 @@ function Tip({ row, metric, stat, hasSubject, x, y, box, plotH }: { row: Summary
             {[...row.comps].sort((a, b) => b.value - a.value).map((c) => (
               <Fragment key={c.id}>
                 <span className="name">
+                  {numbers?.has(c.id) && <span className="num-badge">{numbers.get(c.id)}</span>}
                   <span className="nm">{c.name}</span>
                   {c.units > 1 && <em>· {suites(c.units)}</em>}
                 </span>

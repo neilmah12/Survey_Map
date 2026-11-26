@@ -93,18 +93,42 @@ button, input { font: inherit; }
 .check { display: flex; gap: 6px; align-items: center; font-size: 13px; cursor: pointer; }
 .rings-input { margin-top: 4px; width: 120px; padding: 3px 6px; }
 
-.pin { display: flex; flex-direction: column; align-items: center; cursor: pointer; transform: translateY(0); }
-.pin-pill { display: flex; align-items: center; gap: 6px; background: #fff; color: var(--navy); border: 2px solid var(--navy); border-radius: 99px; padding: 3px 10px; font-weight: 700; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,.25); white-space: nowrap; }
-.pin.subject .pin-pill { background: var(--navy); color: #fff; }
-.pin.selected .pin-pill { outline: 3px solid var(--amber); }
+/*
+ * Pins. A pill holds the building's number, name and price. It sits beside its building, joined to a dot on the
+ * exact spot by a short pointer. The layout (src/lib/pinLayout.ts) picks the side and the size so that nothing overlaps.
+ */
+.pin { width: 0; height: 0; cursor: pointer; z-index: var(--z, 5); }
+.pin-dot { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; box-sizing: border-box; border-radius: 50%; background: #2a78d6; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(16,24,40,.35); pointer-events: none; }
+.pin.subject .pin-dot { background: #eb6834; }
+.pin-leader { position: absolute; left: 0; top: -.75px; height: 1.5px; width: var(--len, 12px); background: #667085; transform-origin: 0 50%; transform: rotate(var(--ang, -90deg)); pointer-events: none; }
+.pin.subject .pin-leader { background: #eb6834; }
+.pin-pill { position: absolute; left: var(--cx, 0px); top: var(--cy, -34px); transform: translate(-50%, -50%); display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 5px; border-radius: 999px; background: #fff; color: #1b2330; border: 1.5px solid #98a2b3; box-shadow: 0 2px 8px rgba(16,24,40,.25); white-space: nowrap; }
+.pin-num { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; background: #2a78d6; }
+.pin-num svg { display: block; }
+.pin-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.pin-name { font-size: 12px; font-weight: 650; max-width: 205px; overflow: hidden; text-overflow: ellipsis; }
+.pin-line2 { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--navy); }
 .pin-badge { background: var(--amber); color: #3a2a00; font-size: 10px; border-radius: 99px; padding: 1px 6px; font-weight: 700; }
 .pin-badge.utils { background: var(--teal-bg); color: var(--teal-ink); }
-.pin-name { font-size: 11px; font-weight: 600; color: var(--ink); text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff; margin-top: 2px; max-width: 150px; text-align: center; line-height: 1.15; order: 3; }
-.pin-tip { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--navy); order: 2; }
+.pin.subject .pin-pill { background: #eb6834; border-color: #eb6834; color: #fff; }
+.pin.subject .pin-num { background: rgba(255,255,255,.28); }
+.pin.subject .pin-line2 { color: #fff; }
+.pin.selected .pin-pill { background: #101828; border-color: #101828; color: #fff; }
+.pin.selected .pin-num { background: #fff; color: #101828; }
+.pin.selected .pin-line2 { color: #fff; }
+.pin.selected .pin-dot { background: #101828; }
+/* Smaller pills when the map is crowded: the number and price, then just the number */
+.pin.compact .pin-name { display: none; }
+.pin.compact .pin-badge, .pin.tiny .pin-badge { font-size: 0; width: 8px; height: 8px; padding: 0; }
+.pin.tiny .pin-text { display: none; }
+.pin.tiny .pin-pill { padding: 4px; }
 .ring-label { font-size: 11px; font-weight: 600; color: var(--navy); background: rgba(255,255,255,.85); border-radius: 4px; padding: 0 4px; pointer-events: none; }
 
 .popup { font-size: 12.5px; min-width: 260px; }
 .popup-title { font-weight: 700; font-size: 14px; color: var(--navy); padding-right: 14px; }
+/* A building's number, the same circle on the map, in the popup, the chart tooltip and the list */
+.num-badge { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 6px; border-radius: 50%; background: #2a78d6; color: #fff; font-size: 11px; font-weight: 700; }
+.popup-num { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 7px; border-radius: 50%; background: #2a78d6; color: #fff; font-size: 11.5px; font-weight: 700; vertical-align: 1px; }
 .popup-tag { display: inline-block; background: var(--navy); color: #fff; font-size: 10px; border-radius: 99px; padding: 1px 8px; margin: 2px 0; }
 .popup-sub { color: var(--muted); }
 .popup-table { width: 100%; border-collapse: collapse; margin: 8px 0 6px; }
@@ -197,6 +221,7 @@ button, input { font: inherit; }
 .tip-grid .name { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tip-grid .name.strong { color: #1b2330; font-weight: 600; }
 .tip-grid .name:has(.nm) { display: flex; gap: 5px; }
+.tip-grid .num-badge { margin-right: 0; }
 .tip-grid .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tip-grid .name em { flex: none; font-style: normal; color: #98a2b3; font-size: 11.5px; }
 .tip-grid .val { text-align: right; color: #1b2330; }
@@ -224,7 +249,6 @@ button, input { font: inherit; }
 
 /* Properties switched off: still on the map, greyed */
 .pin.excluded .pin-pill { opacity: .55; border-style: dashed; }
-.pin.excluded .pin-name { opacity: .6; }
 .popup-table tr.excluded td { color: #98a2b3; text-decoration: line-through; }
 .popup-note { font-size: 11px; color: var(--muted); margin-top: 6px; }
 
@@ -251,7 +275,8 @@ button, input { font: inherit; }
   .controls .chips { flex-wrap: nowrap; }
   .controls .seg button, .controls .chip { white-space: nowrap; padding-top: 4px; padding-bottom: 4px; font-size: 13px; }
   .controls .check { white-space: nowrap; font-size: 13px; }
-  .pin-pill { font-size: 12px; padding: 2px 8px; }
+  .pin-pill { padding: 3px 10px 3px 4px; }
+  .pin-name { max-width: 130px; }
 }
 
 /* Drag a building from the list onto the map */
@@ -278,13 +303,6 @@ button, input { font: inherit; }
 .checks-badge.ok { background: #12b76a; }
 .export-checks { max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 2px 10px 8px; margin: 8px 0; }
 
-/* Crowded pins: the pill lifts straight up, a thin line keeps it tied to its spot */
-.pin-head { position: relative; display: flex; justify-content: center; }
-.pin-pill { transform: translateY(calc(var(--lift, 0px) * -1)); position: relative; z-index: 1; }
-.pin-leader { position: absolute; left: 50%; top: calc(100% - var(--lift, 0px)); height: var(--lift, 0px); width: 2px; margin-left: -1px; background: var(--navy); opacity: .7; }
-.pin.name-hidden .pin-name { opacity: 0; }
-/* A lifted pin's line runs down past its neighbours, so it is drawn under pills that stayed in place. */
-.pin { z-index: var(--z, 5); }
 .source-note { padding: 4px 14px; font-size: 11.5px; color: var(--muted); background: #fff; border-top: 1px solid var(--line); }
 
 /* Export dialog */
@@ -315,8 +333,8 @@ button, input { font: inherit; }
   .btn:hover:not(:disabled):not(.on) { border-color: var(--navy); }
   .brow:hover:not(.on) { background: var(--bg); }
   .ring-item button:hover { color: #b42318; }
-  .pin.name-hidden:hover .pin-name { opacity: 1; z-index: 5; }
-  .pin:hover { z-index: 6; }
+  .pin:hover { z-index: 9; }
+  .pin.compact:hover .pin-name { display: block; }
 }
 
 /* Scrolling past the end of a panel or dialog does not scroll the page behind it. */

@@ -6,10 +6,11 @@ import { METRIC_LABEL, formatDate, pinLabel } from './format';
 import { netDefinition, netOf } from './net';
 import { kindContext, visibleUnits } from './groups';
 import { pinBadges, type PinBadge } from './utilities';
-import { layoutPins, type PinBox } from './pinLayout';
+import { layoutPins, type Point, type Size } from './pinLayout';
+import { pinNumbers } from './pinNumbers';
 import { computeSummary } from './summary';
 import { fmtDiff, fmtValue } from './summaryFormat';
-import { exportNotes, layoutChart } from './chartLayout';
+import { CHART_COLORS, exportNotes, layoutChart } from './chartLayout';
 import { chartKeys, drawChartKeys, drawChartModel } from './exportChart';
 import {
   filterCaption, legendItems, metricCaption, niceScale, pageRegions, summaryFootnotes, wrapText, type Box, type LegendItem, type PageKind,
@@ -161,13 +162,40 @@ function drawFooter(ctx: CanvasRenderingContext2D, box: Box, note: string) {
   if (note.trim()) text(ctx, ellipsize(ctx, note.trim(), box.w), box.x, box.y + 20, `400 11px ${FONT}`, MUTED);
 }
 
-interface PinDraw { b: Survey['buildings'][number]; label: string; badges: PinBadge[]; excluded: boolean; p: { x: number; y: number }; box: PinBox; pillW: number; nameW: number }
+interface PinDraw {
+  b: Survey['buildings'][number];
+  num: number | undefined;
+  label: string;
+  badges: PinBadge[];
+  excluded: boolean;
+  p: Point;
+  name: string;
+  sizes: Size[];
+}
+
+// The pill's measurements, the same as the on-screen pin's (src/styles.css), so the page matches the map.
+const PILL = { pad: 5, num: 22, gap: 8, right: 12, border: 3, fullH: 40, compactH: 33, nameMax: 205 };
+const NAME_FONT = `600 12px ${FONT}`;
+const RATE_FONT = `700 12.5px ${FONT}`;
+const BADGE_FONT = `700 10px ${FONT}`;
+const PIN_BLUE = CHART_COLORS.market;
+const PIN_ORANGE = CHART_COLORS.subject;
+
+function starPath(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r * 0.45 : r;
+    ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+}
 
 function drawPins(ctx: CanvasRenderingContext2D, mapBox: Box, map: maplibregl.Map, o: ExportOptions) {
   const kctx = kindContext(o.survey);
   const filter = { filters: o.view.filters, ctx: kctx };
+  const numbers = pinNumbers(o.survey.buildings);
   const pins: PinDraw[] = [];
-  let order = 0;
   for (const b of o.survey.buildings) {
     if (!b.lngLat) continue;
     const units = visibleUnits(b, filter);
@@ -177,97 +205,126 @@ function drawPins(ctx: CanvasRenderingContext2D, mapBox: Box, map: maplibregl.Ma
     if (p.x < mapBox.x - 40 || p.x > mapBox.x + mapBox.w + 40 || p.y < mapBox.y - 10 || p.y > mapBox.y + mapBox.h + 60) continue;
     const label = pinLabel(b, filter, o.view.metric, netOf(o.survey));
     const badges = pinBadges(units);
-    ctx.font = `700 13px ${FONT}`;
-    const tw = ctx.measureText(label).width;
-    ctx.font = `700 10px ${FONT}`;
-    const pillW = tw + 20 + badges.reduce((w, x) => w + ctx.measureText(x.text).width + 12 + 6, 0);
-    ctx.font = `600 11px ${FONT}`;
-    const nameW = ctx.measureText(b.name).width;
-    const tipTop = p.y - 8;
-    const nameTop = tipTop - 14;
-    const pillBottom = nameTop - 2;
-    const box: PinBox = {
-      id: b.id, order: b.isSubject ? -1 : order++,
-      pill: { l: p.x - pillW / 2, r: p.x + pillW / 2, t: pillBottom - 26, b: pillBottom },
-      name: { l: p.x - nameW / 2, r: p.x + nameW / 2, t: nameTop, b: tipTop },
-    };
-    pins.push({ b, label, badges, excluded: Boolean(b.excluded) || units.every((u) => u.excluded), p, box, pillW, nameW });
+    ctx.font = NAME_FONT;
+    const name = ellipsize(ctx, b.name, PILL.nameMax);
+    const nameW = ctx.measureText(name).width;
+    ctx.font = RATE_FONT;
+    const rateW = ctx.measureText(label).width;
+    ctx.font = BADGE_FONT;
+    const tagsW = badges.reduce((w, x) => w + ctx.measureText(x.text).width + 12 + 6, 0);
+    const lead = PILL.pad + PILL.num + PILL.gap;
+    const full = { w: lead + Math.max(nameW, rateW + tagsW) + PILL.right + PILL.border, h: PILL.fullH };
+    const compact = { w: lead + rateW + badges.length * 14 + PILL.right + PILL.border, h: PILL.compactH };
+    pins.push({ b, num: numbers.get(b.id), label, badges, excluded: Boolean(b.excluded) || units.every((u) => u.excluded), p, name, sizes: [full, compact] });
   }
-  const plan = new Map(layoutPins(pins.map((x) => x.box)).map((x) => [x.id, x]));
-
-  // Three passes, so a connector line or a name never lands on top of a pill: lines, then names, then pills.
-  const ordered = [...pins].sort((a, b) => a.box.pill.t - b.box.pill.t);
-  const place = (pin: PinDraw) => ({ ...plan.get(pin.b.id)!, top: pin.box.pill.t - plan.get(pin.b.id)!.lift });
+  // A page keeps the price on every pill, so there is no number-only size here: it falls back to the compact pill.
+  const plan = new Map(
+    layoutPins(
+      pins.map((x) => ({ id: x.b.id, x: x.p.x, y: x.p.y, sizes: x.sizes, order: x.b.isSubject ? -1 : (x.num ?? 9999) })),
+      { bounds: { l: mapBox.x + 4, t: mapBox.y + 4, r: mapBox.x + mapBox.w - 4, b: mapBox.y + mapBox.h - 4 } },
+    ).map((x) => [x.id, x]),
+  );
   const faded = (pin: PinDraw) => (pin.excluded ? 0.55 : 1);
 
-  for (const pin of ordered) {
-    const { lift, nameHidden, top } = place(pin);
-    if (lift <= 0) continue;
+  // Three passes, so a pointer never lands on top of a pill: pointers, then dots, then pills.
+  for (const pin of pins) {
+    const pl = plan.get(pin.b.id)!;
     ctx.save();
-    ctx.globalAlpha = faded(pin) * 0.7;
-    ctx.strokeStyle = NAVY;
-    ctx.lineWidth = 2;
+    ctx.globalAlpha = faded(pin);
+    ctx.strokeStyle = pin.b.isSubject ? PIN_ORANGE : '#667085';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(pin.p.x, top + 26);
-    ctx.lineTo(pin.p.x, nameHidden ? pin.p.y - 8 : pin.box.name.t);
+    ctx.moveTo(pin.p.x, pin.p.y);
+    ctx.lineTo(pl.attach.x, pl.attach.y);
     ctx.stroke();
     ctx.restore();
   }
-
-  for (const pin of ordered) {
-    if (place(pin).nameHidden) continue;
+  for (const pin of pins) {
     ctx.save();
     ctx.globalAlpha = faded(pin);
-    ctx.font = `600 11px ${FONT}`;
-    ctx.textAlign = 'center';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(pin.p.x, pin.p.y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = pin.b.isSubject ? PIN_ORANGE : PIN_BLUE;
+    ctx.fill();
+    ctx.lineWidth = 2;
     ctx.strokeStyle = '#fff';
-    ctx.strokeText(pin.b.name, pin.p.x, pin.box.name.b - 3);
-    ctx.fillStyle = INK;
-    ctx.fillText(pin.b.name, pin.p.x, pin.box.name.b - 3);
+    ctx.stroke();
     ctx.restore();
   }
-
-  for (const pin of ordered) {
-    const { p, pillW, b } = pin;
-    const { top } = place(pin);
+  for (const pin of pins) {
+    const pl = plan.get(pin.b.id)!;
+    const { l, t, r, b: bottom } = pl.rect;
+    const w = r - l;
+    const h = bottom - t;
+    const cy = t + h / 2;
+    const subject = pin.b.isSubject;
     ctx.save();
     ctx.globalAlpha = faded(pin);
-    ctx.shadowColor = 'rgba(0,0,0,.25)';
-    ctx.shadowBlur = 5;
+    ctx.shadowColor = 'rgba(16,24,40,.25)';
+    ctx.shadowBlur = 8;
     ctx.shadowOffsetY = 2;
-    roundRectPath(ctx, p.x - pillW / 2, top, pillW, 26, 13);
-    ctx.fillStyle = b.isSubject ? NAVY : '#fff';
+    roundRectPath(ctx, l, t, w, h, h / 2);
+    ctx.fillStyle = subject ? PIN_ORANGE : '#fff';
     ctx.fill();
     ctx.shadowColor = 'transparent';
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = NAVY;
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = subject ? PIN_ORANGE : '#98a2b3';
     if (pin.excluded) ctx.setLineDash([4, 3]);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.font = `700 13px ${FONT}`;
+    // The number (a star for the subject)
+    const nx = l + 1.5 + PILL.pad + PILL.num / 2;
+    ctx.beginPath();
+    ctx.arc(nx, cy, PILL.num / 2, 0, Math.PI * 2);
+    ctx.fillStyle = subject ? 'rgba(255,255,255,.28)' : PIN_BLUE;
+    ctx.fill();
+    if (subject) {
+      starPath(ctx, nx, cy, 6.5);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+    } else if (pin.num != null) {
+      ctx.font = `700 12px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(String(pin.num), nx, cy + 0.5);
+    }
+    const tx = l + 1.5 + PILL.pad + PILL.num + PILL.gap;
+    const ink = subject ? '#fff' : INK;
+    const priceInk = subject ? '#fff' : NAVY;
     ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = b.isSubject ? '#fff' : NAVY;
-    ctx.fillText(pin.label, p.x - pillW / 2 + 10, top + 13.5);
-    // Tags sit after the rent, left to right, in the order the live map shows them.
-    ctx.font = `700 13px ${FONT}`;
-    let bx = p.x - pillW / 2 + 10 + ctx.measureText(pin.label).width + 6;
-    ctx.font = `700 10px ${FONT}`;
-    for (const x of pin.badges) {
-      const bw = ctx.measureText(x.text).width + 12;
-      drawBadge(ctx, x, bx, top + 5, bw);
-      bx += bw + 6;
+    if (pl.detail === 0) {
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = NAME_FONT;
+      ctx.fillStyle = ink;
+      ctx.fillText(pin.name, tx, cy - 3.5);
+      ctx.font = RATE_FONT;
+      ctx.fillStyle = priceInk;
+      ctx.fillText(pin.label, tx, cy + 11);
+      const rateW = ctx.measureText(pin.label).width;
+      ctx.font = BADGE_FONT;
+      ctx.textBaseline = 'middle';
+      let bx = tx + rateW + 6;
+      for (const x of pin.badges) {
+        const bw = ctx.measureText(x.text).width + 12;
+        drawBadge(ctx, x, bx, cy - 1.5, bw, 15);
+        bx += bw + 6;
+      }
+    } else {
+      ctx.textBaseline = 'middle';
+      ctx.font = RATE_FONT;
+      ctx.fillStyle = priceInk;
+      ctx.fillText(pin.label, tx, cy + 0.5);
+      let bx = tx + ctx.measureText(pin.label).width + 6;
+      for (const x of pin.badges) {
+        ctx.beginPath();
+        ctx.arc(bx + 4, cy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = BADGE_STYLE[x.kind].bg;
+        ctx.fill();
+        bx += 14;
+      }
     }
     ctx.textBaseline = 'alphabetic';
-    ctx.beginPath();
-    ctx.moveTo(p.x - 6, p.y - 8);
-    ctx.lineTo(p.x + 6, p.y - 8);
-    ctx.lineTo(p.x, p.y);
-    ctx.closePath();
-    ctx.fillStyle = NAVY;
-    ctx.fill();
     ctx.restore();
   }
 }
@@ -366,14 +423,25 @@ function legendGlyph(ctx: CanvasRenderingContext2D, kind: LegendItem['kind'], x:
     ctx.textBaseline = 'middle';
     drawBadge(ctx, { kind, text: kind === 'utils' ? 'Utils' : 'Inc.' }, x, y + 1, 34, 15);
   } else {
+    // A small pill like the real ones: a number circle, then the rest of the pill
     ctx.globalAlpha = kind === 'excluded' ? 0.55 : 1;
     roundRectPath(ctx, x, y + 1, 34, 15, 7.5);
-    ctx.fillStyle = kind === 'subject' ? NAVY : '#fff';
+    ctx.fillStyle = kind === 'subject' ? PIN_ORANGE : '#fff';
     ctx.fill();
-    ctx.lineWidth = 1.6;
-    ctx.strokeStyle = NAVY;
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = kind === 'subject' ? PIN_ORANGE : '#98a2b3';
     if (kind === 'excluded') ctx.setLineDash([3, 2]);
     ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(x + 8.5, y + 8.5, 5.5, 0, Math.PI * 2);
+    ctx.fillStyle = kind === 'subject' ? 'rgba(255,255,255,.35)' : PIN_BLUE;
+    ctx.fill();
+    if (kind === 'subject') {
+      starPath(ctx, x + 8.5, y + 8.5, 4);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+    }
   }
   ctx.restore();
 }

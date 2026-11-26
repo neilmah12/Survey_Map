@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { BLANK_STYLE, initialStyle } from '../lib/basemap';
-import { layoutPins as planPins } from '../lib/pinLayout';
+import { layoutPins as planPins, type PinSpec } from '../lib/pinLayout';
+import { pinNumbers } from '../lib/pinNumbers';
 import type { Building, LngLat, NetSettings, Survey, ViewSettings } from '../types';
 import { safeUrl } from '../lib/safeUrl';
 import { PHOTO_MARK } from '../lib/cloudSplit';
@@ -41,14 +42,27 @@ function el(tag: string, cls?: string, txt?: string): HTMLElement {
   return e;
 }
 
-function pinElement(b: Building, label: string, badges: PinBadge[], selected: boolean, excluded: boolean): HTMLElement {
+const STAR = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7.1L12 17.3 5.7 21.3l1.7-7.1L2 9.5l7.1-.6z" fill="currentColor"/></svg>';
+
+/**
+ * A pin is a dot on the building's exact spot, a short pointer, and a pill: the number (a star for the subject),
+ * the name, and the price with any tags. The pill's place and size are set afterwards by layoutPins.
+ */
+function pinElement(b: Building, label: string, badges: PinBadge[], selected: boolean, excluded: boolean, num: number | undefined): HTMLElement {
   const root = el('div', `pin${b.isSubject ? ' subject' : ''}${selected ? ' selected' : ''}${excluded ? ' excluded' : ''}`);
+  root.dataset.order = String(b.isSubject ? 0 : (num ?? 9999)); // nearer buildings are placed first and keep their natural spot
   const pill = el('div', 'pin-pill');
-  pill.append(el('span', 'pin-rate', label));
-  for (const x of badges) pill.append(el('span', `pin-badge ${x.kind}`, x.text));
-  const head = el('div', 'pin-head');
-  head.append(pill, el('div', 'pin-leader'));
-  root.append(head, el('div', 'pin-name', b.name), el('div', 'pin-tip'));
+  pill.title = b.name;
+  const badge = el('span', 'pin-num');
+  if (b.isSubject) badge.innerHTML = STAR;
+  else badge.textContent = num != null ? String(num) : '';
+  const line2 = el('span', 'pin-line2');
+  line2.append(el('span', 'pin-rate', label));
+  for (const x of badges) line2.append(el('span', `pin-badge ${x.kind}`, x.text));
+  const text = el('span', 'pin-text');
+  text.append(el('span', 'pin-name', b.name), line2);
+  pill.append(badge, text);
+  root.append(el('div', 'pin-leader'), el('div', 'pin-dot'), pill);
   return root;
 }
 
@@ -59,6 +73,8 @@ interface PopupCtx {
   metric: ViewSettings['metric'];
   split: ViewSettings['summary']['split'];
   market: SummaryResult;
+  /** The number on the building's pin (nearest the subject is 1). */
+  num?: number;
 }
 
 /** "+4.6%" for a suite against the market figure for its unit type, or '-' when there is nothing to compare. */
@@ -94,7 +110,10 @@ function popupContent(b: Building, filter: UnitFilter, pc: PopupCtx): HTMLElemen
     // Published photos live in their own documents and load only when a popup opens.
     else lazyPhoto?.then((data) => (safeUrl(data, true) ? (img.src = data) : img.remove())).catch(() => img.remove());
   }
-  root.append(el('div', 'popup-title', b.name));
+  const title = el('div', 'popup-title');
+  if (pc.num != null && !b.isSubject) title.append(el('span', 'popup-num', String(pc.num)));
+  title.append(document.createTextNode(b.name));
+  root.append(title);
   if (b.isSubject) root.append(el('div', 'popup-tag', 'Subject property'));
   root.append(el('div', 'popup-sub', b.address));
   // Stacked / non-stacked only matters for townhomes.
@@ -165,18 +184,14 @@ function popupContent(b: Building, filter: UnitFilter, pc: PopupCtx): HTMLElemen
   return root;
 }
 
-const toRect = (r: DOMRect) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
-
-/** Measures every pin on screen, plans the layout with the shared algorithm, and applies it. */
 /**
- * How far above the map point a popup must start to clear the whole pin. A marker is anchored at its bottom, so
- * the price pill sits well above the map point (more when it is lifted to avoid a neighbour); a popup that
- * started at a fixed small gap would cover it.
+ * How far above the map point a popup must start to clear the pin. The selected pin is placed first, so its pill
+ * sits straight above its dot; a popup that started at a fixed small gap would cover it.
  */
 function popupOffset(pin: HTMLElement): [number, number] {
   const pill = pin.querySelector('.pin-pill')?.getBoundingClientRect();
-  const base = pin.getBoundingClientRect().bottom; // the map point
-  return [0, -(pill && pill.height > 0 ? Math.max(14, base - pill.top + 8) : 56)];
+  const spot = pin.getBoundingClientRect().top; // the root has no size: its top is the map point
+  return [0, -(pill && pill.height > 0 ? Math.max(12, spot - pill.top + 8) : 56)];
 }
 
 /** Pans the map just enough that an open popup is fully visible (the popup always opens above its pin). */
@@ -191,22 +206,45 @@ function keepPopupInView(map: maplibregl.Map, popup: maplibregl.Popup) {
   if (dx || dy) map.panBy([-dx, -dy], { duration: 250 });
 }
 
+/** The pill's size in each of its three looks, measured where it stands. */
+function pillSizes(root: HTMLElement, pill: HTMLElement) {
+  const at = (mode: '' | 'compact' | 'tiny') => {
+    root.classList.toggle('compact', mode === 'compact');
+    root.classList.toggle('tiny', mode === 'tiny');
+    return { w: pill.offsetWidth, h: pill.offsetHeight };
+  };
+  const sizes = [at(''), at('compact'), at('tiny')];
+  at('');
+  return sizes;
+}
+
+/** Measures every pin on screen, plans the layout with the shared algorithm, and applies it. */
 function layoutPins(markers: Map<string, maplibregl.Marker>, selectedId: string | null) {
+  let bounds: { l: number; t: number; r: number; b: number } | undefined;
   const items = [...markers.entries()].map(([id, m], i) => {
     const root = m.getElement();
-    root.style.setProperty('--lift', '0px');
-    root.classList.remove('name-hidden');
-    const pill = (root.querySelector('.pin-pill') as HTMLElement).getBoundingClientRect();
-    const name = (root.querySelector('.pin-name') as HTMLElement).getBoundingClientRect();
-    return { id, root, box: { id, pill: toRect(pill), name: toRect(name), order: id === selectedId ? -2 : root.classList.contains('subject') ? -1 : i } };
+    const pill = root.querySelector('.pin-pill') as HTMLElement;
+    if (!bounds) {
+      const view = root.closest('.maplibregl-map')?.getBoundingClientRect();
+      if (view) bounds = { l: view.left + 4, t: view.top + 4, r: view.right - 4, b: view.bottom - 4 };
+    }
+    const spot = root.getBoundingClientRect(); // the root has no size, so this is the building's place
+    const order = id === selectedId ? -2 : root.classList.contains('subject') ? -1 : Number(root.dataset.order ?? i);
+    const spec: PinSpec = { id, x: spot.left, y: spot.top, sizes: pillSizes(root, pill), order };
+    return { id, root, spec };
   });
-  const plan = new Map(planPins(items.map((i) => i.box)).map((p) => [p.id, p]));
-  for (const { id, root } of items) {
+  const plan = new Map(planPins(items.map((i) => i.spec), { bounds }).map((p) => [p.id, p]));
+  for (const { id, root, spec } of items) {
     const p = plan.get(id)!;
-    root.style.setProperty('--lift', `${p.lift}px`);
-    root.classList.toggle('name-hidden', p.nameHidden);
-    // The higher a pill is lifted, the lower it stacks (1 to 5; hover is 6), so its line runs under the pills it passes.
-    root.style.setProperty('--z', String(Math.max(1, 5 - Math.round(p.lift / 30))));
+    root.classList.toggle('compact', p.detail === 1);
+    root.classList.toggle('tiny', p.detail === 2);
+    const dx = p.attach.x - spec.x;
+    const dy = p.attach.y - spec.y;
+    root.style.setProperty('--cx', `${p.cx}px`);
+    root.style.setProperty('--cy', `${p.cy}px`);
+    root.style.setProperty('--len', `${Math.hypot(dx, dy)}px`);
+    root.style.setProperty('--ang', `${Math.atan2(dy, dx)}rad`);
+    root.style.setProperty('--z', String(root.classList.contains('subject') ? 7 : 5));
   }
   // A pin that moved changes where an open popup must start.
   for (const [, m] of markers) {
@@ -228,6 +266,7 @@ export default function MapView(p: Props) {
   const ctx = useMemo(() => kindContext(p.survey), [p.survey]);
   const net = useMemo(() => netOf(p.survey), [p.survey.net]); // eslint-disable-line react-hooks/exhaustive-deps
   const showNet = useMemo(() => netAvailable(p.survey), [p.survey]);
+  const numbers = useMemo(() => pinNumbers(p.survey.buildings), [p.survey.buildings]);
   const market = useMemo(
     () => computeSummary({ ...p.survey, buildings: p.survey.buildings.filter((x) => x.lngLat) }, { metric: p.view.metric, filters: p.view.filters, settings: p.view.summary }),
     [p.survey, p.view.metric, p.view.filters, p.view.summary.stat, p.view.summary.split, p.view.summary.perBuilding], // eslint-disable-line react-hooks/exhaustive-deps
@@ -304,7 +343,7 @@ export default function MapView(p: Props) {
       seen.add(b.id);
       const label = pinLabel(b, filter, p.view.metric, net);
       const shown = visibleUnits(b, filter);
-      const element = pinElement(b, label, pinBadges(shown), b.id === live.current.selectedId, Boolean(b.excluded) || shown.every((u) => u.excluded));
+      const element = pinElement(b, label, pinBadges(shown), b.id === live.current.selectedId, Boolean(b.excluded) || shown.every((u) => u.excluded), numbers.get(b.id));
       // Rebuilding a marker closes its popup, so remember and restore it.
       const old = markers.current.get(b.id);
       const wasOpen = old?.getPopup()?.isOpen() ?? false;
@@ -314,7 +353,7 @@ export default function MapView(p: Props) {
       // A popup reopened because the data changed must not take the keyboard focus, or typing in the sidebar
       // stops after one character (MapLibre focuses a popup when it opens).
       const popup = new maplibregl.Popup({ anchor: 'bottom', offset: popupOffset(element), maxWidth: window.innerWidth < 520 ? '88vw' : '380px', closeButton: true, focusAfterOpen: !wasOpen }).setDOMContent(
-        popupContent(b, filter, { net, showNet, metric: p.view.metric, split: p.view.summary.split, market }),
+        popupContent(b, filter, { net, showNet, metric: p.view.metric, split: p.view.summary.split, market, num: numbers.get(b.id) }),
       );
       popup.on('open', () => {
         popup.setOffset(popupOffset(element));
@@ -322,7 +361,7 @@ export default function MapView(p: Props) {
         // The photo arrives after the popup opens and makes it taller.
         popup.getElement()?.addEventListener('load', () => keepPopupInView(map, popup), true);
       });
-      const marker = new maplibregl.Marker({ element, draggable: p.editable, anchor: 'bottom' })
+      const marker = new maplibregl.Marker({ element, draggable: p.editable, anchor: 'center' })
         .setLngLat(b.lngLat)
         .setPopup(popup)
         .addTo(map);
@@ -342,7 +381,7 @@ export default function MapView(p: Props) {
         markers.current.delete(id);
       }
     }
-  }, [p.survey.buildings, filter, p.view.metric, p.editable, ready, net, showNet, market]);
+  }, [p.survey.buildings, filter, p.view.metric, p.editable, ready, net, showNet, market, numbers]);
 
   // Selection only changes the highlight, so it must not rebuild markers (that would close the popup).
   useEffect(() => {

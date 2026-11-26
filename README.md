@@ -40,9 +40,8 @@ Image and PDF export (Phase E):
   landscape, Letter portrait or a 16:9 slide, 150 dpi (Word, email) or 300 dpi (print), and "what I see
   now" or all buildings. One preview, then Save PNG or Save PDF.
 - It follows the current metric, unit filters, summary settings and switched-off properties, and leaves
-  out buildings with no pin, so it matches the client file. Crowded pins use the same layout algorithm as
-  the map (`src/lib/pinLayout.ts`). If the street map cannot load, the page has a plain background and the
-  dialog says so.
+  out buildings with no pin, so it matches the client file. Pins use the same layout as the map (see
+  "Pins" below). If the street map cannot load, the page has a plain background and the dialog says so.
 - The PDF is a print-resolution picture of the page (`src/lib/pdf.ts` writes it, no library). Text in the
   PDF is therefore not selectable; a vector version is possible later.
 - The source line is a survey field (Survey section of the sidebar); it is also shown on the client page.
@@ -75,6 +74,20 @@ Pins, measures and phones:
   copy is kept over the sheet's link on re-upload.
 - On a phone the client page uses a one-line swipeable controls strip, starts with the summary closed,
   and shows the summary under the map.
+
+Pins:
+
+- A pin is a dot on the building's exact spot, a short pointer, and a pill with the building's number, its
+  name and its price range, plus a tag for an incentive or utilities in the rent. The subject is orange with a
+  star; comparables are numbered 1, 2, 3 from the one nearest the subject (`src/lib/pinNumbers.ts`). A
+  number belongs to the building: it does not change when a filter hides pins or a building is switched off,
+  and the same number appears in the popup, the chart tooltip, the building list and the export legend.
+- `src/lib/pinLayout.ts` places every pill, on the screen and in the export. A pill can sit above, beside or
+  below its building, so a crowd fans out instead of stacking into a tall column. It never overlaps another
+  pill; pointers do not run through pills or each other where there is room. When the full pill does not fit
+  it is shortened to the number and price, and on the screen, last of all, to the number alone (hover or tap
+  for the rest). A printed page never drops the price: it only uses the full and the shorter pill.
+- The selected pin is placed first, straight above its dot, so its popup opens above it without covering it.
 
 Market summary (Phase D):
 

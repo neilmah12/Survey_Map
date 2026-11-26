@@ -77,7 +77,7 @@ export function legendItems(survey: Survey, view: ViewSettings): LegendItem[] {
     .filter((x) => x.units.length > 0);
   const items: LegendItem[] = [];
   if (shown.some((x) => x.b.isSubject)) items.push({ kind: 'subject', label: 'Subject property' });
-  if (shown.some((x) => !x.b.isSubject)) items.push({ kind: 'comp', label: 'Comparable property' });
+  if (shown.some((x) => !x.b.isSubject)) items.push({ kind: 'comp', label: 'Comparable property, numbered nearest the subject first' });
   if (shown.some((x) => x.b.excluded || x.units.every((u) => u.excluded))) items.push({ kind: 'excluded', label: 'Not counted in the averages' });
   if (shown.some((x) => pinBadges(x.units).some((p) => p.kind === 'incentive'))) items.push({ kind: 'incentive', label: 'Incentive offered' });
   if (shown.some((x) => x.units.some((u) => utilStatus(u) === 'included'))) items.push({ kind: 'utils', label: 'Utilities included in rent (tag names which)' });
