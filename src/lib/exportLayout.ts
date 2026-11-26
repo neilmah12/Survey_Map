@@ -1,8 +1,7 @@
-import type { NetSettings, Survey, ViewSettings } from '../types';
+import type { Survey, ViewSettings } from '../types';
 import { isFiltering, visibleUnits, kindContext, type UnitFilters } from './groups';
 import { pinBadges, utilStatus } from './utilities';
 import { METRIC_LABEL } from './format';
-import { netDefinition } from './net';
 import { ringRadii } from './scope';
 import type { SummaryResult } from './summary';
 
@@ -88,10 +87,8 @@ export function legendItems(survey: Survey, view: ViewSettings): LegendItem[] {
 }
 
 /** What each pin shows, in words. */
-export function metricCaption(view: ViewSettings, net?: NetSettings): string {
-  const m = METRIC_LABEL[view.metric];
-  const base = `Pins show ${m.toLowerCase()} per month; a range where a building has several suites.`;
-  return view.metric === 'net' && net ? `${base} ${netDefinition(net)}.` : base;
+export function metricCaption(view: ViewSettings): string {
+  return `Pins show ${METRIC_LABEL[view.metric].toLowerCase()} per month; a range where a building has several suites.`;
 }
 
 /** "Bedrooms: 2 Beds, 2 + Den   Bathrooms: 1, 2", or '' when nothing is filtered. */

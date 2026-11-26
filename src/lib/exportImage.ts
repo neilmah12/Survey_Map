@@ -3,7 +3,7 @@ import type { LngLat, Survey, ViewSettings } from '../types';
 import { BLANK_STYLE, MAP_CREDIT, initialStyle } from './basemap';
 import { circleCoords, haversineKm, ringTop } from './geo';
 import { METRIC_LABEL, formatDate, pinLabel } from './format';
-import { netDefinition, netOf } from './net';
+import { netOf } from './net';
 import { kindContext, visibleUnits } from './groups';
 import { pinBadges, type PinBadge } from './utilities';
 import { layoutPins, type Point, type Size } from './pinLayout';
@@ -459,7 +459,7 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
     y += 18;
     const sub = `${METRIC_LABEL[o.view.metric]}, ${o.view.summary.stat === 'avg' ? 'average' : 'median'} of ${result.marketBuildings} comparable building${result.marketBuildings === 1 ? '' : 's'}${result.hasSubject ? ', subject excluded' : ''}${o.view.within != null && o.view.within > 0 ? `, within ${fmtKm(o.view.within)} of the subject` : ''}`;
     ctx.font = `400 10.5px ${FONT}`;
-    const subFull = o.view.metric === 'net' ? `${sub}. ${netDefinition(netOf(o.survey))}` : sub;
+    const subFull = sub; // the report does not define net rent: surveys differ in what they know
     for (const line of wrapText(subFull, box.w, (s) => ctx.measureText(s).width)) {
       text(ctx, line, box.x, y, `400 10.5px ${FONT}`, MUTED);
       y += 13;
@@ -553,7 +553,7 @@ function drawPanel(ctx: CanvasRenderingContext2D, box: Box, o: ExportOptions) {
       y += 21;
     }
     ctx.font = `400 9.5px ${FONT}`;
-    for (const line of wrapText(metricCaption(o.view, netOf(o.survey)), box.w, (s) => ctx.measureText(s).width)) {
+    for (const line of wrapText(metricCaption(o.view), box.w, (s) => ctx.measureText(s).width)) {
       text(ctx, line, box.x, y + 8, `400 9.5px ${FONT}`, MUTED);
       y += 12;
     }

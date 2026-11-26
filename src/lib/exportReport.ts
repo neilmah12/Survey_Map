@@ -1,10 +1,9 @@
 import type { Contact, Metric } from '../types';
 import { formatMetric, METRIC_LABEL } from './format';
-import { netDefinition, netOf } from './net';
 import { appliedPills } from './choose';
 import { fmtKm } from './scope';
 import { buildReport, reportBuildings, type ReportBuilding, type ReportRow } from './report';
-import { pageRegions, wrapText, type Box } from './exportLayout';
+import { pageRegions, type Box } from './exportLayout';
 import { FONT, INK, LINE, MUTED, NAVY, drawFooter, drawHeader, ellipsize, loadImage, text, type ExportOptions } from './exportImage';
 
 /**
@@ -43,11 +42,6 @@ function newPage(o: ReportOptions, scale: number) {
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, regions.page.w, regions.page.h);
   return { canvas, ctx, regions };
-}
-
-function lines(ctx: CanvasRenderingContext2D, s: string, w: number, font: string): string[] {
-  ctx.font = font;
-  return s.split('\n').flatMap((part) => (part.trim() ? wrapText(part.trim(), w, (t) => ctx.measureText(t).width) : []));
 }
 
 const CONTACT_COLS = 3;
@@ -112,12 +106,7 @@ function drawSummaryPage(o: ReportOptions, scale: number, logo: HTMLImageElement
   const rowH = 27;
   const reserved = contactHeight(o.contacts) + (o.contacts.length ? 6 : 0);
   const bottom = regions.footer.y - 10 - reserved;
-  const footnotes: string[] = [];
-  if (metrics.includes('net')) footnotes.push(netDefinition(netOf(o.survey)) + '.');
-  footnotes.push('Difference: the subject against the market figure for the same unit type, as a share of the market.');
-  const footnoteLines = lines(ctx, footnotes.join(' '), width, `400 10px ${FONT}`);
-  const footnoteH = footnoteLines.length * 13 + 8;
-  const room = bottom - y - 44 - footnoteH;
+  const room = bottom - y - 44;
   const maxRows = Math.max(1, Math.floor(room / rowH));
   const rows: ReportRow[] = report.rows.slice(0, maxRows);
 
@@ -170,7 +159,6 @@ function drawSummaryPage(o: ReportOptions, scale: number, logo: HTMLImageElement
     y += 18;
   }
 
-  footnoteLines.forEach((l, i) => text(ctx, l, left, bottom - footnoteH + 12 + i * 13, `400 10px ${FONT}`, MUTED));
   contactBox(ctx, { x: left, y: bottom, w: width, h: reserved }, o.contacts, o.contactUrl);
   drawFooter(ctx, regions.footer, o.sourceNote);
   return canvas;
