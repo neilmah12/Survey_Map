@@ -218,33 +218,43 @@ function pillSizes(root: HTMLElement, pill: HTMLElement) {
   return sizes;
 }
 
-/** Measures every pin on screen, plans the layout with the shared algorithm, and applies it. */
-function layoutPins(markers: Map<string, maplibregl.Marker>, selectedId: string | null) {
-  let bounds: { l: number; t: number; r: number; b: number } | undefined;
+/** Where a pill sits relative to its building, and how it looks: what the layout decided, kept per building. */
+interface Placed { cx: number; cy: number; len: number; ang: number; detail: number }
+
+function applyPlacement(root: HTMLElement, p: Placed) {
+  root.classList.toggle('compact', p.detail === 1);
+  root.classList.toggle('tiny', p.detail === 2);
+  root.style.setProperty('--cx', `${p.cx}px`);
+  root.style.setProperty('--cy', `${p.cy}px`);
+  root.style.setProperty('--len', `${p.len}px`);
+  root.style.setProperty('--ang', `${p.ang}rad`);
+  root.style.setProperty('--z', String(root.classList.contains('subject') ? 7 : 5));
+}
+
+/**
+ * Measures every pin, plans the layout with the shared algorithm, and applies it. The plan depends only on where
+ * the pins are relative to one another at this zoom. It does not depend on which pin is selected or on which
+ * part of the map is showing, so panning the map or tapping a pin never moves a pill: they move only when the
+ * zoom changes, or when the buildings change.
+ */
+function layoutPins(markers: Map<string, maplibregl.Marker>, memory: Map<string, Placed>) {
   const items = [...markers.entries()].map(([id, m], i) => {
     const root = m.getElement();
     const pill = root.querySelector('.pin-pill') as HTMLElement;
-    if (!bounds) {
-      const view = root.closest('.maplibregl-map')?.getBoundingClientRect();
-      if (view) bounds = { l: view.left + 4, t: view.top + 4, r: view.right - 4, b: view.bottom - 4 };
-    }
     const spot = root.getBoundingClientRect(); // the root has no size, so this is the building's place
-    const order = id === selectedId ? -2 : root.classList.contains('subject') ? -1 : Number(root.dataset.order ?? i);
+    const order = root.classList.contains('subject') ? -1 : Number(root.dataset.order ?? i);
     const spec: PinSpec = { id, x: spot.left, y: spot.top, sizes: pillSizes(root, pill), order };
     return { id, root, spec };
   });
-  const plan = new Map(planPins(items.map((i) => i.spec), { bounds }).map((p) => [p.id, p]));
+  const plan = new Map(planPins(items.map((i) => i.spec)).map((p) => [p.id, p]));
+  memory.clear();
   for (const { id, root, spec } of items) {
     const p = plan.get(id)!;
-    root.classList.toggle('compact', p.detail === 1);
-    root.classList.toggle('tiny', p.detail === 2);
     const dx = p.attach.x - spec.x;
     const dy = p.attach.y - spec.y;
-    root.style.setProperty('--cx', `${p.cx}px`);
-    root.style.setProperty('--cy', `${p.cy}px`);
-    root.style.setProperty('--len', `${Math.hypot(dx, dy)}px`);
-    root.style.setProperty('--ang', `${Math.atan2(dy, dx)}rad`);
-    root.style.setProperty('--z', String(root.classList.contains('subject') ? 7 : 5));
+    const placed: Placed = { cx: p.cx, cy: p.cy, len: Math.hypot(dx, dy), ang: Math.atan2(dy, dx), detail: p.detail };
+    memory.set(id, placed);
+    applyPlacement(root, placed);
   }
   // A pin that moved changes where an open popup must start.
   for (const [, m] of markers) {
@@ -257,6 +267,8 @@ export default function MapView(p: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markers = useRef(new Map<string, maplibregl.Marker>());
+  // Where each pill was last placed, so a pin rebuilt for any reason starts where it was instead of jumping back.
+  const placements = useRef(new Map<string, Placed>());
   const ringMarkers = useRef<maplibregl.Marker[]>([]);
   const [ready, setReady] = useState(false);
   const [dropReady, setDropReady] = useState(false);
@@ -301,16 +313,13 @@ export default function MapView(p: Props) {
       setReady(true);
       setStyleVersion((v) => v + 1);
     });
-    const relayout = () => layoutPins(markers.current, live.current.selectedId);
+    const relayout = () => layoutPins(markers.current, placements.current);
     const reportBounds = () => {
       const bb = map.getBounds();
       live.current.onBounds?.([[bb.getWest(), bb.getSouth()], [bb.getEast(), bb.getNorth()]]);
     };
-    map.on('zoomend', relayout);
-    map.on('moveend', () => {
-      relayout();
-      reportBounds();
-    });
+    map.on('zoomend', relayout); // a pan changes nothing about how the pins sit with one another, so only a zoom re-plans
+    map.on('moveend', reportBounds);
     map.on('load', reportBounds);
     map.on('click', (e) => {
       if ((e.originalEvent.target as HTMLElement).closest('.pin')) return;
@@ -344,6 +353,8 @@ export default function MapView(p: Props) {
       const label = pinLabel(b, filter, p.view.metric, net);
       const shown = visibleUnits(b, filter);
       const element = pinElement(b, label, pinBadges(shown), b.id === live.current.selectedId, Boolean(b.excluded) || shown.every((u) => u.excluded), numbers.get(b.id));
+      const before = placements.current.get(b.id);
+      if (before) applyPlacement(element, before); // start where it was; the layout below only moves it if it must
       // Rebuilding a marker closes its popup, so remember and restore it.
       const old = markers.current.get(b.id);
       const wasOpen = old?.getPopup()?.isOpen() ?? false;
@@ -374,7 +385,7 @@ export default function MapView(p: Props) {
       markers.current.set(b.id, marker);
     }
     // Wait a frame so the new pins are laid out, then untangle any that overlap.
-    requestAnimationFrame(() => layoutPins(markers.current, live.current.selectedId));
+    requestAnimationFrame(() => layoutPins(markers.current, placements.current));
     for (const [id, m] of markers.current) {
       if (!seen.has(id)) {
         m.remove();
@@ -383,10 +394,10 @@ export default function MapView(p: Props) {
     }
   }, [p.survey.buildings, filter, p.view.metric, p.editable, ready, net, showNet, market, numbers]);
 
-  // Selection only changes the highlight, so it must not rebuild markers (that would close the popup).
+  // Selection only changes the highlight. It must not rebuild markers (that would close the popup) and it must
+  // not re-plan the layout (that would move the other pills while someone is trying to follow one).
   useEffect(() => {
     for (const [id, m] of markers.current) m.getElement().classList.toggle('selected', id === p.selectedId);
-    layoutPins(markers.current, p.selectedId);
   }, [p.selectedId, p.survey.buildings, filter, p.view.metric, ready]);
 
   // Distance rings around the subject property.

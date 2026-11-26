@@ -170,7 +170,7 @@ button, input { font: inherit; }
 .ring-item button { border: 0; border-left: 1px solid var(--line); background: #f6f7fa; padding: 4px 7px; cursor: pointer; color: var(--muted); }
 .link-btn { border: 0; background: none; color: var(--navy-2); cursor: pointer; padding: 2px 4px; font-size: 12px; text-decoration: underline; }
 .thumb { width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px; margin: 4px 0 6px; display: block; background: #e6ebf2; }
-.maplibregl-popup { z-index: 6; }
+.maplibregl-popup { z-index: 20; } /* above every pin, the subject and a hovered pin included */
 
 .modal-backdrop { position: fixed; inset: 0; background: rgba(16,24,40,.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
 .modal { background: #fff; border-radius: 12px; padding: 20px 22px; width: min(560px, 100%); max-height: 85vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(16,24,40,.3); }

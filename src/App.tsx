@@ -622,7 +622,8 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
               selectedId={selectedId}
               placingId={editable ? placingId : null}
               onSelect={setSelectedId}
-              onMove={(id, ll: LngLat) => patchBuilding(id, { lngLat: ll })}
+              // Each move is its own undo step: an accidental drag is one Ctrl+Z, whatever else was edited a moment before.
+              onMove={(id, ll: LngLat) => setSurvey((s) => s && { ...s, buildings: s.buildings.map((b) => (b.id === id ? { ...b, lngLat: ll } : b)) }, { commit: true })}
               onPlace={(ll) => {
                 if (placingId) patchBuilding(placingId, { lngLat: ll });
                 setPlacingId(null);
