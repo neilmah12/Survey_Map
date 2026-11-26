@@ -17,12 +17,14 @@ interface Props {
   onAsOf: (date: string) => void;
   /** Same for the choice to let clients switch buildings on and off. */
   onClientToggle: (on: boolean) => void;
+  /** Same for letting clients download the PDF report. */
+  onClientPdf: (on: boolean) => void;
 }
 
 const when = (d: Date | null) => (d ? d.toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' }) : '');
 
 /** Publish, update or unpublish the private client link for the survey that is open. */
-export default function PublishDialog({ surveyId, result, checks, onShow, onClose, onDone, onAsOf, onClientToggle }: Props) {
+export default function PublishDialog({ surveyId, result, checks, onShow, onClose, onDone, onAsOf, onClientToggle, onClientPdf }: Props) {
   const [state, setState] = useState<PublishState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -34,12 +36,15 @@ export default function PublishDialog({ surveyId, result, checks, onShow, onClos
   const [asOf, setAsOf] = useState(result.snapshot.asOf);
   const [asOfTouched, setAsOfTouched] = useState(false);
   const [canToggle, setCanToggle] = useState(Boolean(result.snapshot.clientCanToggle));
+  const [canPdf, setCanPdf] = useState(Boolean(result.snapshot.clientCanDownload));
   const snap = useMemo(() => {
     const next = { ...result.snapshot, asOf };
     if (canToggle) next.clientCanToggle = true;
     else delete next.clientCanToggle;
+    if (canPdf) next.clientCanDownload = true;
+    else delete next.clientCanDownload;
     return next;
-  }, [result, asOf, canToggle]);
+  }, [result, asOf, canToggle, canPdf]);
   const sum = summarizeSnapshot(result);
   const counts = countBySeverity(checks);
   const issues = checks.filter((c) => c.severity !== 'info');
@@ -139,6 +144,12 @@ export default function PublishDialog({ surveyId, result, checks, onShow, onClos
                 Clients can switch buildings on and off
               </label>
             )}
+            {!confirmOff && (
+              <label className="check" title="Adds a Download PDF button to the client page. The PDF is always this published version (the map, every rent type and your contact details), not whatever the client has clicked. It is a picture of the pages: the numbers cannot be copied out.">
+                <input type="checkbox" checked={canPdf} onChange={(e) => setCanPdf(e.target.checked)} />
+                Clients can download a PDF of this report
+              </label>
+            )}
             {!confirmOff && <p className="hint">Today's date is the usual choice when you have just checked or updated the rents. Choose an earlier date only if the rents were collected then.</p>}
             {error && <p className="error">{error}</p>}
             {confirmOff ? (
@@ -152,7 +163,7 @@ export default function PublishDialog({ surveyId, result, checks, onShow, onClos
                 <button
                   className="btn primary"
                   disabled={busy || !asOf || counts.error > 0 || (state.published && state.upToDate === true)}
-                  onClick={() => run(async () => { await publishSnapshot(surveyId, { ...snap, publishedAt: new Date().toISOString() }); onAsOf(asOf); onClientToggle(canToggle); }, state.published ? 'Client link updated.' : 'Published. Copy the link from the Client link dialog.')}
+                  onClick={() => run(async () => { await publishSnapshot(surveyId, { ...snap, publishedAt: new Date().toISOString() }); onAsOf(asOf); onClientToggle(canToggle); onClientPdf(canPdf); }, state.published ? 'Client link updated.' : 'Published. Copy the link from the Client link dialog.')}
                 >
                   {busy ? 'Working...' : state.published ? 'Update link' : counts.warn ? 'Publish anyway' : 'Publish'}
                 </button>

@@ -1,7 +1,8 @@
-import { DEFAULT_SUMMARY, type LngLat, type Metric, type NetSettings, type Stat, type Survey, type SummarySettings, type ViewSettings } from '../types';
+import { DEFAULT_SUMMARY, type Contact, type LngLat, type Metric, type NetSettings, type Stat, type Survey, type SummarySettings, type ViewSettings } from '../types';
 import { cleanNet, netOf, partAmount } from './net';
 import { kindContext, unitKind } from './groups';
 import { safeUrl } from './safeUrl';
+import { TEAM_URL, resolveContacts } from './team';
 
 /**
  * What a client is allowed to see. A snapshot is built by copying an explicit allow-list of fields,
@@ -64,6 +65,11 @@ export interface ClientSnapshot {
   sourceNote?: string;
   /** Clients may switch properties on and off in the summary; their changes are not saved. */
   clientCanToggle?: boolean;
+  /** The team members shown under Contact, and the team's web page. Absent in links published before this. */
+  team?: Contact[];
+  teamUrl?: string;
+  /** The page offers a PDF download of the report as published. Absent in links published before this: no download. */
+  clientCanDownload?: boolean;
   /** What counts toward net rent, and whether the client may change it. */
   net: NetSettings;
   view: ClientView;
@@ -94,6 +100,7 @@ export interface SnapshotResult {
 export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date = new Date()): SnapshotResult {
   const ctx = kindContext(survey);
   const net = netOf(survey);
+  const contacts = resolveContacts(survey).filter((c) => c.name && /^[^\s@]+@[^\s@]+$/.test(c.email));
   const unplaced: string[] = [];
   const buildings: ClientBuilding[] = [];
   for (const b of survey.buildings) {
@@ -141,6 +148,8 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
       asOf: str(survey.asOf),
       publishedAt: now.toISOString(),
       ...(survey.clientCanToggle ? { clientCanToggle: true } : {}),
+      ...(contacts.length ? { team: contacts, teamUrl: TEAM_URL } : {}),
+      ...(survey.noClientPdf ? {} : { clientCanDownload: true }),
       net,
       ...(str(survey.sourceNote) ? { sourceNote: str(survey.sourceNote) } : {}),
       view: {
@@ -163,6 +172,16 @@ export function toClientSnapshot(survey: Survey, view: ViewSettings, now: Date =
   };
 }
 
+/** The contacts from a published link, checked: a name, a plausible email, and a web address that is http(s). Old links have none. */
+function cleanContacts(s: ClientSnapshot): Pick<Survey, 'contacts' | 'contactUrl'> {
+  const list: Contact[] = Array.isArray(s.team)
+    ? s.team
+        .map((c) => ({ name: str(c?.name), title: str(c?.title), email: str(c?.email) }))
+        .filter((c) => c.name && /^[^\s@]+@[^\s@]+$/.test(c.email))
+    : [];
+  return list.length ? { contacts: list, contactUrl: safeUrl(s.teamUrl) || undefined } : {};
+}
+
 /** Rebuilds the shape the map components expect, with every private field empty. */
 export function snapshotToSurvey(s: ClientSnapshot): Survey {
   return {
@@ -170,6 +189,8 @@ export function snapshotToSurvey(s: ClientSnapshot): Survey {
     location: s.location,
     asOf: s.asOf,
     clientCanToggle: Boolean(s.clientCanToggle),
+    ...cleanContacts(s),
+    ...(s.clientCanDownload === true ? { canDownloadPdf: true } : {}),
     net: cleanNet(s.net),
     sourceNote: s.sourceNote,
     buildings: s.buildings.map((b) => ({

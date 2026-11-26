@@ -22,6 +22,7 @@ import Header from './components/Header';
 import Controls, { DEFAULT_RINGS } from './components/Controls';
 import { scopeSurvey } from './lib/scope';
 import ToolbarMenu from './components/ToolbarMenu';
+import { TEAM_URL, resolveContacts } from './lib/team';
 import Sidebar from './components/Sidebar';
 import MapView from './components/MapView';
 import SurveysDialog from './components/SurveysDialog';
@@ -492,6 +493,7 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
           onClose={() => setPublishResult(null)}
           onDone={(text) => setNotice({ text })}
           onAsOf={(d) => setSurvey((s) => (s && s.asOf !== d ? { ...s, asOf: d } : s), { commit: true })}
+          onClientPdf={(on) => setSurvey((s) => (s && Boolean(s.noClientPdf) === on ? { ...s, noClientPdf: !on } : s), { commit: true })}
           onClientToggle={(on) => setSurvey((s) => (s && Boolean(s.clientCanToggle) !== on ? { ...s, clientCanToggle: on } : s), { commit: true })}
         />
       )}
@@ -571,8 +573,8 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
           getBounds={() => viewBounds.current}
           initialSource={survey.sourceNote ?? ''}
           onSource={(s) => setSurvey((cur) => cur && { ...cur, sourceNote: s })}
-          initialContact={survey.contactNote ?? ''}
-          onContact={(c) => setSurvey((cur) => cur && { ...cur, contactNote: c })}
+          contacts={resolveContacts(survey)}
+          contactUrl={TEAM_URL}
           onClose={() => setExportOpen(false)}
         />
       )}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { LngLat, Survey, ViewSettings } from '../types';
+import type { Contact, LngLat, Survey, ViewSettings } from '../types';
+import { contactLines } from '../lib/team';
 import logoUrl from '../assets/avison-young-logo.png';
 import { PAGES, type PageKind } from '../lib/exportLayout';
 import { canvasToBlob, renderExport, type ExportResult } from '../lib/exportImage';
@@ -18,15 +19,15 @@ interface Props {
   initialSource: string;
   /** Called when the source line is changed, so it is remembered for next time and shown on the client page. */
   onSource: (s: string) => void;
-  /** Who to talk to, printed in the report. Remembered with the survey. */
-  initialContact: string;
-  onContact: (s: string) => void;
+  /** The team members and web page printed in the report's contact box (chosen in the survey settings). */
+  contacts: Contact[];
+  contactUrl: string;
   onClose: () => void;
 }
 
 const fileBase = (title: string) => title.replace(/[^\w.-]+/g, '_') || 'survey';
 
-export default function ExportDialog({ survey, view, getBounds, initialSource, onSource, initialContact, onContact, onClose }: Props) {
+export default function ExportDialog({ survey, view, getBounds, initialSource, onSource, contacts, contactUrl, onClose }: Props) {
   const [page, setPage] = useState<PageKind>('letter-landscape');
   const [dpi, setDpi] = useState(300);
   const [extent, setExtent] = useState<'view' | 'all'>('view');
@@ -38,7 +39,8 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
   const [includeReport, setIncludeReport] = useState(true);
   const [includeTakeaways, setIncludeTakeaways] = useState(true);
   const [includeBuildings, setIncludeBuildings] = useState(false);
-  const [contact, setContact] = useState(initialContact);
+  const [includeContact, setIncludeContact] = useState(true);
+  const contact = includeContact ? contactLines(contacts, contactUrl) : '';
   const [reportPages, setReportPages] = useState<HTMLCanvasElement[]>([]);
   const [reportPreviews, setReportPreviews] = useState<string[]>([]);
   const [status, setStatus] = useState<'idle' | 'rendering' | 'ready' | 'error'>('idle');
@@ -91,7 +93,6 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
 
   const remember = () => {
     if (source.trim() !== (initialSource ?? '').trim()) onSource(source.trim());
-    if (contact.trim() !== (initialContact ?? '').trim()) onContact(contact.trim());
   };
 
   const savePng = async () => {
@@ -152,12 +153,11 @@ export default function ExportDialog({ survey, view, getBounds, initialSource, o
             <input type="checkbox" checked={includeReport} onChange={(e) => change(setIncludeReport)(e.target.checked)} />PDF: add a page with every rent type
           </label>
           <label className="check"><input type="checkbox" checked={includeTakeaways} disabled={!includeReport} onChange={(e) => change(setIncludeTakeaways)(e.target.checked)} />Short "what this says" lines</label>
+          <label className="check" title={contacts.length ? 'Prints the team contacts chosen in the survey settings' : 'No contacts are chosen in the survey settings'}>
+            <input type="checkbox" checked={includeContact && contacts.length > 0} disabled={!includeReport || contacts.length === 0} onChange={(e) => change(setIncludeContact)(e.target.checked)} />Contact box
+          </label>
           <label className="check" title="A draft: every building with its suites, nearest first"><input type="checkbox" checked={includeBuildings} disabled={!includeReport} onChange={(e) => change(setIncludeBuildings)(e.target.checked)} />Building table (draft)</label>
         </div>
-        <label className="field wide">
-          <span>Contact (printed on the report page, one line per row: names, emails, website)</span>
-          <textarea rows={3} value={contact} onChange={(e) => change(setContact)(e.target.value)} placeholder="Name, email" />
-        </label>
         <label className="field wide">
           <span>Source line (printed under the map)</span>
           <input value={source} onChange={(e) => change(setSource)(e.target.value)} />

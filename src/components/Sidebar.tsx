@@ -1,3 +1,4 @@
+import { TEAM } from '../lib/team';
 import { useEffect, useRef, useState } from 'react';
 import type { Building, Survey, Unit } from '../types';
 import { fileToDataUrl } from '../lib/image';
@@ -418,6 +419,22 @@ export default function Sidebar(p: Props) {
           <input type="checkbox" checked={Boolean(p.survey.clientCanToggle)} onChange={(e) => p.onSurvey({ clientCanToggle: e.target.checked })} />
           Clients can switch buildings on and off
         </label>
+        <details className="contacts-pick">
+          <summary>Contacts shown to clients ({(p.survey.contactIds ?? TEAM.map((t) => t.id)).length})</summary>
+          {TEAM.map((t) => {
+            const chosen = p.survey.contactIds ?? TEAM.map((x) => x.id);
+            return (
+              <label className="check" key={t.id}>
+                <input
+                  type="checkbox"
+                  checked={chosen.includes(t.id)}
+                  onChange={(e) => p.onSurvey({ contactIds: e.target.checked ? TEAM.map((x) => x.id).filter((id) => id === t.id || chosen.includes(id)) : chosen.filter((id) => id !== t.id) })}
+                />
+                {t.name} <span className="muted">{t.title}</span>
+              </label>
+            );
+          })}
+        </details>
         <div className="row2">
           <Field label="Location" value={p.survey.location} onChange={(v) => p.onSurvey({ location: v })} />
           <label className="field">

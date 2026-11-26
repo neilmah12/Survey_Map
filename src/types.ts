@@ -77,14 +77,28 @@ export interface NetSettings {
   clientCanChange: boolean;
 }
 
+/** A team member shown to clients. */
+export interface Contact {
+  name: string;
+  title: string;
+  email: string;
+}
+
 export interface Survey {
   net?: NetSettings;
   /** ISO time of the last change made in the app (any change, including pins). Shown in the editor only. */
   updatedAt?: string;
   /** The line shown under exports and on the client page, for example "Source: Avison Young Research". */
   sourceNote?: string;
-  /** Who a reader should talk to, one line per row (names, emails, a web address). Printed in the PDF report. */
-  contactNote?: string;
+  /** Editor: which team members (lib/team.ts) a client sees under Contact. Empty list: none. Missing: everyone. */
+  contactIds?: string[];
+  /** Editor: set to stop clients downloading the PDF. Missing means they can. */
+  noClientPdf?: boolean;
+  /** Client page only: the link allows a PDF download. */
+  canDownloadPdf?: boolean;
+  /** Client page only: the people to show, and the team's web page. Filled from the published link. */
+  contacts?: Contact[];
+  contactUrl?: string;
   /** Clients may turn properties on and off in the summary (their changes are not saved). */
   clientCanToggle?: boolean;
   title: string;

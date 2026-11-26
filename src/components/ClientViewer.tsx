@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { clientPdf, saveBlob } from '../lib/clientPdf';
 import type { NetSettings, Survey, ViewSettings } from '../types';
 import Header from './Header';
 import MapView from './MapView';
@@ -22,6 +23,18 @@ export default function ClientViewer({ survey: initialSurvey, initialView, banne
   // A local copy, so a client who is allowed to switch properties off changes only what they see.
   const [survey, setSurvey] = useState(initialSurvey);
   const canToggle = Boolean(survey.clientCanToggle);
+  // The PDF is always the report as published, whatever the visitor has switched on the screen.
+  const [pdf, setPdf] = useState<{ busy: boolean; error: string }>({ busy: false, error: '' });
+  const download = async () => {
+    setPdf({ busy: true, error: '' });
+    try {
+      const { blob, name } = await clientPdf(initialSurvey, initialView);
+      saveBlob(blob, name);
+      setPdf({ busy: false, error: '' });
+    } catch {
+      setPdf({ busy: false, error: 'Could not make the PDF. Please try again.' });
+    }
+  };
   // Who is compared with whom, and how far away: marks the buildings the figures leave out.
   const scoped = useMemo(() => scopeSurvey(survey, view), [survey, view.within, view.subjectId]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleBuilding = (id: string) =>
@@ -34,7 +47,7 @@ export default function ClientViewer({ survey: initialSurvey, initialView, banne
   return (
     <div className="app view">
       {banner}
-      <Header survey={survey} />
+      <Header survey={survey} onDownload={survey.canDownloadPdf ? download : undefined} downloading={pdf.busy} downloadError={pdf.error} />
       <div className="body">
         <div className="stage">
           <div className="stage-main">
