@@ -411,3 +411,6 @@ table, .pin, .chart-plot, .tip-grid { font-variant-numeric: tabular-nums; }
 @media (min-width: 901px) { .summary-wrap:not(.expanded) .summary-props { display: block; } }
 .summary-props.near-list ul { max-height: 230px; overflow-y: auto; }
 .summary-props.near-list > summary { font-size: 13.5px; }
+
+.asof-row { display: flex; align-items: flex-end; gap: 12px; margin-top: 10px; }
+.asof-row .field { margin-bottom: 0; }

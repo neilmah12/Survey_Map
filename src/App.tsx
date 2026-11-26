@@ -469,6 +469,7 @@ export default function App({ user, onSignOut, offline }: { user: TeamUser; onSi
           }}
           onClose={() => setPublishResult(null)}
           onDone={(text) => setNotice({ text })}
+          onAsOf={(d) => setSurvey((s) => (s && s.asOf !== d ? { ...s, asOf: d } : s), { commit: true })}
         />
       )}
       {cloud.status === 'conflict' && conflictOpen && (
